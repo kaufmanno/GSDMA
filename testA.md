@@ -19,4 +19,5 @@
 ## Links
 [I'm Google](https://www.google.com)
 
+![alt text][logo]
 [logo]: DSC05079.jpg "Logo Title Text 2"
