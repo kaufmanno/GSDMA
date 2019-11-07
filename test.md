@@ -1,4 +1,7 @@
 # This is a test
 Hello it's Antoine
 My modification . Antoine
->>>>>>> d09edf98d8df7826f0ecdc3120db952d34031241
+## Hello (2 hastag) 
+### Hello (3 hastag)
+
+>>>>>>> 407811f8757a9a7e9e6d0d33ba4aa88e0cbebbfe
