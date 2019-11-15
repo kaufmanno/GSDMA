@@ -1,7 +1,11 @@
 {
     "_meta": {
         "hash": {
+<<<<<<< HEAD
             "sha256": "03ce6cdcac7ad4065d9218fff8a12b160a4e7ddcae6b4f79282d63012a6ac66e"
+=======
+            "sha256": "3d5d272653e0fb36da0d37d886fcd0740c57eac3801167773770ef0e94abc0df"
+>>>>>>> 6eee950632f91c9aef9a7cd40135296deb418a9e
         },
         "pipfile-spec": 6,
         "requires": {
@@ -44,6 +48,7 @@
             ],
             "version": "==3.1.0"
         },
+<<<<<<< HEAD
         "certifi": {
             "hashes": [
                 "sha256:e4f3620cfea4f83eedc95b24abd9cd56f3c4b146dd0177e83a21b4eb49e21e50",
@@ -65,6 +70,8 @@
             "index": "pypi",
             "version": "==4.3.16"
         },
+=======
+>>>>>>> 6eee950632f91c9aef9a7cd40135296deb418a9e
         "cycler": {
             "hashes": [
                 "sha256:1d8a5ae1ff6c5cf9b93e8811e581232ad8920aeec647c37316ceac982b08cb2d",
@@ -236,9 +243,12 @@
             ],
             "version": "==1.1.0"
         },
+<<<<<<< HEAD
         "lasio": {
             "path": "./lasio"
         },
+=======
+>>>>>>> 6eee950632f91c9aef9a7cd40135296deb418a9e
         "markupsafe": {
             "hashes": [
                 "sha256:00bc623926325b26bb9605ae9eae8a215691f33cae5df11ca5424f06f2d1f473",
@@ -284,7 +294,10 @@
                 "sha256:e5b8aeca9276a3a988caebe9f08366ed519fff98f77c6df5b64d7603d0e42e36",
                 "sha256:ec6bd0a6a58df3628ff269978f4a4b924a0d371ad8ce1f8e2b635b99e482877a"
             ],
+<<<<<<< HEAD
             "index": "pypi",
+=======
+>>>>>>> 6eee950632f91c9aef9a7cd40135296deb418a9e
             "version": "==3.1.1"
         },
         "mistune": {
@@ -348,6 +361,19 @@
             ],
             "index": "pypi",
             "version": "==1.17.4"
+        },
+        "omf": {
+            "hashes": [
+                "sha256:2622abc202e66d976d203da99d580dadfa90d7164df3c522395c30c3d0a18445"
+            ],
+            "version": "==1.0.1"
+        },
+        "omfvista": {
+            "hashes": [
+                "sha256:7b621b5ad08e46ff2a3b8f09dd249120985ba0aa8da645faeace36ccbbfaeae0"
+            ],
+            "index": "pypi",
+            "version": "==0.2.1"
         },
         "pandas": {
             "hashes": [
@@ -451,6 +477,12 @@
             ],
             "version": "==2.0.10"
         },
+        "properties": {
+            "hashes": [
+                "sha256:b119ce4c53f4717fa29371c1bb929f422dda7ed90a4559b3583ea77389177263"
+            ],
+            "version": "==0.6.1"
+        },
         "ptyprocess": {
             "hashes": [
                 "sha256:923f299cc5ad920c68f2bc0bc98b75b9f838b93b599941a6b63ddbc2476394c0",
@@ -474,10 +506,23 @@
         },
         "pyparsing": {
             "hashes": [
+<<<<<<< HEAD
                 "sha256:20f995ecd72f2a1f4bf6b072b63b22e2eb457836601e76d6e5dfcd75436acc1f",
                 "sha256:4ca62001be367f01bd3e92ecbb79070272a9d4964dce6a48a82ff0b8bc7e683a"
             ],
             "version": "==2.4.5"
+=======
+                "sha256:4acadc9a2b96c19fe00932a38ca63e601180c39a189a696abce1eaab641447e1",
+                "sha256:61b5ed888beab19ddccab3478910e2076a6b5a0295dffc43021890e136edf764"
+            ],
+            "version": "==2.4.4"
+        },
+        "pypng": {
+            "hashes": [
+                "sha256:1032833440c91bafee38a42c38c02d00431b24c42927feb3e63b104d8550170b"
+            ],
+            "version": "==0.0.20"
+>>>>>>> 6eee950632f91c9aef9a7cd40135296deb418a9e
         },
         "pyrsistent": {
             "hashes": [
@@ -637,12 +682,20 @@
             ],
             "version": "==4.3.3"
         },
+<<<<<<< HEAD
         "urllib3": {
             "hashes": [
                 "sha256:a8a318824cc77d1fd4b2bec2ded92646630d7fe8619497b142c84a9e6f5a7293",
                 "sha256:f3c5fd51747d450d4dcf6f923c81f78f811aab8205fda64b0aba34a4e48b0745"
             ],
             "version": "==1.25.7"
+=======
+        "vectormath": {
+            "hashes": [
+                "sha256:f9f9209d350ec89dc11e2548e0e6397c1b9489c8468eb50ce33788ee4322a7b8"
+            ],
+            "version": "==0.2.2"
+>>>>>>> 6eee950632f91c9aef9a7cd40135296deb418a9e
         },
         "vtk": {
             "hashes": [
