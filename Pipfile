@@ -9,6 +9,7 @@ verify_ssl = true
 jupyter = "*"
 pandas = "*"
 pyvista = "*"
+omfvista = "*"
 
 [requires]
 python_version = "3.6"
