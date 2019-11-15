@@ -9,14 +9,9 @@ verify_ssl = true
 jupyter = "*"
 pandas = "*"
 pyvista = "*"
-<<<<<<< HEAD
-conda = "*"
-matplotlib = "*"
-lasio = {path = "./lasio"}
+lasio = "*"
 numpy = "*"
-=======
 omfvista = "*"
->>>>>>> 6eee950632f91c9aef9a7cd40135296deb418a9e
 
 [requires]
 python_version = "3.6"
