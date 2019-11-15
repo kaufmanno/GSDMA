@@ -9,6 +9,8 @@ verify_ssl = true
 jupyter = "*"
 pandas = "*"
 pyvista = "*"
+lasio = "*"
+numpy = "*"
 omfvista = "*"
 
 [requires]
