@@ -9,7 +9,7 @@ verify_ssl = true
 jupyter = "*"
 pandas = "*"
 pyvista = "*"
-lasio = "*"
+lasio = {path = "./lasio"}
 numpy = "*"
 omfvista = "*"
 sphinx = "*"

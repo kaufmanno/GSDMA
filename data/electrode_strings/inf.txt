@@ -1,0 +1,6 @@
+# electrode string name
+inf
+# electrode string origin coordinates
+0.0    0.0    102.00
+# electrodes relative coordinates
+0	0.0	0.0	0.0

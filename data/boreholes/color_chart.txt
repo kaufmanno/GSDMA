@@ -1,0 +1,14 @@
+# color chart
+ocre	91662B
+vert	777545
+gris brun	B4A87D
+vert foncé	7A7861
+gris blanc	D9D6B7
+gris	7E8388
+gris violet	9A887F
+brun	593C1E
+brun noir	4C4532
+ind	FF6600
+blanc	FFFFFF
+noir	000000
+rouille	794324

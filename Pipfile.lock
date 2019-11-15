@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "65a37e1a80d122cb24b54f45419f710fd383cec31502b784dc692779d05ac9d2"
+            "sha256": "058a3b517550597170d962839c773025aa27a8b6afc8d989699e09373b1914e4"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -257,6 +257,9 @@
                 "sha256:fe51b79da0062f8e9d49ed0182a626a7dc7a0cbca0328f612c6ee5e4711c81e4"
             ],
             "version": "==1.1.0"
+        },
+        "lasio": {
+            "path": "./lasio"
         },
         "markupsafe": {
             "hashes": [

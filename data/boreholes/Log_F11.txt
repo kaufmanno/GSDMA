@@ -1,0 +1,10 @@
+﻿# borehole name
+F11
+# borehole description
+start	end	description	lithology	color
+0.00	1.50	remblais non-saturés	remblais	brun
+1.50	4.00	remblais saturés	remblais	ocre
+4.00	6.00	alluvions	silt	gris
+# markers
+toit nappe	1.5
+mur remblais	4.0
