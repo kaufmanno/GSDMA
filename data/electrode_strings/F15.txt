@@ -1,0 +1,11 @@
+# electrode string name
+F15
+# electrode string origin coordinates
+884.44	580.90	102.00
+# electrodes relative coordinates
+1	0.00	0.00	-6.05
+2	0.00	0.00	-5.04
+3	0.00	0.00	-4.03
+4	0.00	0.00	-3.04
+5	0.00	0.00	-2.02
+6	0.00	0.00	-1.01
