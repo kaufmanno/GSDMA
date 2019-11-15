@@ -12,6 +12,7 @@ pyvista = "*"
 lasio = "*"
 numpy = "*"
 omfvista = "*"
+sphinx = "*"
 
 [requires]
 python_version = "3.6"
