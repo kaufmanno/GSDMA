@@ -12,7 +12,10 @@ Welcome to GSDMA's documentation!
    :maxdepth: 2
    :caption: Contents:
    
-   trial/trial.rst  
+   scheme.rst
+   bh-SQLITE.rst
+   striplog.rst
+   pyvista.rst
 
 Indices and tables
 ==================
@@ -20,4 +23,5 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-* :ref:`trial`
+
+.. * :ref:`trial`
