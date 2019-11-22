@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'GSDMA'
+project = 'Project of GSDMA'
 copyright = '2019, Antoine IRAGENA - Arthur HEYMANS - Ivan NANFO'
 author = 'Antoine IRAGENA - Arthur HEYMANS - Ivan NANFO'
 
