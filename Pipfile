@@ -13,6 +13,7 @@ lasio = {path = "./lasio"}
 numpy = "*"
 omfvista = "*"
 sphinx = "*"
+openpyxl = "*"
 
 [requires]
 python_version = "3.6"
