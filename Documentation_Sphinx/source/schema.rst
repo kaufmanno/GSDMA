@@ -8,3 +8,5 @@ The following schema shows how the project of Geospatial data management and ana
    :scale: 70 %
    :align: center
    
+
+.. Redo the schema on Inkscape, developp it if necessary + explain it 
