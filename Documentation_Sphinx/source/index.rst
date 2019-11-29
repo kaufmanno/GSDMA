@@ -12,7 +12,7 @@ Welcome to GSDMA's documentation!
    :maxdepth: 2
    :caption: Contents:
    
-   scheme.rst
+   schema.rst
    bh-SQLITE.rst
    striplog.rst
    pyvista.rst
