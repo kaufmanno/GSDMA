@@ -14,6 +14,8 @@ numpy = "*"
 omfvista = "*"
 sphinx = "*"
 openpyxl = "*"
+geopandas = "*"
+contextily = "*"
 
 [requires]
 python_version = "3.6"
