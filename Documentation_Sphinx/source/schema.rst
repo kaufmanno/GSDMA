@@ -4,7 +4,7 @@ The purpose of this project is to use the data mesured by some electrodes on a p
 
 The following schema shows how the project of Geospatial data management and analysis is organized:
 
-.. image:: ./images/Main_scheme.png
+.. image:: ./_static/images/Main_scheme.png
    :scale: 70 %
    :align: center
    

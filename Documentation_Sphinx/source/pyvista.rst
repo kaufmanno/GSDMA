@@ -1,4 +1,5 @@
-Pyvista
-=========
+Display of data with PyVista
+============================
+
 
 
