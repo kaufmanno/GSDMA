@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "5de1f2443e664e5c987ca3c3315f06289cc23343a9c62c590c54b5f5882a8053"
+            "sha256": "1b83b4e26b107ca093b2700b77197b6d0c95e89465f6e4e63db99f6501bd1f27"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -64,6 +64,14 @@
                 "sha256:3fdf7f77adcf649c9911387df51254b813185e32b2c6619f690b593a617e19fa"
             ],
             "version": "==3.1.0"
+        },
+        "branca": {
+            "hashes": [
+                "sha256:3e762c9bdf40725f3d05ea1fda8fae9b470bfada6474e43a1242c8204a7bb15e",
+                "sha256:4d89048add9628d1f83a73c6482c116f6752580cc03d5fe09de0bdeb8e5a2158",
+                "sha256:56e93dc6f65f4ff0169b5aac9e7db5c667da34c42b78d7f7bd0cb47af9de19e9"
+            ],
+            "version": "==0.3.1"
         },
         "cartopy": {
             "hashes": [
@@ -171,6 +179,14 @@
                 "sha256:f0adf55192ac715c1ac7a19ff1aacd667ffe251df0e09b9a6feeddce45849f17"
             ],
             "version": "==1.8.13"
+        },
+        "folium": {
+            "hashes": [
+                "sha256:a1ae5516752f775bf3442e50dc3575880945633a5ec5e0f3fcecb5c15b43d0fd",
+                "sha256:edbf79d04345a75f8503fe6d071179806ee7e3baf81ae4f329b9f3ce8f118c3d"
+            ],
+            "index": "pypi",
+            "version": "==0.10.1"
         },
         "geographiclib": {
             "hashes": [

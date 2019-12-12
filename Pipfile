@@ -16,6 +16,7 @@ sphinx = "*"
 openpyxl = "*"
 geopandas = "*"
 contextily = "*"
+folium = "*"
 
 [requires]
 python_version = "3.6"
