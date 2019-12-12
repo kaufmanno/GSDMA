@@ -5,8 +5,9 @@
    
 .. Write the filename.rst to add it (in the toc tree) but Be careful with the indentation, the 1st letter of the filename.rst should line up with the ‘:’ in :maxdepth: 
 
-Documentation
+GSDMA documentation
 =================================
+Write a clear phrase explaining the project .. 
 
 .. toctree::
    :maxdepth: 2
