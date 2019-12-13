@@ -6,13 +6,14 @@
 .. Write the filename.rst to add it (in the toc tree) but Be careful with the indentation, the 1st letter of the filename.rst should line up with the ‘:’ in :maxdepth: 
 
 GSDMA documentation
-=================================
-Write a clear phrase explaining the project .. 
+================================= 
+This project of geospatial data management and analysis supervised by Mr Kaufmann consists of displaying data extracted on a pulloted industrial site in 2D and 3D in order to have a good representation of the composition of the soil.
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
    
+   data.rst
    schema.rst
    bh-SQLITE.rst
    striplog.rst
