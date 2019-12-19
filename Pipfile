@@ -17,6 +17,9 @@ openpyxl = "*"
 geopandas = "*"
 contextily = "*"
 folium = "*"
+scipy = "*"
+striplog = "*"
+cartopy = "*"
 
 [requires]
 python_version = "3.6"
