@@ -9,5 +9,6 @@ The code below shows how we proceded to transfer the boreholes data into a SQLit
 .. .. raw:: html
    :file: _static/SQL_test_good-last.html
    
-.. include:: _static/SQL_test_good.rst
+.. include:: From_Borehole_to_SQLitedatabase_final.rst
+
   
