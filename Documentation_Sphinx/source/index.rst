@@ -16,6 +16,7 @@ This project of geospatial data management and analysis supervised by Mr Kaufman
    data.rst
    schema.rst
    bh-SQLITE.rst
+   gpck.rst
    striplog.rst
    pyvista.rst
 
