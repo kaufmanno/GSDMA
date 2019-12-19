@@ -1,0 +1,17 @@
+# lithologies hatches
+remblais	x
+silt	.--
+vide	 
+argile	- 
+argile sableuse	.-
+sable	.
+sable fin	.
+sable argileux	.-
+sable graveleux	.o
+gravier	o
+marne	/-
+marne sableuse	./-
+calcaire	-|
+calcaire altéré	\\\-
+calcaire sain	-|
+
