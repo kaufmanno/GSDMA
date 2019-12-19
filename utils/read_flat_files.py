@@ -89,13 +89,13 @@ def read_boreholes_description(filename):
                         boreholes[bh_name][(float(former_line_descr[0]), float(line_descr[1]))] = {
                             'description': line_descr[2],
                             'lithology': line_descr[3],
-                            'color': line_descr[4]}
+                            'colour': line_descr[4]}
                         former_line_descr = [former_line_descr[0], line_descr[1], line_descr[2], line_descr[3], line_descr[4]]
                     else:
                         boreholes[bh_name][(float(line_descr[0]), float(line_descr[1]))] = {
                             'description': line_descr[2],
                             'lithology': line_descr[3],
-                            'color': line_descr[4]}
+                            'colour': line_descr[4]}
                         former_line_descr = line_descr
             if (line == b'# markers\n') or (line == b'# markers\t\t\t\t\n') \
                     or (line == b'# markers\r\n') or (line == b'# markers\t\t\t\t\r\n'):

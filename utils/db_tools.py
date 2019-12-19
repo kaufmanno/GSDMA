@@ -13,6 +13,7 @@ def db_copy_sqlite3_tables(db_in, db_out, tables):
     :type tables: list
     :return: status, 0: OK, 1: failure
     :rtype: int
+    :param name: name of the table
     """
     
     status = 0
@@ -28,7 +29,6 @@ def db_copy_sqlite3_tables(db_in, db_out, tables):
         print('Error copying tables:\n {error:s}'.format(error=e))
         status = 1
     return status
-    :param name: name of the table
             
 
 def create_table(conn, name, fields, commit=True, verbose=False):
@@ -107,15 +107,15 @@ def boreholes_dict_to_sqlite3_db(boreholes, conn, commit=True, verbose=False):
                             c.execute(sql_command)
                             
         # Build a Lexicon from borehole data
-        temp = {'color': [], 'lithology': []}
+        temp = {'colour': [], 'lithology': []}
         for bh_name, bh_ in boreholes.items():
             for k2,v2 in v.items():
                 if k2 not in ('markers',):
                     for k3, v3 in v2.items():
-                        if k3 in ('lithology', 'color'):
+                        if k3 in ('lithology', 'colour'):
                             temp[k3].append(v3)
         Lexicon={}
-        Lexicon['colour'] = list(set(temp['color']))
+        Lexicon['colour'] = list(set(temp['colour']))
         Lexicon['lithology'] = list(set(temp['lithology']))
        
         for k,v in Lexicon.items():
