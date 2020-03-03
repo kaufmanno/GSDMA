@@ -65,6 +65,7 @@ def create_table(conn, name, fields, commit=True, verbose=False):
         status = 1
     return status
 
+
 def boreholes_dict_to_sqlite3_db(boreholes, conn, commit=True, verbose=False):
     """ Stores data from a boreholes dict into a SQLITE3 database
     
