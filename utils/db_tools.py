@@ -80,6 +80,7 @@ def boreholes_dict_to_sqlite3_db(boreholes, conn, commit=True, verbose=False):
     :return: status, 0: OK, 1: failure
     :rtype: int
     """
+
     status = 0
     try:
         c = conn.cursor()
@@ -96,7 +97,8 @@ def boreholes_dict_to_sqlite3_db(boreholes, conn, commit=True, verbose=False):
             for k2,v2 in v.items():
                 if k2 not in ('markers',):
                     sql_command = "INSERT INTO Intervals VALUES ('{id}', {top:.2f}, {base:.2f}, '{description:s}')".format(id=k, top=k2[0], base=k2[1], description=v2['description'])
-                    print(sql_command)
+                    if verbose:
+                        print(sql_command)
                     c.execute(sql_command)       
         for k, v in boreholes.items():
             for k2,v2 in v.items():
@@ -104,13 +106,14 @@ def boreholes_dict_to_sqlite3_db(boreholes, conn, commit=True, verbose=False):
                     for k3, v3 in v2.items():
                         if k3 not in ('description',):
                             sql_command = "INSERT INTO Components VALUES ('{id}', {top:.2f}, {base:.2f}, '{key:s}', '{value:s}')".format(id=k, top=k2[0], base=k2[1], key=k3, value=v3)
-                            print(sql_command)
+                            if verbose:
+                                print(sql_command)
                             c.execute(sql_command)
                             
         # Build a Lexicon from borehole data
         temp = {'colour': [], 'lithology': []}
         for bh_name, bh_ in boreholes.items():
-            for k2,v2 in v.items():
+            for k2,v2 in bh_.items():
                 if k2 not in ('markers',):
                     for k3, v3 in v2.items():
                         if k3 in ('lithology', 'colour'):
@@ -120,9 +123,10 @@ def boreholes_dict_to_sqlite3_db(boreholes, conn, commit=True, verbose=False):
         Lexicon['lithology'] = list(set(temp['lithology']))
        
         for k,v in Lexicon.items():
-            print(k,v)
             for i in v:
                 sql_command = "INSERT INTO Lexicon VALUES ('{key:s}', '{value:s}')".format(key=k, value=i)
+                if verbose:
+                    print(sql_command)
                 c.execute(sql_command)
         if commit:
             conn.commit()
