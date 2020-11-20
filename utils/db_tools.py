@@ -1,5 +1,6 @@
 import sqlite3
 import pandas as pd
+import pyvista as pv
 
 
 def db_copy_sqlite3_tables(db_in, db_out, tables):
@@ -136,3 +137,39 @@ def boreholes_dict_to_sqlite3_db(boreholes, conn, commit=True, verbose=False):
         status = 1
     
     return status
+
+def add_interval_list(intervals,plotter,radius=.09):
+    """
+    add a list of intervals to a plotter 
+    :param intervals: list of intervals to add to the plotter 
+    :type intervals: list
+    :param plotter: plotter pyvista 
+    :type plotter: pyvista.plotting.plotting.Plotter
+    :param radius: radius of the boreholes (if different radii, make distinct lists of intervals)
+    :type radius: float
+    """    
+    cylinders = []
+    i = 0
+    for interval in intervals:
+        
+        i = intervals.index(interval)
+        
+        center = (interval.base.middle - interval.top.middle)/2
+        height = interval.base.middle - interval.top.middle
+        
+        cylinders.append( 
+                    pv.Cylinder(
+                                    center = center,
+                                    height = height,
+                                    direction = (0.0, 0.0, 1.0),
+                                    radius = radius, 
+                                    
+                                  )
+                        
+                            )
+    
+        plotter.add_mesh(cylinders[i], color="tan", show_edges=False)
+    print(2)
+    print(type(plotter))
+    print(type(radius))
+    plotter.show(auto_close=False, use_panel=True)
