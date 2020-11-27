@@ -19,6 +19,7 @@ contextily = "*"
 folium = "*"
 scipy = "*"
 striplog = "*"
+omf = "*"
 
 [requires]
 python_version = "3.6"
