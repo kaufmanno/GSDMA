@@ -577,6 +577,7 @@
                 "sha256:3db37ae834c5f3b6378381229d0e5dfcbfb558d08c8ce646b1ad355147f5e91d",
                 "sha256:508cf9dad7cdb3188f1aa27017dc78179029dfe83814fc505329f689bc2ab50f"
             ],
+            "index": "pypi",
             "version": "==6.1.5"
         },
         "numpy": {
