@@ -18,6 +18,8 @@ geopandas = "*"
 contextily = "*"
 folium = "*"
 scipy = "*"
+striplog = "*"
+sqlalchemy = "*"
 
 [requires]
 python_version = "3.6"

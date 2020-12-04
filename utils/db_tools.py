@@ -1,5 +1,6 @@
 import sqlite3
 import pandas as pd
+import pyvista as pv
 
 
 def db_copy_sqlite3_tables(db_in, db_out, tables):
@@ -80,6 +81,7 @@ def boreholes_dict_to_sqlite3_db(boreholes, conn, commit=True, verbose=False):
     :return: status, 0: OK, 1: failure
     :rtype: int
     """
+
     status = 0
     try:
         c = conn.cursor()
@@ -96,7 +98,8 @@ def boreholes_dict_to_sqlite3_db(boreholes, conn, commit=True, verbose=False):
             for k2,v2 in v.items():
                 if k2 not in ('markers',):
                     sql_command = "INSERT INTO Intervals VALUES ('{id}', {top:.2f}, {base:.2f}, '{description:s}')".format(id=k, top=k2[0], base=k2[1], description=v2['description'])
-                    print(sql_command)
+                    if verbose:
+                        print(sql_command)
                     c.execute(sql_command)       
         for k, v in boreholes.items():
             for k2,v2 in v.items():
@@ -104,13 +107,14 @@ def boreholes_dict_to_sqlite3_db(boreholes, conn, commit=True, verbose=False):
                     for k3, v3 in v2.items():
                         if k3 not in ('description',):
                             sql_command = "INSERT INTO Components VALUES ('{id}', {top:.2f}, {base:.2f}, '{key:s}', '{value:s}')".format(id=k, top=k2[0], base=k2[1], key=k3, value=v3)
-                            print(sql_command)
+                            if verbose:
+                                print(sql_command)
                             c.execute(sql_command)
                             
         # Build a Lexicon from borehole data
         temp = {'colour': [], 'lithology': []}
         for bh_name, bh_ in boreholes.items():
-            for k2,v2 in v.items():
+            for k2,v2 in bh_.items():
                 if k2 not in ('markers',):
                     for k3, v3 in v2.items():
                         if k3 in ('lithology', 'colour'):
@@ -120,9 +124,10 @@ def boreholes_dict_to_sqlite3_db(boreholes, conn, commit=True, verbose=False):
         Lexicon['lithology'] = list(set(temp['lithology']))
        
         for k,v in Lexicon.items():
-            print(k,v)
             for i in v:
                 sql_command = "INSERT INTO Lexicon VALUES ('{key:s}', '{value:s}')".format(key=k, value=i)
+                if verbose:
+                    print(sql_command)
                 c.execute(sql_command)
         if commit:
             conn.commit()
@@ -132,3 +137,72 @@ def boreholes_dict_to_sqlite3_db(boreholes, conn, commit=True, verbose=False):
         status = 1
     
     return status
+
+def add_interval_list(intervals,plotter,radius=.09):
+    """
+    add a list of intervals to a plotter 
+    :param intervals: list of intervals to add to the plotter 
+    :type intervals: list
+    :param plotter: plotter pyvista 
+    :type plotter: pyvista.plotting.plotting.Plotter
+    :param radius: radius of the boreholes (if different radii, make distinct lists of intervals)
+    :type radius: float
+    """    
+    cylinders = []
+    i = 0
+    for interval in intervals:
+        
+        i = intervals.index(interval)
+        
+        center = (interval.base.middle - interval.top.middle)/2
+        height = interval.base.middle - interval.top.middle
+        
+        cylinders.append( 
+                    pv.Cylinder(
+                                    center = center,
+                                    height = height,
+                                    direction = (0.0, 0.0, 1.0),
+                                    radius = radius, 
+                                    
+                                  )
+                        
+                            )
+    
+        plotter.add_mesh(cylinders[i], color="tan", show_edges=False)
+    print(2)
+    print(type(plotter))
+    print(type(radius))
+    plotter.show(auto_close=False, use_panel=True)
+    
+def create_connection(db_file):
+    """ create a database connection to the SQLite database
+        specified by the db_file
+    :param db_file: database file
+    :return: Connection object or None
+    """
+    conn = None
+    try:
+        conn = sqlite3.connect(db_file)
+    except Exception as e:
+        print(e)
+
+    return conn
+
+
+def select_datat_of_db(conn,table):
+    """
+    Query all rows in the tasks table
+    :param conn: the Connection object
+    :return:
+    """
+    cur = conn.cursor()
+    cur.execute(table)
+
+    rows = cur.fetchall()
+    #result = [dict(row) for row in cur.fetchall()]
+    for row in rows:
+        print(row)
+    return(rows)
+    #return(result)
+
+
