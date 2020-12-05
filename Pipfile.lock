@@ -649,6 +649,7 @@
             "hashes": [
                 "sha256:2622abc202e66d976d203da99d580dadfa90d7164df3c522395c30c3d0a18445"
             ],
+            "index": "pypi",
             "version": "==1.0.1"
         },
         "omfvista": {
