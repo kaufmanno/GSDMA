@@ -1,5 +1,6 @@
 from striplog import Striplog, Component, Lexicon, Legend, Interval, Position
-import scipy, pyvista as pv, pyvistaqt as pvq
+import scipy
+import pyvista as pv
 
 #print("""Additional modules imported : Striplog, Component, Lexicon, Legend, Interval, Position, scipy, pyvista""")
 
@@ -43,7 +44,7 @@ def add_interval_list(cylinders,intervals,plotter=None,cap=True, radius=.09, res
     i, k, tmp = 0, 0, 0
     
     if plotter==None:
-        plotter = pvq.BackgroundPlotter(shape=(1,1), window_size=[640,640])
+        plotter = pv.Plotter(shape=(1,1), window_size=[640,640])
     
     for interval in intervals:
         #print(i)

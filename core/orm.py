@@ -1,41 +1,41 @@
-from datetime import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Float, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, Float, Boolean, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.ext.associationproxy import association_proxy
 
 Base = declarative_base()
 
-class Borehole(Base):
+
+class BoreholeOrm(Base):
     """The Boreholes Info table"""
     __tablename__ = 'Boreholes'
     id = Column(String(32), primary_key=True)
     intervals = relationship(
-        'Interval',
+        'IntervalOrm',
         collection_class=attribute_mapped_collection('id'),
         cascade='all, delete-orphan')
     intervals_values = association_proxy(
         'intervals', 'value',
-        creator=lambda k, v: Interval(id=k, description=v['description'], interval_number=v['interval_number']))
+        creator=lambda k, v: IntervalOrm(id=k, description=v['description'], interval_number=v['interval_number']))
 
 
-class Interval(Base):
+class IntervalOrm(Base):
     """The Interval table"""
     __tablename__ = 'Intervals'
     id = Column(Integer, primary_key=True)
     borehole = Column(String(32), ForeignKey('Boreholes.id', ondelete="CASCADE", onupdate="CASCADE"))
     # Note that this could be a numeric ID as well
     interval_number = Column(Integer)
-    components = relationship('Component', secondary='Linkintervalcomponent')
+    components = relationship('ComponentOrm', secondary='Linkintervalcomponent')
     description = Column(String(32))
 
 
-class Component(Base):
+class ComponentOrm(Base):
     """The Component table"""
     __tablename__ = 'Components'
     id = Column(String(32), primary_key=True)
-    intervals = relationship(Interval, secondary='Linkintervalcomponent')
+    intervals = relationship(IntervalOrm, secondary='Linkintervalcomponent')
     description = Column(String(32))
 
 
