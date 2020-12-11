@@ -21,6 +21,7 @@ scipy = "*"
 striplog = "*"
 omf = "*"
 itkwidgets = "*"
+sqlalchemy = "*"
 
 [requires]
 python_version = "3.6"
