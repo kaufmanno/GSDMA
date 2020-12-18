@@ -19,6 +19,8 @@ contextily = "*"
 folium = "*"
 scipy = "*"
 striplog = "*"
+omf = "*"
+itkwidgets = "*"
 sqlalchemy = "*"
 
 [requires]
