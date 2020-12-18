@@ -115,9 +115,9 @@ class Borehole3D(Striplog):
 
         if plotter is None:
             plotter = pv.Plotter()
-            show = False
-        else:
             show = True
+        else:
+            show = False
         seg = ov.line_set_to_vtk(self.geometry)
         seg.set_active_scalars('component')
         ov.lineset.add_data(seg, self.geometry.data)

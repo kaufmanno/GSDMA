@@ -20,7 +20,6 @@ class BoreholeOrm(Base):
         creator=lambda k, v: IntervalOrm(id=k, description=v['description'], interval_number=v['interval_number'],
                                          top=v['top'], base=v['base']))
 
-
 class PositionOrm(Base):
     """The Position table"""
     __tablename__ = 'Positions'
