@@ -3,14 +3,14 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-GSDMA's documentation!
-======================
+Welcome to GSDMA's documentation!
+=================================
 
 .. toctree::
    :maxdepth: 2
+   :caption: Contents:
    
    Description<description.rst>
-
    modules
 
 Indices and tables

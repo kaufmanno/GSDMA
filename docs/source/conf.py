@@ -1,4 +1,4 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Configuration file for the Sphinx documentation builder.
 #
@@ -16,12 +16,13 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../../utils/'))
 
-
 # -- Project information -----------------------------------------------------
 
 project = u'GSDMA'
 copyright = u'2020, Isaac A-Joris C-Quentin C-Joseph W'
+
 author = u'Isaac A-Joris C-Quentin C-Yanick N-Joseph W'
+
 
 # The short X.Y version
 version = u''
@@ -151,6 +152,7 @@ latex_elements = {
 latex_documents = [
     (master_doc, 'GSDMA.tex', u'GSDMA Documentation',
      u'Isaac A-Joris C-Quentin C-Yanick N-Joseph W', 'manual'),
+
 ]
 
 
