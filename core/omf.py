@@ -8,15 +8,16 @@ import omf
 from vtk import vtkX3DExporter
 from IPython.display import HTML
 
+
 def striplog_legend_to_omf_legend(legend):
     """Creates an omf.data.Legend object from a striplog.Legend object"""
 
-    omf_legend=[]
-    newcolors = [np.array([0.9, 0.9, 0.9, 1.])]
+    omf_legend = []
+    new_colors = [np.array([0.9, 0.9, 0.9, 1.])]
     for i in legend:
         omf_legend.append(i.colour)
-        newcolors.append(np.hstack([np.array(hex_to_rgb(i.colour))/255, np.array([1.])]))
-    return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), ListedColormap(newcolors)
+        new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour))/255, np.array([1.])]))
+    return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), ListedColormap(new_colors)
 
 
 class Borehole3D(Striplog):
@@ -46,7 +47,7 @@ class Borehole3D(Striplog):
         self.intervals = intervals
         self.geometry = []
 
-        # instanciation with supers properties
+        # instantiation with supers properties
         Striplog.__init__(self, list_of_Intervals=self.intervals)
 
         # self.uid=uuid #get a unique for identification of borehole in the project
@@ -109,18 +110,23 @@ class Borehole3D(Striplog):
 
         return self.geometry
 
-    def plot3d(self, x3d=False):
-        omf_legend, omf_ = striplog_legend_to_omf_legend(self.legend)
-        pl = pv.Plotter()
+    def plot3d(self, plotter=None, x3d=False):
+        omf_legend, _ = striplog_legend_to_omf_legend(self.legend)
+
+        if plotter is None:
+            plotter = pv.Plotter()
+            show = False
+        else:
+            show = True
         seg = ov.line_set_to_vtk(self.geometry)
         seg.set_active_scalars('component')
         ov.lineset.add_data(seg, self.geometry.data)
-        pl.add_mesh(seg.tube(radius=3), cmap=self.omf_cmap)
-        if not x3d:
-            pl.show()
+        plotter.add_mesh(seg.tube(radius=3), cmap=self.omf_cmap)
+        if show and not x3d:
+            plotter.show()
         else:
             writer = vtkX3DExporter()
-            writer.SetInput(pl.renderer.GetRenderWindow())
+            writer.SetInput(plotter.renderer.GetRenderWindow())
             filename = f'BH_{self.name:s}.x3d'
             writer.SetFileName(filename)
             writer.Update()
