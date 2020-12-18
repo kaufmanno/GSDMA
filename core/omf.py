@@ -26,7 +26,7 @@ class Borehole3D(Striplog):
 
     """
 
-    def __init__(self, intervals=None, name='', legend=None, x_collar=0., y_collar=0.):
+    def __init__(self, intervals=None, components=None, name='', legend=None, x_collar=0., y_collar=0.):
         self.name = name
 
         if legend is None or not isinstance(legend, Legend):
