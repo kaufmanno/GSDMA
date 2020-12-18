@@ -5,16 +5,22 @@ import pyvista as pv
 
 def db_copy_sqlite3_tables(db_in, db_out, tables):
     """
-    Copy tables from one database to another
-    :param db_in: full filename of the origin of tables 
-    :type db_in: string
-    :param db_out: full filename of the destination of tables
-    :type db_in: string
-    :param tables: list of tables to copy
-    :type tables: list
-    :return: status, 0: OK, 1: failure
-    :rtype: int
-    :param name: name of the table
+    tables from one database to another
+
+    Parameters
+    ----------
+    db_in: str
+           full filename of the origin of tables 
+    db_out: str
+            full filename of the destination of tables
+    tables: list
+            list of tables to copy
+    Returns
+    -------
+    status: int
+          0: OK, enter name of the table
+    err_code: int
+              1: failure 
     """
     
     status = 0
@@ -33,20 +39,28 @@ def db_copy_sqlite3_tables(db_in, db_out, tables):
             
 
 def create_table(conn, name, fields, commit=True, verbose=False):
-    """ Creates a table if it does not exist and add fields
+    """ 
+    Creates a table if it does not exist and add fields
     
-    :param conn: a connection to a SQLITE3 database
-    :type conn: sqlite3.Connection
-    :param name: name of the table
-    :type name: string
-    :param fields: a dict of fields and types of the table
-    :type fields: dict
-    :param commit: if True, commits changes to the database before exiting
-    :type commit: boolean
-    :param verbose: if True, displays the SQL command before execution
-    :type verbose: boolean
-    :return: status, 0: OK, 1: failure
-    :rtype: int
+    Parameters
+    ----------
+    conn: sqlite3.Connection
+          a connection to a SQLITE3 database
+    name: str
+          name of the table
+    fields: dict 
+            a dict of fields and types of the table 
+    commit: bool
+            if True, commits changes to the database before exiting
+    verbose: bool
+             if True, displays the SQL command before execution
+    
+    Returns
+    -------
+    status: int
+            0: OK, table is created
+    err_code: int
+              1: failure
     """
     
     status = 0
@@ -68,18 +82,26 @@ def create_table(conn, name, fields, commit=True, verbose=False):
 
 
 def boreholes_dict_to_sqlite3_db(boreholes, conn, commit=True, verbose=False):
-    """ Stores data from a boreholes dict into a SQLITE3 database
+    """ 
+    Stores data from a boreholes dict into a SQLITE3 database
     
-    :param boreholes: boreholes
-    :type boreholes: dict
-    :param conn: a connection to a SQLITE3 database
-    :type conn: sqlite3.Connection
-    :param commit: if True, commits changes to the database before exiting
-    :type commit: boolean
-    :param verbose: if True, displays the SQL command before execution
-    :type verbose: boolean
-    :return: status, 0: OK, 1: failure
-    :rtype: int
+    Parameters
+    ----------
+    boreholes: dict
+               boreholes
+    conn: sqlite3.Connection
+          a connection to a SQLITE3 database 
+    commit: bool
+            if True, commits changes to the database before exiting
+    verbose: bool
+            if True, displays the SQL command before execution
+
+    Returns
+    -------    
+    status: int
+            0: OK, stored data
+    err_code: int
+              1: failure
     """
 
     status = 0
@@ -141,12 +163,16 @@ def boreholes_dict_to_sqlite3_db(boreholes, conn, commit=True, verbose=False):
 def add_interval_list(intervals,plotter,radius=.09):
     """
     add a list of intervals to a plotter 
-    :param intervals: list of intervals to add to the plotter 
-    :type intervals: list
-    :param plotter: plotter pyvista 
-    :type plotter: pyvista.plotting.plotting.Plotter
-    :param radius: radius of the boreholes (if different radii, make distinct lists of intervals)
-    :type radius: float
+
+    Parameters
+    ----------
+    intervals: list
+               list of intervals to add to the plotter 
+    plotter: pyvista.plotting.plotting.Plotter
+             plotter pyvista 
+    radius: float
+            radius of the boreholes (if different radii, make distinct lists of
+            intervals) 
     """    
     cylinders = []
     i = 0
@@ -175,10 +201,19 @@ def add_interval_list(intervals,plotter,radius=.09):
     plotter.show(auto_close=False, use_panel=True)
     
 def create_connection(db_file):
-    """ create a database connection to the SQLite database
+    """ 
+    create a database connection to the SQLite database
         specified by the db_file
-    :param db_file: database file
-    :return: Connection object or None
+
+    Parameters
+    ----------
+    db_file: dict
+             database file
+
+    Returns
+    -------    
+    str
+        Connection object or None
     """
     conn = None
     try:
@@ -189,11 +224,17 @@ def create_connection(db_file):
     return conn
 
 
-def select_datat_of_db(conn,table):
+def select_data_of_db(conn,table):
     """
     Query all rows in the tasks table
-    :param conn: the Connection object
-    :return:
+
+    Parameters
+    ----------
+    conn: iterable
+          the Connection object
+
+    Returns
+    -------  
     """
     cur = conn.cursor()
     cur.execute(table)

@@ -5,9 +5,15 @@ def read_electrode_string_geometry(filename, file_path='../electrode_strings/'):
     """
     Reads an electrode string file
 
-    :param filename: electrode string's filename
-    :param file_path: path to electrode string file
-    :return:
+    Parameters
+    ----------
+    filename:  str
+               electrode string's filename
+    file_path: str
+               path to electrode string file
+    Returns
+    -------
+
     """
     electrode_string = {}
     eof = False
