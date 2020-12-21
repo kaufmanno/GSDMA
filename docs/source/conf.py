@@ -14,20 +14,21 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../../utils/'))
+sys.path.insert(0, os.path.abspath('../../'))
+# print(f'System path: {sys.path}')
 
 # -- Project information -----------------------------------------------------
 
 project = u'GSDMA'
-copyright = u'2020, Isaac A-Joris C-Quentin C-Joseph W'
+copyright = u'2020, O.Kaufmann and listed contributors'
 
-author = u'Isaac A-Joris C-Quentin C-Yanick N-Joseph W'
+author = u'O.Kaufmann and listed contributors'
 
 
 # The short X.Y version
-version = u''
+version = u'0.2'
 # The full version, including alpha/beta/rc tags
-release = u'1.0'
+release = u'0.2.0a'
 
 
 # -- General configuration ---------------------------------------------------
@@ -39,12 +40,7 @@ release = u'1.0'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = [
-    'sphinx.ext.napoleon'
-]
-
-# Add any Sphinx extension module names here, as strings
-extensions = ['sphinx.ext.napoleon']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.napoleon', 'sphinx_rtd_theme', 'nbsphinx', 'sphinx_gallery.load_style']
 
 # Napoleon settings
 napoleon_google_docstring = False
@@ -96,7 +92,7 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'bizstyle'
+html_theme = 'sphinx_rtd_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -197,3 +193,10 @@ epub_exclude_files = ['search.html']
 
 
 # -- Extension configuration -------------------------------------------------
+sphinx_gallery_conf = {
+     'examples_dirs': '../../examples',   # path to your example scripts
+     'gallery_dirs': 'auto_examples',  # path to where to save gallery generated output
+}
+nbsphinx_thumbnails = {
+    '../../examples/Example_of_reading_a_borehole_from_a_project_and_displaying_it_in_3D': '../../examples/test.png',
+}

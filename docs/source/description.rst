@@ -1,5 +1,6 @@
 Description
 ===========
+.. warning:: This version of the documentation is not yet up-to-date!
 
 This project of geospatial data management and analysis supervised by Mr Kaufmann consists of displaying data extracted on a polluted industrial site in 2D and 3D in order to have a good representation of the composition of the soil. These data are about the lythology of boreholes realised on the polluted site and géophysics results such as resistivity mesured by some electrodes. 
 
@@ -43,22 +44,20 @@ Contributing
 License
 -------
 
-The license of the project is avalaible on the [license](https://github.com/kaufmanno/GSDMA/blob/master/LICENSE) file.
+The license of the project is avalaible `here
+<https://github.com/kaufmanno/GSDMA/blob/master/LICENSE>`_.
 
 Contact
 -------
 
 We are interested in you feed back. Please contact us at:
 
-Kaufmann.Olivier@umons.ac.be
+Olivier Kaufmann
 
-Yanick.N'depo@student.umons.ac.be
+Contributors
+------------
 
-Quentin.campeol@student.umons.ac.be
+Olivier Kaufmann, Yanick N'Depo, Quentin Campeol, Joris Coron, Joseph Wandji Kamwa, Isaac Assiene, Antoine Iragena,
+Arthur Heymans, Ivan Nanfo
 
-Joris.Coron@student.umons.ac.be
-
-Joseph.WANDJIKAMWA@student.umons.ac.be
-
-Isaac.ASSIENE@student.umons.ac.be
-
+.. warning:: This version of the documentation is not yet up-to-date!
