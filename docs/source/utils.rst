@@ -1,18 +1,19 @@
-Modules 
+utils package
 =============
 
-db\_tools
----------
 
-.. automodule:: utils.db_tools
+io
+--
+
+.. automodule:: utils.io
    :members:
    :undoc-members:
    :show-inheritance:
 
-read\_flat\_files
------------------
+orm
+---
 
-.. automodule:: utils.read_flat_files
+.. automodule:: utils.orm
    :members:
    :undoc-members:
    :show-inheritance:
