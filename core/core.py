@@ -12,12 +12,11 @@ class Project:
     
     Attributes
     -----------
-    session : 
-    name = name
-    boreholes = None
-    boreholes_3d = None
-    legend = legend
-    refresh = 
+    session : ORM Session object
+    name : str
+    boreholes : list of BoreholeORM object
+    boreholes_3d : list of Borehole3D object
+    legend : Striplog Legend object
 
     Methods
     --------
