@@ -4,7 +4,19 @@ from core.orm import BoreholeOrm, PositionOrm
 
 
 def striplog_from_text(filename, lexicon=Lexicon.default()):
-    """ creates a Striplog object from a las or flat text file"""
+    """ creates a Striplog object from a las or flat text file
+    
+    Parameters
+    ----------
+    Lexicon : dict
+              A vocabulary for parsing lithologic or stratigraphic descriptions (default=Lexicon.default())
+              
+    Returns
+    -------
+    strip: striplog object
+    
+ 
+    """
 
     if re.compile(r".+\.las").match(filename):
         print(f"File {filename:s} OK! Creation of the striplog ...")
@@ -30,7 +42,23 @@ def striplog_from_text(filename, lexicon=Lexicon.default()):
 
 
 def boreholes_from_files(borehole_dict=None):
-    """Creates a list of BoreholeORM objects from flat text or las files"""
+    """Creates a list of BoreholeORM objects from flat text or las files
+    
+    Parameters
+    ----------
+    boreholes_dict: dict
+                    
+                    
+                 
+    Returns
+    -------
+    boreholes: list
+               boreholes object
+    components: dict
+                dictionnary containing ID and component
+    
+    
+    """
 
     int_id = 0
     bh_id = 0

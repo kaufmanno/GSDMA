@@ -12,7 +12,7 @@ Welcome to GSDMA's documentation!
    
    Description<description.rst>
    modules
-
+   
 Indices and tables
 ==================
 
