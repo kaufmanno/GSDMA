@@ -2,6 +2,20 @@ from striplog import Position, Component, Interval
 
 
 def get_interval_list(bh):
+    """create a list of interval from a list of boreholeORM ojects
+    
+    Parameters
+    ----------
+    bh: list
+        list of boreholeORM object
+         
+    
+    Returns
+    -------
+    interval_list: list
+                   list of Interval objects
+                   
+    """
     interval_list = []
     for i in bh.intervals.values():
         top = Position(upper=i.top.upper, middle=i.top.middle, lower=i.top.lower, x=i.top.x, y=i.top.y)
