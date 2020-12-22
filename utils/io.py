@@ -3,7 +3,7 @@ from striplog import Striplog, Lexicon
 from core.orm import BoreholeOrm, PositionOrm
 
 
-def striplog_from_text(filename, lexicon=Lexicon.default()):
+def striplog_from_text(filename, lexicon='Lexicon.default()'):
     """ creates a Striplog object from a las or flat text file
     
     Parameters
@@ -17,6 +17,8 @@ def striplog_from_text(filename, lexicon=Lexicon.default()):
     
  
     """
+    
+    lexicon=lexicon.strip("'")
 
     if re.compile(r".+\.las").match(filename):
         print(f"File {filename:s} OK! Creation of the striplog ...")

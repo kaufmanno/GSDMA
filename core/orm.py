@@ -13,7 +13,7 @@ class BoreholeOrm(Base):
     Attributes
     ----------
     id : str
-        The id of the borehole.
+         The id of the borehole.
         
     See Also
     --------

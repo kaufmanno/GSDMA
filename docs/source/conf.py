@@ -14,14 +14,17 @@
 #
 import os
 import sys
+import sphinx_rtd_theme
+
 sys.path.insert(0, os.path.abspath('../../utils/'))
+sys.path.insert(0, os.path.abspath('../../core/'))
 
 # -- Project information -----------------------------------------------------
 
 project = u'GSDMA'
 copyright = u'2020, Isaac A-Joris C-Quentin C-Joseph W'
 
-author = u'Isaac A-Joris C-Quentin C-Yanick N-Joseph W'
+author = u'Isaac A., Joris C., Quentin C., Yanick N., Joseph W.'
 
 
 # The short X.Y version
@@ -44,7 +47,9 @@ extensions = [
 ]
 
 # Add any Sphinx extension module names here, as strings
-extensions = ['sphinx.ext.napoleon']
+extensions = ['sphinx.ext.napoleon',
+"sphinx_rtd_theme",]
+
 
 # Napoleon settings
 napoleon_google_docstring = False
@@ -96,8 +101,8 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'bizstyle'
-
+#html_theme = 'bizstyle'
+html_theme = 'sphinx_rtd_theme'
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
