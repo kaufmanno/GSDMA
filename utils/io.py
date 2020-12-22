@@ -9,7 +9,7 @@ def striplog_from_text(filename, lexicon=Lexicon.default()):
     Parameters
     ----------
     Lexicon : dict
-              default = default lexicon included in striplog
+              A vocabulary for parsing lithologic or stratigraphic descriptions (default=Lexicon.default())
               
     Returns
     -------
