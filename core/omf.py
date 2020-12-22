@@ -10,7 +10,23 @@ from IPython.display import HTML
 
 
 def striplog_legend_to_omf_legend(legend):
-    """Creates an omf.data.Legend object from a striplog.Legend object"""
+    """
+    Creates an omf.data.Legend object from a striplog.Legend object
+    
+    Parameters
+    -----------
+    legend : striplog.Legend object
+    
+    Returns
+    --------
+    omf.data.Legend 
+        Legends to be used with DataMap indices
+        
+    ListedColormap(new_colors)
+        matplotlib colormap
+    """
+    # we must add colors as a parameter to allow to change colors style
+    
 
     omf_legend = []
     new_colors = [np.array([0.9, 0.9, 0.9, 1.])]
@@ -21,12 +37,54 @@ def striplog_legend_to_omf_legend(legend):
 
 
 class Borehole3D(Striplog):
-    """Class to build a Borehole3D object based on intervals of a striplog object and manipulate it to display it in
-    a 3D environment
+    """
+    Borehole object based on striplog object that can be displayed in a 3D environment
+    
+    Attributes
+    -----------
+    name : str
+    intervals : list
+    geometry : list of omf.lineset.LineSetGeometry objects
+    legend : Striplog Legend object
+    omf_legend : list of omf.data.Legend 
+    omf_cmap : list of matplotlib colormap
+    x_collar : float
+    y_collar : float
+
+    Methods
+    --------
+    get_components_indices()
+    build_geometry()
+    commit()
+    add_components(components)
+    plot3d(x3d=False)
 
     """
 
     def __init__(self, intervals=None, components=None, name='', legend=None, x_collar=0., y_collar=0.):
+        
+        """
+        build a Borehole3D object from Striplog.Intervals list
+        
+        Parameters
+        -----------
+        intervals : list
+            list of Striplog.Interval object (default = None)
+            
+        components : 
+            (default = None)
+        
+        name : str 
+        
+        legend : Striplog Legend object (default = None)
+        
+        x_collar : float
+            X coordinate of the borehole (default = 0)
+            
+        y_collar : float
+            Y coordinate of the borehole (default = 0)
+        """
+        
         self.name = name
 
         if legend is None or not isinstance(legend, Legend):
@@ -44,6 +102,7 @@ class Borehole3D(Striplog):
                 default_intv = Striplog.from_las3(las3.read(), lexicon)
                 intervals = list(default_intv)
             print("Pay attention that default intervals are actually used !\n")
+            
         self.intervals = intervals
         self.geometry = []
 
@@ -55,6 +114,14 @@ class Borehole3D(Striplog):
         self.build_geometry()
 
     def get_components_indices(self):
+        """
+        retrieve components indices from borehole's intervals
+        
+        Returns
+        --------
+        array of indices
+        """
+        
         indices = []
         for i in self.intervals:
             if i.components[0] in self.components:
@@ -64,6 +131,14 @@ class Borehole3D(Striplog):
         return np.array(indices)
 
     def build_geometry(self):
+        """
+        build an omf.LineSetElement geometry of the borehole
+        
+        Returns
+        --------
+        geometry : omf.lineset.LineSetGeometry
+            Contains spatial information of a line set
+        """
 
         vertices, segments = [], []
 
@@ -111,6 +186,18 @@ class Borehole3D(Striplog):
         return self.geometry
 
     def plot3d(self, plotter=None, x3d=False):
+        """
+        Returns an interactive 3D representation of all boreholes in the project
+        
+        Parameters
+        -----------
+        plotter : pyvista.plotter object
+            Plotting object to display vtk meshes or numpy arrays (default=None)
+            
+        x3d : bool
+            if True, generates a 3xd file of the 3D (default=False)
+        """
+        
         omf_legend, _ = striplog_legend_to_omf_legend(self.legend)
 
         if plotter is None:
@@ -118,10 +205,12 @@ class Borehole3D(Striplog):
             show = True
         else:
             show = False
+            
         seg = ov.line_set_to_vtk(self.geometry)
         seg.set_active_scalars('component')
         ov.lineset.add_data(seg, self.geometry.data)
         plotter.add_mesh(seg.tube(radius=3), cmap=self.omf_cmap)
+        
         if show and not x3d:
             plotter.show()
         else:
