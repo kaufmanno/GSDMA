@@ -14,6 +14,7 @@
 #
 import os
 import sys
+
 sys.path.insert(0, os.path.abspath('../../'))
 # print(f'System path: {sys.path}')
 
@@ -40,6 +41,7 @@ release = u'0.2.0a'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
+
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.napoleon', 'sphinx_rtd_theme', 'nbsphinx', 'sphinx_gallery.load_style']
 
 # Napoleon settings
@@ -92,6 +94,7 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
+
 html_theme = 'sphinx_rtd_theme'
 html_style = 'css/my_theme.css'
 
