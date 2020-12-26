@@ -122,7 +122,7 @@ html_static_path = ['_static']
 
 # -- Options for HTMLHelp output ---------------------------------------------
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'GSDMAdoc'
+htmlhelp_basename = 'GSDMA docs'
 
 # -- Options for LaTeX output ------------------------------------------------
 
@@ -149,7 +149,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'GSDMA.tex', u'GSDMA Documentation',
-     u'Isaac A-Joris C-Quentin C-Yanick N-Joseph W', 'manual'),
+     [author], 'manual'),
 
 ]
 
@@ -195,10 +195,7 @@ epub_exclude_files = ['search.html']
 
 
 # -- Extension configuration -------------------------------------------------
-sphinx_gallery_conf = {
-     'examples_dirs': '../../examples',   # path to your example scripts
-     'gallery_dirs': 'auto_examples',  # path to where to save gallery generated output
-}
-nbsphinx_thumbnails = {
-    '../../examples/Example_of_reading_a_borehole_from_a_project_and_displaying_it_in_3D': '../../examples/test.png',
-}
+# sphinx_gallery_conf = {
+#      'examples_dirs': '../../examples',   # path to your example scripts
+#      'gallery_dirs': 'auto_examples',  # path to where to save gallery generated output
+# }

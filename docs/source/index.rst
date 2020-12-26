@@ -14,8 +14,6 @@ Welcome to GSDMA's documentation!
 
    Examples<auto_examples/index.rst>
    
-   examples/Example_of_displaying_one_borehole_in_3D.ipynb
-
    API<modules.rst>
 
 Indices and tables
