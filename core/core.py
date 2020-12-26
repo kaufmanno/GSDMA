@@ -27,7 +27,6 @@ class Project:
     plot3d(self, x3d=False)
         
     """
-       
     
     def __init__(self, session, legend=None, name='new_project'):
         """

@@ -7,7 +7,7 @@ import pyvista as pv
 import omf
 from vtk import vtkX3DExporter
 from IPython.display import HTML
-
+from definitions import ROOT_DIR
 
 def striplog_legend_to_omf_legend(legend):
     """
@@ -98,7 +98,7 @@ class Borehole3D(Striplog):
 
         if intervals is None:
             lexicon = Lexicon.default()
-            with open('../data/test.las', 'r') as las3:
+            with open(ROOT_DIR + '/data/test.las', 'r') as las3:
                 default_intv = Striplog.from_las3(las3.read(), lexicon)
                 intervals = list(default_intv)
             print("Pay attention that default intervals are actually used !\n")

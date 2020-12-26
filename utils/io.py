@@ -3,13 +3,14 @@ from striplog import Striplog, Lexicon
 from core.orm import BoreholeOrm, PositionOrm
 
 
-def striplog_from_text(filename, lexicon='Lexicon.default()'):
+def striplog_from_text(filename, lexicon=None):
     """ creates a Striplog object from a las or flat text file
     
     Parameters
     ----------
     Lexicon : dict
-              A vocabulary for parsing lithologic or stratigraphic descriptions (default=Lexicon.default())
+              A vocabulary for parsing lithologic or stratigraphic descriptions
+              (default set to Lexicon.default() if lexicon is None)
               
     Returns
     -------
@@ -17,8 +18,9 @@ def striplog_from_text(filename, lexicon='Lexicon.default()'):
     
  
     """
-    
-    lexicon=lexicon.strip("'")
+
+    if lexicon is None:
+        lexicon = Lexicon.default()
 
     if re.compile(r".+\.las").match(filename):
         print(f"File {filename:s} OK! Creation of the striplog ...")
