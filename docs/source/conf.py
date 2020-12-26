@@ -118,7 +118,11 @@ html_static_path = ['_static']
 # 'searchbox.html']``.
 #
 # html_sidebars = {}
-
+html_logo = "logo.png"
+html_theme_options = {
+    'logo_only': False,
+    'display_version': True,
+}
 
 # -- Options for HTMLHelp output ---------------------------------------------
 # Output file base name for HTML help builder.
