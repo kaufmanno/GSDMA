@@ -11,33 +11,17 @@ Then, the data are read and put into a specific structure called Striplog.
 Finally, from the striplog structure the data are displaying in 2D (using Striplog package) and in 3D (using PyVista package).
 
 
-Prerequisites
+Summary
 -------------
 
-The project is developed in a virtual environment using Pipenv. 
-It is therefore necessary to install Pyenv and Pipenv before starting the installation of the program.
+.. toctree::
+   :maxdepth: 2
 
-It is also necessary to install Pyenv because pyenv will setup the virtual environment with the correct version of Python. Pipenv add the required dependencies automatically during installation.
-
-Refer to this `link <https://github.com/pyenv/pyenv-installer>`_ to install Pyenv and this `link <https://pipenv.pypa.io/en/latest/install/>`_ to install Pipenv, the prerequisites.
-
-
-
-Installation
-------------
-
-To clone the repository and setup the environment for using this project :
-
-.. code:: bash 
-
- $  git clone https://github.com/kaufmanno/GSDMA
- $  cd GSDMA/
- $  pipenv shell
- $  pipenv install 
-
-To view installed dependencies, see the `pipfile 
-<https://github.com/kaufmanno/GSDMA/blob/master/Pipfile>`_.
-
+   GSDMA Objectives: 2019 objectives<summary/objectives.rst>
+   Project release 2020<summary/project_release.rst>
+   Object-oriented programming<summary/object_oriented_programming.rst>
+   Improving documentation<summary/improving_documentation.rst>
+   Packages used in GSDMA<summary/packages.rst>
 
 Contributing
 ------------
