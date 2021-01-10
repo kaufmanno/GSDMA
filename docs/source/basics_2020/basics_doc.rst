@@ -6,10 +6,11 @@ ORM development : SQLAlchemy
 -------------------------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    Principle<orm_Principle.rst>
-   The classes implemented<orm_classes.rst>
+   Building ORM classes<orm_classes.rst>
+   Insertion of borehole data in the database<orm_insertion_borehole.rst>
    The final database<orm_final_database.rst>
 
 
@@ -17,12 +18,19 @@ OMF development
 --------------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    Principle<omf_Principle.rst>
    The classes implemented<omf_classes.rst>
    Links with Striplog<omf_links_striplog.rst>
    The 3D representation<omf_3D_representation>
+
+
+The final class project ?
+---------------------------
+
+
+
 
 Documentation work
 ---------------------------
