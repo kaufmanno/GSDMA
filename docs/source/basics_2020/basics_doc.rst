@@ -11,7 +11,7 @@ ORM development : SQLAlchemy
    Principle<orm_Principle.rst>
    Building ORM classes<orm_classes.rst>
    Insertion of borehole data in the database<orm_insertion_borehole.rst>
-   The final database<orm_final_database.rst>
+   The final database in GSDMA 2020 release<orm_final_database.rst>
 
 
 OMF development
@@ -24,10 +24,6 @@ OMF development
    The classes implemented<omf_classes.rst>
    Links with Striplog<omf_links_striplog.rst>
    The 3D representation<omf_3D_representation>
-
-
-The final class project ?
----------------------------
 
 
 
