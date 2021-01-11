@@ -1,5 +1,6 @@
 GSDMA basics 2020
 ====================
+.. warning:: This version of the documentation is not yet up-to-date!
 
 
 ORM development : SQLAlchemy

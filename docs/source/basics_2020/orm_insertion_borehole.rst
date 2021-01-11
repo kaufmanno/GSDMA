@@ -127,7 +127,11 @@ This second function, already presented above, creates a Striplog object from a 
 Insertion of borehole objects in the data base
 ------------------------------------------------
 
-To do
+To insert the boronhole data into the database using SQLAlchemy, the Session object is used which adds the BoreholeOrm and ComponentOrm objects as an entry in the DB.
+
+In the perspective of object-oriented programming, a "Project" class has been created. 
+
+Located below, it is defined by a list of BoreholeOrm objects, a Session object from SQLAlchemy, a name and a legend object from Striplog.
 
 .. code:: python
 
@@ -169,7 +173,9 @@ To do
         self.session.commit()
 
 
-To do
+Different routines are implemented in the class Project such as, for example, adding the BoreholeOrm object list to the database using the function "add_borehole()" below.
+
+The "add()" function of the session object specifies the addition of the boreholeOrm object list to the database. This addition takes place when applying the "commit()" function (define above) which validates the modifications made in the project class.
 
 .. code:: python
 
@@ -192,7 +198,10 @@ To do
         list_of_intervals = get_interval_list(bh)
         self.boreholes_3d.append(Borehole3D(intervals=list_of_intervals, legend=self.legend))
 
-To do
+The "add_components()" function will add the information from the component dictionary to the Component table of the database.
+
+In the "add_components()" routine, the "add()" function could be used directly because the list introduced in the function contained BoreholeOrm objects. In the case of the "add_components()" routine, the parameter introduced is a component dictionary and not a Component object. It is therefore necessary to build the new_component object first, then add it to the database.
+
 
 .. code:: python
 
