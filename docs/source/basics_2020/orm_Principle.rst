@@ -45,7 +45,7 @@ The advantage of using an ORM is that it provides the data mapper pattern, where
 .. _below:
 .. figure:: figures/ORM.png
    :align: center
-   :width: 800 px
+   :width: 600 px
 
 The object's classes are implemented with specific instruction. The mapper develop the database schema on the basis of the classes. 
 
