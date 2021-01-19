@@ -10,7 +10,7 @@ But in a study, there is more than one borehole, and each borehole must be model
 In the 2020 version of the project, the **Borehole3D** class was built to meet this need. This class has been built based on the Striplog module to easily represent geological data, and on some classes of the omf and omfvista modules to allow the 3D representation of each borehole.
 
 *Borehole3D as a Striplog object*
--------------------------------------------
+_______________________________________
 As the **Borehole3D** object must represent geological information, it was judicious to make it inherit the attributes and methods of the **Striplog** class. When Borehole3D class is instanciate, it can take, as parameters, lists of objects *Interval*, *Component*, *Legend* from the Striplog module. Finally the Borehole3D object works as a Striplog object and it is composed of Intervals, themselves composed of Components, each with its own Decor to build a Legend.
 
 
@@ -93,11 +93,15 @@ As the **Borehole3D** object must represent geological information, it was judic
 
         self.build_geometry()
 
+Below, an example of a borehole3D striplog :
 
-
+.. figure:: figures/BH3D_striplog.png
+   :align: center
+   :width: 500 px
 
 *Borehole3D as an omf object*
--------------------------------------------
+____________________________________
+
 At this level, the trick used is not inheritance but the definition of a specific property of the **Borehole3D** object (*geometry*), allowing to take advantage of some of the methods of the *LineSetElement* class in the **omf** package. 
 
 This property is constructed to contain the spatial information of a LineSetElement object by defining a geometry. This property offers the possibility to name each borehole in an intrinsic way : it is not the name assigned when defining a variable but rather a specific property of the LineSetElement objects. This is an essential point for the user to differentiate and recognize each borehole.
@@ -106,7 +110,7 @@ The definition of the borehole geometry is performed by the **Borehole3D** class
 
 
 *3D representation of Borehole3D object*
--------------------------------------------
+___________________________________________
 
 Finally comes the stage of three-dimensional representation. For this, the modules omfvista and pyvista were used. 
 
@@ -114,11 +118,16 @@ Finally comes the stage of three-dimensional representation. For this, the modul
 
 The 3D display is realized by invocation of the `plot3d()`_ method of the **Borehole3D** class, otherwise the call of a Borehole3D type variable simply leads to the 2D display.
 
-Methods of Borehole3D class
-----------------------------------------
+Below, the final representation of a borehole3D object :
 
-*get_components_indices()* 
-_____________________________
+.. figure:: figures/BH3D_display.png
+   :align: center
+   :width: 500 px
+   
+Methods of Borehole3D class
+_________________________________
+
+**get_components_indices()** 
 
 This method returns an array of indices for all geological formations (components) find in a borehole.
 
@@ -141,10 +150,10 @@ This method returns an array of indices for all geological formations (component
                 indices.append(-1)
         return np.array(indices)
 
-.. _*build_geometry()* : 
+.. _build_geometry(): 
 
-*build_geometry()* 
-_______________________________________
+**build_geometry()**
+
 
 This method is used to build the geometry of the Borehole3D object. As an omf.LineSetGeometry, this property needs at least vertices and segments arrays. So, considering each interval in the borehole, the method add the X,Y,Z coordinates of the top and the base to vertices and segments array. 
 
@@ -209,10 +218,9 @@ To wrap each component in the borehole with its decor (legend), an omf_legend pr
         
 
 
-.. _*plot3d()* :
+.. _plot3d():
 
-*plot3d()* 
-_______________
+**plot3d()**
 
 When this method is called, it create an 3D display of the borehole. It converts the borehole3D geometry to a vtk mapping that will be used by pyvista for tridimensional display. This display can be interactive if the parameter x3d is set TRUE.
 
@@ -270,7 +278,7 @@ When this method is called, it create an 3D display of the borehole. It converts
 .. _`striplog_legend_to_omf_legend()` :
 
 external function
-----------------------
+___________________
 
 .. code:: python
 

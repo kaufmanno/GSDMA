@@ -6,7 +6,7 @@ sphinx.
 
 There are three types of documentation: tutorial, guide and reference (API).
 
-.. figure:: Figures/docs.png
+.. figure:: figures/docs.png
    :align: center
    :width: 500 px
 

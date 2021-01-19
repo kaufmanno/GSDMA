@@ -28,7 +28,7 @@ They gathered those data into a SQLite database, in a specific organization, in 
 
 The problem is that this procedural programming has some defects:
 
- - The implementation of new drillings requires modifications to the code.
+ - The implementation of new borehole requires modifications to the code.
  - This programming is not very robust and a user can perform unwanted operations with the borehole data. 
  - The project is hardly applicable to other projects.
 
@@ -47,9 +47,9 @@ The advantage of using an ORM is that it provides the data mapper pattern, where
    :align: center
    :width: 600 px
 
-The object's classes are implemented with specific instruction. The mapper develop the database schema on the basis of the classes. 
+The classes are implemented with specific instruction. The mapper develop the database schema on the basis of the classes. 
 
-Classes are associate to a table in the database and the attributes of the class represent fields into the table. 
+A classe is associated to a table in the database and the attributes of the class represent fields into the table. 
 
 Thus each object defined on the basis of the class and holding its attributes can be easily added to the database. The ORM’s engine used to add objects to the database is the Session object based on the Session class of SQLAlchemy. This addition can also be implemented by the session object in a procedural or object-oriented way (via a class instruction).
 

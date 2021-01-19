@@ -12,7 +12,7 @@ The boreholes_dict parameter is a dictionary with the name of the boreholes to i
 
 .. code:: python
 
- borehole_dict = {'F01':ROOT_DIR+'/data/test.las', 'F02':ROOT_DIR+'/data/test.las'}
+ borehole_dict = {'F01':ROOT_DIR+'/data/test.las', 'F02':ROOT_DIR+'/data/test.csv'} 
 
 If the dictionary contains data, the "boreholes_from_files()" function first determines the number of boreholes to be inserted in the DB. Then the "striplog_from_text()" function is called in order to create a striplog object from the associated LAS or CSV file (see the second function just after).
 
@@ -41,41 +41,53 @@ The function creates **the component dictionnary** by adding only the different 
     """
     int_id = 0
     bh_id = 0
-    boreholes = []
-    comp_id = 0
     pos_id = 0
-    component_dict = {}
-    components = {}
-
-    if borehole_dict is not None:
-        for bh, filename in borehole_dict.items():
-            strip = striplog_from_text(filename)
-
-            interval_number = 0
-            boreholes.append(BoreholeOrm(id=bh))
-            for c in strip.components:
-                if c not in component_dict.keys():
-                    component_dict.update({c: comp_id})
-                    comp_id += 1
-
-            d = {}
-            for interval in strip:
-                top = PositionOrm(id=pos_id, upper=interval.top.upper, middle=interval.top.middle,
-                                  lower=interval.top.lower)
-                base = PositionOrm(id=pos_id + 1, upper=interval.base.upper, middle=interval.base.middle,
-                                   lower=interval.base.lower)
-                d.update({int_id: {'description': interval.description, 'interval_number': interval_number, 'top': top,
-                                   'base': base}})
-                interval_number += 1
-                int_id += 1
-                pos_id += 2
-            boreholes[bh_id].intervals_values = d
-            bh_id += 1
-        components = {v: k for k, v in component_dict.items()}
-
+    boreholes = []
+    components = []
+    comp_id = 0
+    component_dict={}
+    pos_dict = {}
+    x = [0., 20.]
+    y = [0., 120.]
+    
+    for bh, filename in borehole_dict.items():
+        interval_number = 0
+        boreholes.append(BoreholeOrm(id=bh))
+        #with open(filename, 'r') as las3:
+        #    strip = Striplog.from_las3(las3.read(), lexicon)
+        
+        strip=striplog_from_text(filename)
+        
+        for c in strip.components:
+            if c not in component_dict.keys():
+                component_dict.update({c:comp_id})
+                comp_id += 1
+        d ={}
+        for interval in strip:
+            top = PositionOrm(id=pos_id, upper=interval.top.upper, middle=interval.top.middle,  
+                              lower=interval.top.lower, x=x[bh_id], y=y[bh_id])
+            base = PositionOrm(id=pos_id+1, upper=interval.base.upper, middle=interval.base.middle,  
+                               lower=interval.base.lower, x=x[bh_id], y=y[bh_id])
+            d.update({int_id:{'description':interval.description, 'interval_number' : interval_number, 
+                              'top': top, 'base': base 
+                             }})
+            interval_number+=1
+            int_id += 1
+            pos_id += 2
+    
+     
+    
+        print(d)
+        boreholes[bh_id].intervals_values = d
+        #boreholes[bh_id].components_values = c
+        bh_id += 1 
+    components = {v:k for k,v in component_dict.items()}
     return boreholes, components
 
 This second function, already presented above, creates a Striplog object from a las or CSV file. The Striplog object will then be used directly to create the list of BoreholeOrm object and the component dictionary.
+
+
+
 
 .. code:: python
 
@@ -127,7 +139,7 @@ This second function, already presented above, creates a Striplog object from a 
 Insertion of borehole objects in the data base
 ------------------------------------------------
 
-To insert the boronhole data into the database using SQLAlchemy, the Session object is used which adds the BoreholeOrm and ComponentOrm objects as an entry in the DB.
+To insert the borehole data into the database using SQLAlchemy, the Session object is used which adds the BoreholeOrm and ComponentOrm objects as an entry in the DB.
 
 In the perspective of object-oriented programming, a "Project" class has been created. 
 

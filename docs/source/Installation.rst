@@ -1,6 +1,6 @@
 Description
 ===========
-.. warning:: This version of the documentation is not yet up-to-date!
+
 
 
 Prerequisites
@@ -31,4 +31,3 @@ To view installed dependencies, see the `pipfile
 <https://github.com/kaufmanno/GSDMA/blob/master/Pipfile>`_.
 
 
-.. warning:: This version of the documentation is not yet up-to-date!
