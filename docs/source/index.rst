@@ -7,14 +7,17 @@ Welcome to GSDMA's documentation!
 =================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
    
-   Description<description.rst>
+   Project Description<description.rst>
 
-   Examples<auto_examples/index.rst>
-   
-   API<modules.rst>
+   Installation<Installation.rst>
+
+   GSDMA basics 2020<basics_2020/basics_doc.rst>
+
+   Content<content.rst>
+
 
 Indices and tables
 ==================
