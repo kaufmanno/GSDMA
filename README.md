@@ -62,14 +62,4 @@ The license of the project is avalaible on the [license](https://github.com/kauf
 
 ## Contact <a name="Contact"></a>
 
-We are interested in your feedback. Please contact us at:
-
-Kaufmann.Olivier@umons.ac.be  
-Arthur.Heymans@student.umons.ac.be  
-Ivan.NANFODJOUFACK@student.umons.ac.be  
-Quentin.campeol@student.umons.ac.be  
-Joris.Coron@student.umons.ac.be  
-Yanick.N'depo@student.umons.ac.be  
-Joseph.WANDJIKAMWA@student.umons.ac.be  
-Isaac.ASSIENE@student.umons.ac.be  
-
+We are interested in your feedback.
