@@ -1,0 +1,8 @@
+# borehole name
+F207
+# borehole description
+start	end	description	lithology	colour
+0.00	3.40	remblais	remblais	brun
+3.40	6.00	alluvions	silt	gris
+# markers
+mur remblais	3.40
