@@ -177,7 +177,7 @@ def boreholes_from_files(borehole_dict=None, x=None, y=None, verbose=0):
     return boreholes, components
 
 
-def read_geodf_file(filename=None, epsg=None, to_epsg=None, file_dir=None):
+def read_gdf_file(filename=None, epsg=None, to_epsg=None, file_dir=None, interact=False):
     """
     create a geodataframe and transform coordinates system (if 'to_epsg' is set)
     
@@ -246,7 +246,7 @@ def read_geodf_file(filename=None, epsg=None, to_epsg=None, file_dir=None):
 
     # EPSG conversion 
 
-    if to_epsg!=None:
+    if to_epsg!=None and interact==True:
         gdf.to_crs(epsg=to_epsg, inplace=True)
 
         while True :
@@ -260,11 +260,17 @@ def read_geodf_file(filename=None, epsg=None, to_epsg=None, file_dir=None):
             elif resp == 'n':
                 break
             print(f'{resp} is invalid, please try again...')
-
+            
+    elif to_epsg!=None and interact==False:
+        gdf.to_crs(epsg=to_epsg, inplace=True)
+        gdf=gdf.drop(['Longitude', 'Latitude', 'X', 'Y'], axis=1, errors='ignore')
+        gdf.insert(0, 'X',[row.geometry.x for idx, row in gdf.iterrows()]) 
+        gdf.insert(1, 'Y',[row.geometry.y for idx, row in gdf.iterrows()])
+             
     return gdf
 
 
-def save_loc(gdf, epsg, save_name=None):
+def export_gdf(gdf, epsg, save_name=None):
     """
     Save data location in a geodataframe into Geopackage / GeoJson / csv file
     
