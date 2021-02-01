@@ -96,7 +96,7 @@ class Project:
         
         Parameters
         -----------
-        Component : dict
+        Components : dict
             dict of Component objects
             
         See Also
@@ -110,7 +110,7 @@ class Project:
         self.commit()
         self.refresh()
 
-    def plot3d(self, x3d=False):
+    def plot3d(self, x3d=False, radius=3):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -121,7 +121,7 @@ class Project:
         """
         pl = pv.Plotter()
         for bh in self.boreholes_3d:
-            bh.plot3d(plotter=pl)
+            bh.plot3d(plotter=pl, radius=radius)
         if not x3d:
             pl.show()
         else:

@@ -1,5 +1,6 @@
 from striplog import Lexicon, Striplog, Legend
 from striplog.utils import hex_to_rgb
+#import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 import numpy as np
 import omfvista as ov
@@ -88,6 +89,7 @@ class Borehole3D(Striplog):
         self.name = name
 
         if legend is None or not isinstance(legend, Legend):
+            print("No legend given or incorrect format ! A default legend will be used")
             self.legend = Legend.default()
         else:
             self.legend = legend
@@ -101,7 +103,7 @@ class Borehole3D(Striplog):
             with open(ROOT_DIR + '/data/test.las', 'r') as las3:
                 default_intv = Striplog.from_las3(las3.read(), lexicon)
                 intervals = list(default_intv)
-            print("Pay attention that default intervals are actually used !\n")
+            print("No intervals given, pay attention that default intervals are actually used !\n")
             
         self.intervals = intervals
         self.geometry = []
@@ -184,8 +186,14 @@ class Borehole3D(Striplog):
         print("Borehole geometry created successfully !")
 
         return self.geometry
+    
+    #def plot(self, legend, ax):
+     #   fix, ax = plt.subplots(ncols=2, figsize=(6,6))
 
-    def plot3d(self, plotter=None, x3d=False):
+      #  return self.plot(legend=legend, ax=ax[0]), self.legend.plot(ax=ax[1])
+    
+
+    def plot3d(self, plotter=None, x3d=False, radius=3):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -209,7 +217,7 @@ class Borehole3D(Striplog):
         seg = ov.line_set_to_vtk(self.geometry)
         seg.set_active_scalars('component')
         ov.lineset.add_data(seg, self.geometry.data)
-        plotter.add_mesh(seg.tube(radius=3), cmap=self.omf_cmap)
+        plotter.add_mesh(seg.tube(radius=radius), cmap=self.omf_cmap)
         
         if show and not x3d:
             plotter.show()

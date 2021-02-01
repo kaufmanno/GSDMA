@@ -11,12 +11,12 @@ class BoreholeOrm(Base):
     """The Boreholes Info table
     
     Attributes
-    ----------
+    -----------
     id : str
          The id of the borehole.
         
     See Also
-    --------
+    ---------
     IntervalOrm : Relationship one to many with the IntervalOrm table.
 
     """
