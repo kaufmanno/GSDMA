@@ -177,7 +177,7 @@ def boreholes_from_files(borehole_dict=None, x=None, y=None, verbose=0):
     return boreholes, components
 
 
-def read_gdf_file(filename=None, epsg=None, to_epsg=None, file_dir=None, interact=False):
+def read_gdf_file(filename=None, epsg=None, to_epsg=None, interact=False): # file_dir=None,
     """
     create a geodataframe and transform coordinates system (if 'to_epsg' is set)
     
@@ -201,13 +201,15 @@ def read_gdf_file(filename=None, epsg=None, to_epsg=None, file_dir=None, interac
     
     """  
     
-    if file_dir == None : 
-        file_dir = ROOT_DIR + '/playground/TFE_test/tmp_files/'
+    
     
     if filename == None:
         filename = str(input("File name and extension (.json, .gpkg, .csv) ? : "))
-        
-    filename=file_dir+filename
+    
+    #if file_dir == None : 
+     #   file_dir = ROOT_DIR + '/playground/TFE_test/tmp_files/'    
+      #  filename=file_dir+filename
+    
 
     gdf=gpd.GeoDataFrame()
     

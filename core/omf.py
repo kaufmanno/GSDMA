@@ -62,7 +62,7 @@ class Borehole3D(Striplog):
 
     """
 
-    def __init__(self, intervals=None, components=None, name='', legend=None, x_collar=0., y_collar=0.):
+    def __init__(self, intervals=None, components=None, name='', legend=None, x_collar=0., y_collar=0., z_collar=0.):
         
         """
         build a Borehole3D object from Striplog.Intervals list
@@ -84,6 +84,9 @@ class Borehole3D(Striplog):
             
         y_collar : float
             Y coordinate of the borehole (default = 0)
+        
+        z_collar : float
+            Z coordinate of the borehole (default = 0)
         """
         
         self.name = name
@@ -96,6 +99,7 @@ class Borehole3D(Striplog):
 
         self.x_collar = x_collar
         self.y_collar = y_collar
+        self.z_collar = z_collar
         self.omf_legend, self.omf_cmap = striplog_legend_to_omf_legend(self.legend)
 
         if intervals is None:
