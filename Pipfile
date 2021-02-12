@@ -25,6 +25,8 @@ sqlalchemy = "*"
 sphinx-rtd-theme = "*"
 sphinx-gallery = "*"
 nbsphinx = "*"
+xlrd = "*"
+descartes = "*"
 
 [requires]
 python_version = "3.8"
