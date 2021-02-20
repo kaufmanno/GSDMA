@@ -228,7 +228,7 @@ class Borehole3D(Striplog):
         else:
             writer = vtkX3DExporter()
             writer.SetInput(plotter.renderer.GetRenderWindow())
-            filename = f'BH_{self.name:s}.x3d'
+            filename = 'tmp_files/' + f'BH_{self.name:s}.x3d'
             writer.SetFileName(filename)
             writer.Update()
             writer.Write()

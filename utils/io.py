@@ -87,12 +87,12 @@ def boreholes_from_files(borehole_dict=None, x=None, y=None, verbose=0):
     component_dict={}
     pos_dict = {}
     
-    if x==None:
+    if x is None:
         x = [0., 20., 5, 10] 
     else: 
         x=x
         
-    if y==None:
+    if y is None:
         y = [0., 40., 50, 2] 
     else : 
         y=y  
@@ -223,7 +223,7 @@ def read_gdf_file(filename=None, epsg=None, to_epsg=None, interact=False): # fil
             
     if re.compile(r".+\.csv").match(filename):
         if epsg == None:
-            filename = input("data EPSG (a number) ? : ")
+            epsg = input("data EPSG (a number) ? : ")
             
         with open(filename, 'r') as csv:
             df = pd.read_csv(filename, header=0, sep=',')

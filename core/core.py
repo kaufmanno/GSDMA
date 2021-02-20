@@ -127,7 +127,7 @@ class Project:
         else:
             writer = vtkX3DExporter()
             writer.SetInput(pl.renderer.GetRenderWindow())
-            filename = f'project_{self.name:s}.x3d'
+            filename = 'tmp_files/' + f'project_{self.name:s}.x3d'
             writer.SetFileName(filename)
             writer.Update()
             writer.Write()
