@@ -1,6 +1,6 @@
-from striplog import Lexicon, Striplog, Legend
+from striplog import Lexicon, Striplog, Legend, Interval, Component, Decor
 from striplog.utils import hex_to_rgb
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 import numpy as np
 import omfvista as ov
@@ -62,7 +62,7 @@ class Borehole3D(Striplog):
 
     """
 
-    def __init__(self, intervals=None, components=None, name='', legend=None, x_collar=0., y_collar=0., z_collar=0.):
+    def __init__(self, intervals=None, components=None, name='', legend=None, x_collar=0., y_collar=0., z_collar=0., diam=0.5, length=0):
         
         """
         build a Borehole3D object from Striplog.Intervals list
@@ -87,12 +87,18 @@ class Borehole3D(Striplog):
         
         z_collar : float
             Z coordinate of the borehole (default = 0)
+        
+        diam : float
+            diameter of the borehole (default = 0.5)
+            
+        length : float
+            length of the borehole (default = 0)
         """
         
         self.name = name
 
         if legend is None or not isinstance(legend, Legend):
-            print("No legend given or incorrect format ! A default legend will be used")
+            print("No given legend or incorrect format ! A default legend will be used")
             self.legend = Legend.default()
         else:
             self.legend = legend
@@ -100,14 +106,21 @@ class Borehole3D(Striplog):
         self.x_collar = x_collar
         self.y_collar = y_collar
         self.z_collar = z_collar
+        if diam is not None:
+            self.diameter=diam
+        self.length=length
         self.omf_legend, self.omf_cmap = striplog_legend_to_omf_legend(self.legend)
 
-        if intervals is None:
+        if intervals is None and length==0:
+            print("Cannot create a borehole without length and interval !")
+        
+        if intervals is None and length!=0:
             lexicon = Lexicon.default()
-            with open(ROOT_DIR + '/data/test.las', 'r') as las3:
-                default_intv = Striplog.from_las3(las3.read(), lexicon)
-                intervals = list(default_intv)
-            print("No intervals given, pay attention that default intervals are actually used !\n")
+            intervals=[Interval(top=0, base=length, description='sand', lexicon=lexicon)]
+            #with open(ROOT_DIR + '/data/test.las', 'r') as las3:
+            #default_intv = Striplog.from_las3(las3.read(), lexicon)
+            #    intervals = list(default_intv)
+            print("No intervals given, pay attention that default interval is actually used !\n")
             
         self.intervals = intervals
         self.geometry = []
@@ -173,6 +186,7 @@ class Borehole3D(Striplog):
                 base = vertices.index(i.base)
 
             segments.append([top, base])
+        
 
         vertices = np.array(vertices)
 
@@ -197,7 +211,7 @@ class Borehole3D(Striplog):
       #  return self.plot(legend=legend, ax=ax[0]), self.legend.plot(ax=ax[1])
     
 
-    def plot3d(self, plotter=None, x3d=False, radius=3):
+    def plot3d(self, plotter=None, x3d=False, diam=None):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -209,7 +223,11 @@ class Borehole3D(Striplog):
         x3d : bool
             if True, generates a 3xd file of the 3D (default=False)
         """
-        
+        if diam is None and self.diameter==0:
+            diam=0.5
+        elif diam is None and self.diameter!=0:
+            diam = self.diameter
+            
         omf_legend, _ = striplog_legend_to_omf_legend(self.legend)
 
         if plotter is None:
@@ -221,7 +239,7 @@ class Borehole3D(Striplog):
         seg = ov.line_set_to_vtk(self.geometry)
         seg.set_active_scalars('component')
         ov.lineset.add_data(seg, self.geometry.data)
-        plotter.add_mesh(seg.tube(radius=radius), cmap=self.omf_cmap)
+        plotter.add_mesh(seg.tube(radius=diam), cmap=self.omf_cmap)
         
         if show and not x3d:
             plotter.show()
@@ -236,10 +254,33 @@ class Borehole3D(Striplog):
                        '<title>X3D scene</title>\n <p>' \
                        '<script type=\'text/javascript\' src=\'http://www.x3dom.org/download/x3dom.js\'> </script>\n' \
                        '<link rel=\'stylesheet\' type=\'text/css\' href=\'http://www.x3dom.org/download/x3dom.css\'/>\n' \
-                       '</head>\n<body>\n<p>\n For interaction, click in the view and press "a" to see the whole scene. For more info on interaction,' \
+                       '</head>\n<body>\n<p>\n For interaction, click in the view and press "a" or "i" to see the whole scene, "d" to display info, "space" for shortcuts. For more info on interaction,' \
                        ' please read  <a href="https://doc.x3dom.org/tutorials/animationInteraction/navigation/index.html">the docs</a>  \n</p>\n' \
                        '<x3d width=\'968px\' height=\'600px\'>\n <scene>\n' \
                        '<viewpoint position="-1.94639 1.79771 -2.89271" orientation="0.03886 0.99185 0.12133 3.75685">' \
                        '</viewpoint>\n <Inline nameSpaceName="Borehole" mapDEFToID="true" url="' + filename + '" />\n' \
                                                                                                               '</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
+
+    def log_plot(self, figsize=(6,6), legend=None, text_size=20, width=3):
+        if legend is None:
+            legend=self.legend
+            
+        plot_decors=[] # list of decors to build a own legend for the borehole
+        bh_litho=[] # list of lithologies in the borehole
+        
+        for i in self.intervals:
+            bh_litho.append(i.primary.lithology)
+        
+        for i in legend:
+            if i.component.lithology in bh_litho:
+                plot_decors.append(i)
+                i.width=width
+        plot_legend=Legend(plot_decors)
+        
+        fig, ax = plt.subplots(ncols=2, figsize=figsize)
+        ax[0].set_title(self.name, size=text_size, color='b')
+        self.plot(legend=plot_legend, ax=ax[0])
+        ax[1].set_title('Legend', size=15, color='r')
+        plot_legend.plot(ax=ax[1])
+        

@@ -13,8 +13,12 @@ class BoreholeOrm(Base):
     Attributes
     -----------
     id : str
-         The id of the borehole.
-        
+         The id of the borehole
+    legnth : float
+         The length of the borehole    
+    diameter : float
+         The diameter of the borehole
+         
     See Also
     ---------
     IntervalOrm : Relationship one to many with the IntervalOrm table.
@@ -23,12 +27,16 @@ class BoreholeOrm(Base):
     __tablename__ = 'Boreholes'
     
     id = Column(String(32), primary_key=True)
+    length = Column(Float(64), default=0.)
+    diameter = Column(Float(64), default=0.)
     intervals = relationship('IntervalOrm', collection_class=attribute_mapped_collection('id'),
         cascade='all, delete-orphan')
-    intervals_values = association_proxy('intervals', 'value', creator=lambda k, v: IntervalOrm(
-        id=k, 
-        description=v['description'], 
-        interval_number=v['interval_number'],top=v['top'], base=v['base']))
+    intervals_values = association_proxy('intervals', 'value', creator=lambda k, v: IntervalOrm(id=k, description=v['description'], interval_number=v['interval_number'], top=v['top'], base=v['base']))
+    
+    def __repr__(self):
+        obj_class=str(self.__class__).strip('"<class>"').strip("' ")
+        return f"<{obj_class}>(id={self.id}, length={self.length},\
+ diameter={self.diameter}, intervals={len(self.intervals)})"
 
 class PositionOrm(Base):
     """The Position table

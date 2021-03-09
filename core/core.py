@@ -47,23 +47,25 @@ class Project:
         self.legend = legend
         self.refresh(update_3d=True)
 
-    def refresh(self, update_3d=False):
+    def refresh(self, update_3d=False, verbose=False):
         """
         read Boreholes in the database and updates 3D boreholes
         
         Parameters
         -----------
         update_3d : bool
-            if True, updates Striplog/OMF 3D boreholes (default=True)
+            if True, updates Striplog/OMF 3D boreholes (default=False)
         """
         
         self.boreholes = self.session.query(BoreholeOrm).all()
+        
         if update_3d:
             self.boreholes_3d = []
             for bh in self.boreholes:
-                list_of_intervals = get_interval_list(bh)
-                print(list_of_intervals)
-                self.boreholes_3d.append(Borehole3D(intervals=list_of_intervals, legend=self.legend))
+                list_of_intervals, bh.length = get_interval_list(bh)
+                if verbose:
+                    print(bh.id, " added")
+                self.boreholes_3d.append(Borehole3D(intervals=list_of_intervals, legend=self.legend, diam=bh.diameter, length=bh.length))
 
     def commit(self):
         'Validate all modifications done in the project'
@@ -76,20 +78,20 @@ class Project:
         Parameters
         -----------
         bh : list
-            list of Boreholes objects
+            list of BoreholeOrm objects
             
         See Also
         ---------
-        BoreholeORM : ORM borehole object
+        BoreholeOrm : ORM borehole object
         Borehole3D : Striplog/OMF borehole object
         """
         
         self.session.add(bh)
         self.commit()
         self.refresh()
-        list_of_intervals = get_interval_list(bh)
-        self.boreholes_3d.append(Borehole3D(intervals=list_of_intervals, legend=self.legend))
-
+        list_of_intervals, bh.length = get_interval_list(bh)
+        self.boreholes_3d.append(Borehole3D(intervals=list_of_intervals, legend=self.legend, diam=bh.diameter, length=bh.length))
+            
     def add_components(self, components):
         """
         Add a list of Components to the project
@@ -107,10 +109,12 @@ class Project:
         for comp_id in components.keys():
             new_component = ComponentOrm(id=comp_id, description=components[comp_id].summary())
             self.session.add(new_component)
+            
         self.commit()
         self.refresh()
+  
 
-    def plot3d(self, x3d=False, radius=3):
+    def plot3d(self, x3d=False):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -121,7 +125,8 @@ class Project:
         """
         pl = pv.Plotter()
         for bh in self.boreholes_3d:
-            bh.plot3d(plotter=pl, radius=radius)
+            bh.plot3d(plotter=pl)
+            
         if not x3d:
             pl.show()
         else:
@@ -135,10 +140,10 @@ class Project:
                        '<title>X3D scene</title>\n <p>' \
                        '<script type=\'text/javascript\' src=\'http://www.x3dom.org/download/x3dom.js\'> </script>\n' \
                        '<link rel=\'stylesheet\' type=\'text/css\' href=\'http://www.x3dom.org/download/x3dom.css\'/>\n' \
-                       '</head>\n<body>\n<p>\n For interaction, click in the view and press "a" to see the whole scene. For more info on interaction,' \
+                       '</head>\n<body>\n<p>\n For interaction, click in the view and press "a" or "i" to see the whole scene, "d" to display info, "space" for shortcuts. For more info on interaction,' \
                        ' please read  <a href="https://doc.x3dom.org/tutorials/animationInteraction/navigation/index.html">the docs</a>  \n</p>\n' \
                        '<x3d width=\'968px\' height=\'600px\'>\n <scene>\n' \
-                       '<viewpoint position="-1.94639 1.79771 -2.89271" orientation="0.03886 0.99185 0.12133 3.75685">' \
+                       '<viewpoint position="388.57 396.244 -26.473" orientation="0.421 0.575 0.700 2.546">' \
                        '</viewpoint>\n <Inline nameSpaceName="Borehole" mapDEFToID="true" url="' + filename + '" />\n' \
                        '</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)

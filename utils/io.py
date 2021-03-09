@@ -2,11 +2,13 @@ import re
 import numpy as np
 import geopandas as gpd
 import pandas as pd
+from shapely.geometry import Point
 from shapely import wkt
 from striplog import Striplog, Lexicon
 from core.orm import BoreholeOrm, PositionOrm
 from definitions import ROOT_DIR
-
+from ipywidgets import interact, IntSlider
+from IPython.display import display 
 
 
 def striplog_from_text(filename, lexicon=None):
@@ -51,7 +53,7 @@ def striplog_from_text(filename, lexicon=None):
     return strip
 
 
-def boreholes_from_files(borehole_dict=None, x=None, y=None, verbose=0):
+def boreholes_from_files(borehole_dict=None, x=None, y=None, verbose=False):
     """Creates a list of BoreholeORM objects from flat text or las files
     
     Parameters
@@ -64,8 +66,8 @@ def boreholes_from_files(borehole_dict=None, x=None, y=None, verbose=0):
     y : list of float
         Y coordinates
     
-    verbose : int
-        allow verbose option if set = 1
+    verbose : Bool
+        allow verbose option if set = True
                     
                     
     Returns
@@ -96,6 +98,8 @@ def boreholes_from_files(borehole_dict=None, x=None, y=None, verbose=0):
         y = [0., 40., 50, 2] 
     else : 
         y=y  
+    
+    if (borehole_dict is None): print("Error! Borehole dict not given.")
 
     while (borehole_dict is not None) and bh_id<len(borehole_dict):
         for bh, filename in borehole_dict.items():
@@ -122,7 +126,7 @@ def boreholes_from_files(borehole_dict=None, x=None, y=None, verbose=0):
                 int_id += 1
                 pos_id += 2
                 
-            if verbose==1: print(d)
+            if verbose: print(d)
             
             boreholes[bh_id].intervals_values = d
             bh_id += 1
@@ -166,13 +170,11 @@ def boreholes_from_files(borehole_dict=None, x=None, y=None, verbose=0):
                 int_id += 1
                 pos_id += 2
 
-            if verbose==1: print(d)
+            if verbose: print(d)
 
             boreholes[bh_id].intervals_values = d
             bh_id += 1 
         components = {v:k for k,v in component_dict.items()}
-        
-    if (borehole_dict is None): print("Error! Borehole dict not given.")
 
     return boreholes, components
 
@@ -320,4 +322,70 @@ def export_gdf(gdf, epsg, save_name=None):
         print(f'{save_name}'+" has been saved !" )
     else:
         print(f'file\'s name extension not given or incorrect, please choose (.json, .gpkg, .csv)')
+        
             
+def gdf_viewer(df, rows=10, cols=14, step_r=1, step_c=1, un_val=None):# Afficher les dataframes au moyen d'un widget (affichage dynamique)
+      
+    if un_val is None:
+        print(f'Rows : {df.shape[0]}, columns : {df.shape[1]}')
+    else:
+        print(f"Rows : {df.shape[0]}, columns : {df.shape[1]}, Unique on '{un_val}': {len(set(df[un_val]))}")
+    
+    @interact(last_row=IntSlider(min=min(rows, df.shape[0]),max=df.shape[0],step=step_r,description='rows',
+                                 readout=False,disabled=False,continuous_update=True,orientation='horizontal',
+                                 slider_color='blue'),
+              
+              last_column=IntSlider(min=min(cols, df.shape[1]),max=df.shape[1],step=step_c,
+                                    description='columns',readout=False,disabled=False,continuous_update=True,
+                                    orientation='horizontal',slider_color='blue'))
+    
+    def _freeze_header(last_row, last_column):
+        display(df.iloc[max(0, last_row-rows):last_row,
+                        max(0, last_column-cols):last_column])
+
+        
+def genID_dated(gdf, col='Ref', datedef='No_date', datecol=None):
+    """
+    Generate a Id-dated reference for a (geo)dataframe
+    
+    Parameters
+    -----------
+
+    gdf : pandas.(Geo)Dataframe
+    col : Reference column
+    datedef : Default data's date
+    datecol: Column containing dates
+    """
+    print('Generation of ID-dated...')
+    
+    if 'Date' in gdf.columns and datedef=='No_date' and datecol is None:
+        print("Using 'Date' column in the (geo)dataframe !")
+        #gdf[col] = gdf['Date'].apply(lambda x : str(x.year))+ '-' + gdf[col].apply(lambda x : str(x))
+        Id=[]
+        for Idx, row in gdf.iterrows():
+            if not pd.isnull(row['Date'].year):
+                Id.append(str(row['Date'].year)+'-'+str(row[col]))
+            else:
+                Id.append(row[col])
+
+        gdf[col]=Id
+        
+    elif datedef!='No_date':
+        print("Using default date given !")
+        gdf[col] = datedef + '-' + gdf[col].apply(lambda x : str(x))
+        
+    elif datecol is not None:
+        print("Using column '", datecol, "' in the (geo)dataframe !")
+        gdf[col] = gdf[datecol].apply(lambda x : str(x.year))+ '-' + gdf[col].apply(lambda x : str(x))
+        
+    else:
+        print("No date given and no column 'Date' is the (geo)dataframe, Process cancelled !")
+        
+    return gdf[col]       
+
+        
+def gdf_geom(gdf):
+    geom = gpd.GeoSeries(gdf.apply(lambda x: Point(x['X'], x['Y']),1),crs={'init': 'epsg:31370'})
+    gdf = gpd.GeoDataFrame(gdf, geometry=geom, crs="EPSG:31370")
+    
+    return gdf.head(5) 
