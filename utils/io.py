@@ -1,14 +1,169 @@
 import re
+from os import walk
 import numpy as np
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point
 from shapely import wkt
-from striplog import Striplog, Lexicon
+from striplog import Striplog, Lexicon, Interval
 from core.orm import BoreholeOrm, PositionOrm
 from definitions import ROOT_DIR
 from ipywidgets import interact, IntSlider
 from IPython.display import display 
+
+
+def files_read(fdir, crit_col, columns=None):
+
+    flist,files_interest=[],[]
+    
+    for path, dirs, files in walk(fdir):
+            for f in files:
+                if f[0]!='.' and re.compile(r".+\.(csv)").match(f) and f is not None:
+                    flist.append('{}'.format(path+f))
+    
+    a,f=0,0
+    df_all=pd.DataFrame()
+    
+    for fl in flist:
+        f+=1 #files counter
+        header=[]
+        df=pd.read_csv(fl)
+        if columns is None:
+            columns=list(df.columns)
+            
+        for i in df.columns:
+            if i in columns:
+                header.append(i)
+        #for col in crit_col: #use list of criteria
+        #    print(col)
+            
+        if crit_col in header:
+            a+=1 #files used counter
+            print("--> ",fl.strip(fdir),f"({len(df)}lines)")
+            #print("--> ",fl.strip(fdir),'\n\t',header,f'({len(df)} lines)')
+            files_interest.append(fl)
+
+            df_all=df_all.append(df[header])
+            df_all.reset_index(inplace=True, drop=True)
+            #df_all.fillna('', inplace=True)
+            
+            if 'ID' in df_all.columns:
+                df_all['ID']=df_all['ID'].astype(str)
+            if 'X' in df_all.columns:
+                df_all['X']=df_all['X'].apply(lambda x :\
+    x if isinstance(x, float) else float(x.replace(',','.')))
+                df_all['Y']=df_all['Y'].apply(lambda x :\
+    x if isinstance(x, float) else float(x.replace(',','.')))
+                df_all['Z']=df_all['Z'].apply(lambda x :\
+    x if isinstance(x, float) else float(x.replace(',','.')))
+                
+        elif crit_col not in header:
+            print(f"criteria column not found in file {f} headers : extraction cancelled !")
+    
+    #print("\ndataframe lines before _gdf_geom_:", len(df_all))
+    if 'X' in df_all.columns:
+        df_all=gpd.GeoDataFrame(df_all, geometry=gpd.points_from_xy(df_all.X, df_all.Y, crs=str('EPSG:31370')))
+    
+    print("\n",f"The overall dataframe contains {len(df_all)} lines.",\
+         a,"files used")
+    return df_all
+
+def striplog_from_df(df, bh_name=None, litho_col=None, thick_col=None, 
+                     lexicon=None, use_default=True, verbose=False, query=True):
+    """ 
+    creates a Striplog object from a dataframe
+    
+    Parameters
+    ----------
+    df : Pandas.DataFrame
+        dataframe that contains boreholes data
+        
+    litho_col : str
+        dataframe column that contains lithology or description text (default:None)
+    
+    thick_col : str
+        dataframe column that contains lithology thickness (default:None)
+        
+    Lexicon : dict
+        A vocabulary for parsing lithologic or stratigraphic descriptions
+        (set to Lexicon.default() if lexicon is None)
+              
+    Returns
+    -------
+    strip : dict of striplog objects
+    
+    """
+    strip={}
+    if lexicon is None:
+        lexicon = Lexicon.default()
+    
+    def process(df,bh_name,litho_col,thick_col,lexicon,use_default,verbose,query):
+        bh_list=[]
+        
+        for i in range(0,len(df)):
+            if bh_name is not None and bh_name in df.columns:
+                bh_id=bh_name
+            else:
+                bh_id=df.loc[i, 'ID']
+                
+            if bh_id not in bh_list:
+                bh_list.append(bh_id)
+                if query:
+                    sql=f'ID=="{bh_id}"'
+                    tmp=df.query(sql).copy() # divide and work fast ;)
+                    tmp.reset_index(drop=True, inplace=True)
+                else:
+                    tmp=df
+
+                intervals=[]
+                for j in range(0,len(tmp)):
+                    if litho_col is None:
+                        litho='white sand'
+                    elif litho_col in list(tmp.columns):
+                        litho=tmp.loc[j,litho_col]
+                    
+                    if thick_col is not None and thick_col in list(tmp.columns):    
+                        length=tmp.loc[j, thick_col]
+                    else:
+                        if use_default:
+                            if verbose: print(f"|__ID:'{bh_id}' -- No length provide, treated with default (length=3)")
+                            length=3
+                        else:
+                            length=0
+
+                    if 'Top' in list(tmp.columns):    
+                        top=tmp.loc[j, 'Top']
+                    else:
+                        top=0
+
+                    if 'Base' in list(tmp.columns):    
+                        base=tmp.loc[j, 'Base']
+                    else:
+                        base=length
+                    
+                    if base!=0:
+                        intervals=intervals+[Interval(top=top, base=base, 
+                                                  description=litho, 
+                                                  lexicon=lexicon)]
+                
+                if len(intervals)!=0:
+                    if verbose: print(f"|__ID:'{bh_id}' -- No lithology data, treated with default ('sand')")  
+                    strip.update({bh_id:Striplog(list_of_Intervals=intervals)})
+                else:
+                    print(f"|__ID:'{bh_id}' -- Cannot create a striplog, no interval (length or base = 0)")
+        return strip
+    
+    if litho_col is None:
+        process(df,bh_name,litho_col,thick_col,lexicon,use_default,verbose,query)
+    
+    if litho_col in list(df.columns):
+        process(df,bh_name,litho_col,thick_col,lexicon,use_default,verbose,query)
+        
+    elif litho_col is not None and litho_col not in list(df.columns):
+        print("Error! The dataframe's columns don't match for striplog creation !")
+        strip={}
+
+    return strip
 
 
 def striplog_from_text(filename, lexicon=None):
@@ -48,13 +203,14 @@ def striplog_from_text(filename, lexicon=None):
 
     else:
         print("Error! Please check the file extension !")
-        raise
+        #raise
 
     return strip
 
 
-def boreholes_from_files(borehole_dict=None, x=None, y=None, verbose=False):
-    """Creates a list of BoreholeORM objects from flat text or las files
+def boreholes_from_files(borehole_dict=None, x=None, y=None, verbose=False, use_default=True):
+    """Creates a list of BoreholeORM objects from a list of dataframes 
+        or dict of boreholes files (flat text or las files)
     
     Parameters
     ----------
@@ -68,7 +224,9 @@ def boreholes_from_files(borehole_dict=None, x=None, y=None, verbose=False):
     
     verbose : Bool
         allow verbose option if set = True
-                    
+    
+    use_default : Bool
+        allow use default when values not available if set = True
                     
     Returns
     -------
@@ -88,6 +246,7 @@ def boreholes_from_files(borehole_dict=None, x=None, y=None, verbose=False):
     comp_id = 0
     component_dict={}
     pos_dict = {}
+    df=0
     
     if x is None:
         x = [0., 20., 5, 10] 
@@ -99,82 +258,180 @@ def boreholes_from_files(borehole_dict=None, x=None, y=None, verbose=False):
     else : 
         y=y  
     
-    if (borehole_dict is None): print("Error! Borehole dict not given.")
+    if (borehole_dict is None): print("Error! Borehole dictionary not given.")
 
-    while (borehole_dict is not None) and bh_id<len(borehole_dict):
-        for bh, filename in borehole_dict.items():
-            interval_number = 0
-            boreholes.append(BoreholeOrm(id=bh))
-            strip = striplog_from_text(filename)
+    if isinstance(borehole_dict, dict):
+        while (borehole_dict is not None) and bh_id<len(borehole_dict):
+            print("\nFile",bh_id,"processing...\n================================")
+            for bh, filename in borehole_dict.items():
+                interval_number = 0
+                boreholes.append(BoreholeOrm(id=bh))
+                strip = striplog_from_text(filename)                  
+
+                for c in strip.components:
+                    if c not in component_dict.keys():
+                        component_dict.update({c: comp_id})
+                        comp_id += 1
+
+                d = {}
+
+                for interval in strip:
+                    top = PositionOrm(id=pos_id, upper=interval.top.upper, 
+                                      middle=interval.top.middle,
+                                      lower=interval.top.lower, 
+                                      x=x[bh_id], y=y[bh_id])
+
+                    base = PositionOrm(id=pos_id + 1, upper=interval.base.upper,
+                                       middle=interval.base.middle, 
+                                       lower=interval.base.lower, 
+                                       x=x[bh_id], y=y[bh_id])
+
+                    d.update({int_id: {'description': interval.description, 
+                                       'interval_number': interval_number,
+                                       'top': top, 'base': base
+                                      }})
+
+                    interval_number += 1
+                    int_id += 1
+                    pos_id += 2
+
+                if verbose: print(d)
+
+                boreholes[bh_id].intervals_values = d
+                bh_id += 1
+            components = {v: k for k, v in component_dict.items()}
+
+        else :
+            pos=bh_id
+            for pos in np.arange(bh_id, len(x)) :
+                bh=f'F{bh_id+1}'
+
+                filename=borehole_dict.setdefault('F1') #default filename used
+
+                interval_number = 0
+                boreholes.append(BoreholeOrm(id=bh))
+                if filename is not None or filename!='':
+                    strip=striplog_from_text(filename)
+
+                for c in strip.components:
+                    if c not in component_dict.keys():
+                        component_dict.update({c:comp_id})
+                        comp_id += 1
+                d ={}
+                for interval in strip:
+                    top = PositionOrm(id=pos_id, upper=interval.top.upper, 
+                                      middle=interval.top.middle,  
+                                      lower=interval.top.lower, 
+                                      x=x[bh_id], y=y[bh_id])
+
+                    base = PositionOrm(id=pos_id+1, upper=interval.base.upper, 
+                                       middle=interval.base.middle,  
+                                       lower=interval.base.lower, 
+                                       x=x[bh_id], y=y[bh_id])
+
+                    d.update({int_id:{'description':interval.description, 
+                                      'interval_number' : interval_number, 
+                                      'top': top, 'base': base 
+                                     }})
+
+                    interval_number+=1
+                    int_id += 1
+                    pos_id += 2
+
+                if verbose: print(d,"\n")
+
+                boreholes[bh_id].intervals_values = d
+                bh_id += 1 
+            components = {v:k for k,v in component_dict.items()}
             
-            for c in strip.components:
-                if c not in component_dict.keys():
-                    component_dict.update({c: comp_id})
-                    comp_id += 1
+   #-----------------------------------dfs------------------------------------------#  
+     
+    if isinstance(borehole_dict, list):
+        if len(borehole_dict)==0 : print("Error ! Cannot create boreholes with empty list or dict")
 
-            d = {}
-            
-            for interval in strip:
-                top = PositionOrm(id=pos_id, upper=interval.top.upper, middle=interval.top.middle,
-                                  lower=interval.top.lower, x=x[bh_id], y=y[bh_id])
-                
-                base = PositionOrm(id=pos_id + 1, upper=interval.base.upper, middle=interval.base.middle, lower=interval.base.lower, x=x[bh_id], y=y[bh_id])
-                
-                d.update({int_id: {'description': interval.description, 'interval_number': interval_number, 'top': top, 'base': base}})
-                
-                interval_number += 1
-                int_id += 1
-                pos_id += 2
-                
-            if verbose: print(d)
-            
-            boreholes[bh_id].intervals_values = d
-            bh_id += 1
-        components = {v: k for k, v in component_dict.items()}
-        
-   
-    else :
-        pos=bh_id
-        for pos in np.arange(bh_id, len(x)) :
-            bh=f'F{bh_id+1}'
-            
-            filename=borehole_dict.setdefault('F1') #default filename used
+        while (borehole_dict is not None) and df<len(borehole_dict):
+            print("\nDatraframe",df,"processing...\n================================")
+            id_list=[]
+            dict_bh=0
 
-            interval_number = 0
-            boreholes.append(BoreholeOrm(id=bh))
+            x=borehole_dict[df].X
+            y=borehole_dict[df].Y
+            if 'Diam' in borehole_dict[df].columns:
+                diam=borehole_dict[df].Diam
+            elif 'Diameter' in borehole_dict[df].columns:
+                diam=borehole_dict[df].Diameter
 
-            strip=striplog_from_text(filename)
+            if 'Long' in borehole_dict[df].columns:
+                length=borehole_dict[df].Long
+            elif 'Length' in borehole_dict[df].columns:
+                length=borehole_dict[df].Length
 
-            for c in strip.components:
-                if c not in component_dict.keys():
-                    component_dict.update({c:comp_id})
-                    comp_id += 1
-            d ={}
-            for interval in strip:
-                top = PositionOrm(id=pos_id, upper=interval.top.upper, 
-                                  middle=interval.top.middle,  
-                                  lower=interval.top.lower, 
-                                  x=x[bh_id], y=y[bh_id])
+            for i,j in borehole_dict[df].iterrows():
+                id_=j['ID']
 
-                base = PositionOrm(id=pos_id+1, upper=interval.base.upper, 
-                                   middle=interval.base.middle,  
-                                   lower=interval.base.lower, 
-                                   x=x[bh_id], y=y[bh_id])
+                if id_ not in id_list:
+                    id_list.append(id_)
+                    interval_number=0
 
-                d.update({int_id:{'description':interval.description, 
-                                  'interval_number' : interval_number, 
-                                  'top': top, 'base': base 
-                                 }})
+                    sql=f'ID=="{id_}"'
+                    tmp=borehole_dict[df].query(sql).copy() # divide and work fast ;)
+                    tmp.reset_index(drop=True, inplace=True)
+                    strip=striplog_from_df(tmp, bh_name=id_, 
+                                           use_default=use_default, 
+                                           verbose=verbose,query=False)
 
-                interval_number+=1
-                int_id += 1
-                pos_id += 2
+                    boreholes.append(BoreholeOrm(id=id_))           
 
-            if verbose: print(d)
+                    for k,v in strip.items():
+                        for c in v.components:
+                            if c not in component_dict.keys():
+                                component_dict.update({c: comp_id})
+                                comp_id += 1
 
-            boreholes[bh_id].intervals_values = d
-            bh_id += 1 
-        components = {v:k for k,v in component_dict.items()}
+                        d = {}
+
+                        for interval in v:
+                            #print(interval)
+                            top = PositionOrm(id=pos_id, upper=interval.top.upper, 
+                                              middle=interval.top.middle,
+                                              lower=interval.top.lower,
+                                              x=x[dict_bh], y=y[dict_bh]
+                                             )
+
+                            base = PositionOrm(id=pos_id + 1, upper=interval.base.upper, 
+                                               middle=interval.base.middle, 
+                                               lower=interval.base.lower, 
+                                               x=x[dict_bh], y=y[dict_bh]
+                                              )
+
+                            d.update({int_id: {'description': interval.description, 
+                                               'interval_number': interval_number, 
+                                               'top': top, 'base': base}
+                                     })
+
+                            interval_number += 1
+                            int_id += 1
+                            pos_id += 2
+                        
+                        if verbose: print(d,"\n")
+                        if dict_bh<len(boreholes): 
+                            boreholes[dict_bh].intervals_values = d
+                            boreholes[dict_bh].length = length[dict_bh]
+                            boreholes[dict_bh].diameter = diam[dict_bh]
+
+                        dict_bh += 1
+
+                else:
+                    if verbose:print(f"|__ID '{id_}' already treated, skip")
+
+                components = {v: k for k, v in component_dict.items()}
+
+            print(f"\nEnd of the process : {len(id_list)} unique ID found")
+            df+=1
+
+    elif not isinstance(borehole_dict, dict) or isinstance(borehole_dict, list):
+        print('Error! Only take a dict or a dataframe to work !')
+    
 
     return boreholes, components
 
@@ -324,21 +581,23 @@ def export_gdf(gdf, epsg, save_name=None):
         print(f'file\'s name extension not given or incorrect, please choose (.json, .gpkg, .csv)')
         
             
-def gdf_viewer(df, rows=10, cols=14, step_r=1, step_c=1, un_val=None):# Afficher les dataframes au moyen d'un widget (affichage dynamique)
+def gdf_viewer(df, rows=10, cols=14, step_r=1, step_c=1, un_val=None):# display dataframes with  a widget
       
     if un_val is None:
         print(f'Rows : {df.shape[0]}, columns : {df.shape[1]}')
     else:
         print(f"Rows : {df.shape[0]}, columns : {df.shape[1]}, Unique on '{un_val}': {len(set(df[un_val]))}")
     
-    @interact(last_row=IntSlider(min=min(rows, df.shape[0]),max=df.shape[0],step=step_r,description='rows',
-                                 readout=False,disabled=False,continuous_update=True,orientation='horizontal',
-                                 slider_color='blue'),
-              
-              last_column=IntSlider(min=min(cols, df.shape[1]),max=df.shape[1],step=step_c,
-                                    description='columns',readout=False,disabled=False,continuous_update=True,
-                                    orientation='horizontal',slider_color='blue'))
-    
+    @interact(last_row=IntSlider(min=min(rows, df.shape[0]),max=df.shape[0],
+                                 step=step_r,description='rows',readout=False,
+                                 disabled=False,continuous_update=True,
+                                 orientation='horizontal',slider_color='blue'),
+              last_column=IntSlider(min=min(cols, df.shape[1]),
+                                    max=df.shape[1],step=step_c,
+                                    description='columns',readout=False,
+                                    disabled=False,continuous_update=True,
+                                    orientation='horizontal',slider_color='blue')
+             )
     def _freeze_header(last_row, last_column):
         display(df.iloc[max(0, last_row-rows):last_row,
                         max(0, last_column-cols):last_column])
@@ -385,7 +644,9 @@ def genID_dated(gdf, col='Ref', datedef='No_date', datecol=None):
 
         
 def gdf_geom(gdf):
-    geom = gpd.GeoSeries(gdf.apply(lambda x: Point(x['X'], x['Y']),1),crs={'init': 'epsg:31370'})
-    gdf = gpd.GeoDataFrame(gdf, geometry=geom, crs="EPSG:31370")
+    #geom = gpd.GeoSeries(gdf.apply(lambda x: Point(x['X'], x['Y']),1),crs={'init': 'epsg:31370'})
+    #gdf = gpd.GeoDataFrame(gdf, geometry=geom, crs="EPSG:31370")
     
-    return gdf.head(5) 
+    gdf= gpd.GeoDataFrame(gdf, geometry=gpd.points_from_xy(gdf.X, gdf.Y, crs=str('EPSG:31370')))
+    
+    return gdf

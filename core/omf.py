@@ -106,8 +106,7 @@ class Borehole3D(Striplog):
         self.x_collar = x_collar
         self.y_collar = y_collar
         self.z_collar = z_collar
-        if diam is not None:
-            self.diameter=diam
+        self.diameter=0.5
         self.length=length
         self.omf_legend, self.omf_cmap = striplog_legend_to_omf_legend(self.legend)
 
@@ -116,7 +115,7 @@ class Borehole3D(Striplog):
         
         if intervals is None and length!=0:
             lexicon = Lexicon.default()
-            intervals=[Interval(top=0, base=length, description='sand', lexicon=lexicon)]
+            intervals=[Interval(top=0, base=length, description='white sand', lexicon=lexicon)]
             #with open(ROOT_DIR + '/data/test.las', 'r') as las3:
             #default_intv = Striplog.from_las3(las3.read(), lexicon)
             #    intervals = list(default_intv)

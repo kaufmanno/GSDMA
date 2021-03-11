@@ -143,7 +143,7 @@ class Project:
                        '</head>\n<body>\n<p>\n For interaction, click in the view and press "a" or "i" to see the whole scene, "d" to display info, "space" for shortcuts. For more info on interaction,' \
                        ' please read  <a href="https://doc.x3dom.org/tutorials/animationInteraction/navigation/index.html">the docs</a>  \n</p>\n' \
                        '<x3d width=\'968px\' height=\'600px\'>\n <scene>\n' \
-                       '<viewpoint position="388.57 396.244 -26.473" orientation="0.421 0.575 0.700 2.546">' \
+                       '<viewpoint position="152919.656 122576.828 36.522" orientation="0.5537 0.1614 0.81692 1.4642">' \
                        '</viewpoint>\n <Inline nameSpaceName="Borehole" mapDEFToID="true" url="' + filename + '" />\n' \
                        '</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
