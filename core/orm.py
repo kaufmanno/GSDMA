@@ -1,11 +1,11 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, Float, Boolean, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, synonym
+from sqlalchemy.orm import relationship, synonym, backref
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.ext.associationproxy import association_proxy
 
 Base = declarative_base()
-#http://localhost:8888/edit/core/orm.py#
+
 
 class BoreholeOrm(Base):
     """The Boreholes Info table
@@ -14,7 +14,7 @@ class BoreholeOrm(Base):
     -----------
     id : str
          The id of the borehole
-    legnth : float
+    length : float
          The length of the borehole    
     diameter : float
          The diameter of the borehole
@@ -31,12 +31,16 @@ class BoreholeOrm(Base):
     diameter = Column(Float(64), default=0.)
     intervals = relationship('IntervalOrm', collection_class=attribute_mapped_collection('id'),
         cascade='all, delete-orphan')
-    intervals_values = association_proxy('intervals', 'value', creator=lambda k, v: IntervalOrm(id=k, description=v['description'], interval_number=v['interval_number'], top=v['top'], base=v['base']))
+    intervals_values = association_proxy('intervals', 'value',
+                                         creator=lambda k, v:
+                                         IntervalOrm(id=k, description=v['description'],
+                                                     interval_number=v['interval_number'],
+                                                     top=v['top'], base=v['base']))
     
     def __repr__(self):
         obj_class=str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}>(id={self.id}, length={self.length},\
- diameter={self.diameter}, intervals={len(self.intervals)})"
+        return f"<{obj_class}>(id={self.id}, length={self.length}, diameter={self.diameter}, intervals={len(self.intervals)})"
+
 
 class PositionOrm(Base):
     """The Position table
@@ -124,7 +128,7 @@ class ComponentOrm(Base):
     """
     __tablename__ = 'Components'
     
-    id = Column(String(32), primary_key=True)
+    id = Column(Integer, primary_key=True)
     intervals = relationship(IntervalOrm, secondary='Linkintervalcomponent')
     description = Column(String(32))
 
@@ -144,3 +148,6 @@ class LinkIntervalComponentOrm(Base):
 
     int_id = Column(Integer, ForeignKey('Intervals.id'), primary_key=True)
     comp_id = Column(Integer, ForeignKey('Components.id'), primary_key=True)
+    extra_data = Column(String(256))
+    component = relationship(ComponentOrm, backref=backref("component_assoc"))
+    interval = relationship(IntervalOrm, backref=backref("interval_assoc"))

@@ -1,4 +1,4 @@
-from core.orm import BoreholeOrm, ComponentOrm
+from core.orm import BoreholeOrm, ComponentOrm, LinkIntervalComponentOrm
 from core.omf import Borehole3D
 from utils.orm import get_interval_list
 from vtk import vtkX3DExporter
@@ -112,7 +112,24 @@ class Project:
             
         self.commit()
         self.refresh()
-  
+
+    def add_link_between_components_and_intervals(self, link_component_interval):
+        """
+        Add a list of Components to the project
+
+        Parameters
+        -----------
+        link_component_interval : dict
+            dict of links between Component objects and Interval objects
+
+        """
+
+        for link in link_component_interval.keys():
+             new_link = LinkIntervalComponentOrm(int_id=link[0], comp_id=link[1], **link_component_interval[link])
+             self.session.add(new_link)
+
+        self.commit()
+        self.refresh()
 
     def plot3d(self, x3d=False):
         """
