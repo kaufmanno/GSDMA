@@ -603,7 +603,7 @@ def gdf_viewer(df, rows=10, cols=14, step_r=1, step_c=1, un_val=None):# display 
                         max(0, last_column-cols):last_column])
 
         
-def genID_dated(gdf, col='Ref', datedef='No_date', datecol=None):
+def genID_dated(gdf, refcol='Ref', datecol=None, datedef='No_date'):
     """
     Generate a Id-dated reference for a (geo)dataframe
     
@@ -611,7 +611,7 @@ def genID_dated(gdf, col='Ref', datedef='No_date', datecol=None):
     -----------
 
     gdf : pandas.(Geo)Dataframe
-    col : Reference column
+    refcol : Reference column
     datedef : Default data's date
     datecol: Column containing dates
     """
@@ -619,28 +619,39 @@ def genID_dated(gdf, col='Ref', datedef='No_date', datecol=None):
     
     if 'Date' in gdf.columns and datedef=='No_date' and datecol is None:
         print("Using 'Date' column in the (geo)dataframe !")
-        #gdf[col] = gdf['Date'].apply(lambda x : str(x.year))+ '-' + gdf[col].apply(lambda x : str(x))
-        Id=[]
-        for Idx, row in gdf.iterrows():
-            if not pd.isnull(row['Date'].year):
-                Id.append(str(row['Date'].year)+'-'+str(row[col]))
-            else:
-                Id.append(row[col])
+        gdf[col] = gdf['Date'].apply(lambda x : str(x.year)+'-' if not pd.isnull(x) else '') + gdf[col].apply(lambda x : str(x) if not pd.isnull(x) else '')
+        #Id=[]
+       # for Idx, row in gdf.iterrows():
+            #if not pd.isnull(row['Date'].year):
+           #     Id.append(str(row['Date'].year)+'-'+str(row[refcol]))
+          #  else:
+         #       Id.append(row[refcol])
 
-        gdf[col]=Id
+        #gdf[refcol]=Id
+        
+        gdf['ID_date'] = gdf[datecol].apply(lambda x : str(x.year)+'-' if not pd.isnull(x) else '') + gdf[refcol].apply(lambda x : str(x) if not pd.isnull(x) else '')
+        first_column = gdf.pop('ID_date') 
+        gdf.insert(0, 'ID_date', first_column)
+        print('Process ended, check you (geo)dataframe')
         
     elif datedef!='No_date':
         print("Using default date given !")
-        gdf[col] = datedef + '-' + gdf[col].apply(lambda x : str(x))
+        gdf['ID_date'] = datedef + '-' + gdf[refcol].apply(lambda x : str(x) if not pd.isnull(x) else '')
+        first_column = gdf.pop('ID_date') 
+        gdf.insert(0, 'ID_date', first_column)
+        print('Process ended, check you (geo)dataframe')
         
     elif datecol is not None:
         print("Using column '", datecol, "' in the (geo)dataframe !")
-        gdf[col] = gdf[datecol].apply(lambda x : str(x.year))+ '-' + gdf[col].apply(lambda x : str(x))
+        gdf['ID_date'] = gdf[datecol].apply(lambda x : str(x.year)+'-' if not pd.isnull(x) else '') + gdf[refcol].apply(lambda x : str(x) if not pd.isnull(x) else '')
+        first_column = gdf.pop('ID_date') 
+        gdf.insert(0, 'ID_date', first_column) 
+        print('Process ended, check you (geo)dataframe')
         
     else:
         print("No date given and no column 'Date' is the (geo)dataframe, Process cancelled !")
         
-    return gdf[col]       
+    #return gdf[refcol]       
 
         
 def gdf_geom(gdf):
@@ -650,3 +661,79 @@ def gdf_geom(gdf):
     gdf= gpd.GeoDataFrame(gdf, geometry=gpd.points_from_xy(gdf.X, gdf.Y, crs=str('EPSG:31370')))
     
     return gdf
+
+def gdf_merger(gdf1, gdf2, how='inner', col=None, left_on=None, right_on=None):
+    """ Enhance data merging with automatic actions on dataframe after the merge
+    
+    parameters
+    ------------
+    gdf1, gdf2 : pandas (Geo)DataFrame
+    
+    how: str
+    col: str
+    left_on: str
+    rigth_on: str
+    
+    Returns
+    --------
+    gdf: merged dataframe
+    gdf_error: dataframe that contains ambiguous values encounter
+    
+    """
+    gdf=pd.DataFrame({})
+    
+    
+    def process():
+        gdf_error=pd.DataFrame({})
+        gdf=gdf1.merge(gdf2, how=how, left_on=left, right_on=right)
+
+        cols=set([gdf.columns.to_list()[x].strip('_x|_y') for x in range(len(gdf.columns)) 
+                  if re.compile(r"_x|_y").search(gdf.columns.to_list()[x])])
+        error=False
+        error_col=[]
+        error_row=[]
+        
+        for i in cols:
+            for j in range(len(gdf)):
+                if gdf.loc[j,i+'_x']==gdf.loc[j,i+'_y']:
+                    gdf.loc[j,i]=gdf.loc[j,i+'_x']
+
+                elif pd.isnull(gdf.loc[j,i+'_x']):
+                    gdf.loc[j,i]=gdf.loc[j,i+'_y']
+
+                elif pd.isnull(gdf.loc[j,i+'_y']):
+                    gdf.loc[j,i]=gdf.loc[j,i+'_x']
+                else:
+                    if i+'_x' not in error_col : error_col=error_col+[i+'_x',i+'_y']
+                    if j not in error_row : error_row=error_row+[j]
+                    error=True
+        
+        gdf.drop(columns=[gdf.columns.to_list()[x] for x in range(len(gdf.columns)) 
+                if re.compile(r"_x|_y").search(gdf.columns.to_list()[x]) 
+                and gdf.columns.to_list()[x] not in error_col],
+                axis=1, inplace=True)
+        
+        if error:
+            print('Ambiguous values in both columns compared, change it manually !')
+            print('Columns',error_col,'must be droped manually !\n')    
+            print('Creation of a dataframe for ambiguous values, check it !')
+            gdf_error=gdf.loc[error_row, [left]+error_col]
+            
+        
+        if 'Z' in gdf.columns : gdf.insert(gdf.columns.to_list().index('Y')+1, 'Z', gdf.pop('Z'))
+            
+        return gdf, gdf_error
+    
+    if col is None and left_on is not None and right_on is not None:
+        left=left_on
+        rigt=right_on
+        gdf,gdf_error=process()
+        
+    elif col is not None:
+        left=col
+        right=col
+        gdf,gdf_error=process()
+    else:
+        print("error! 'col' cannot be defined with 'left_on' or 'right_on'")
+        
+    return gdf, gdf_error
