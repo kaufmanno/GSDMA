@@ -1,0 +1,8 @@
+[{"label": "Chauffe sur toutes les cannes du simulateur", "event_start": "2018-05-29 08:00:00", "event_end": "2018-05-29 20:00:00", "facecolor": "orange", "alpha": 0.5}, 
+ {"label": "Décapage", "event_start": "2019-03-16 08:00:00", "event_end": "2019-03-18 23:59:59", "facecolor": "#63b2ef", "alpha": 0.75}, 
+ {"label": "Injection Tween 80", "event_start": "2019-04-25 10:00:00", "event_end": "2019-04-25 15:00:00", "facecolor": "#2ca02c", "alpha": 0.5}, 
+ {"label": "Forage série 100", "event_start": "2019-09-23 08:00:00", "event_end": "2019-10-02 23:59:59", "facecolor": "#3399aa", "alpha": 0.75}, 
+ {"label": "Forage série 200, 300 et 400", "event_start": "2019-10-08 08:00:00", "event_end": "2019-10-15 23:59:59", "facecolor": "#33aa99", "alpha": 0.75}, 
+ {"label": "Remblayage", "event_start": "2019-10-31 08:00:00", "event_end": "2019-11-26 23:59:59", "facecolor": "#f3b2eb", "alpha": 0.75}, 
+ {"label": "Chauffe pilote", "event_start": "2020-01-31 08:00:00", "event_end": "2021-09-30 23:59:59", "facecolor": "#f3b28b", "alpha": 0.75}
+]

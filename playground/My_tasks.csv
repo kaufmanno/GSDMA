@@ -1,0 +1,5 @@
+Task Name;Start date;End date; Ressources;Progress %
+1;Data type handling / Auto Inference;2019-07-01 00:00:00;2019-07-31 00:00:00;Backend;15
+2;Sklearn & other models;2019-07-01 00:00:00;2019-07-31 00:00:00;Models;5
+3;Optimize Dockerfile;2019-07-01 00:00:00;2019-07-31 00:00:00;CI/CD;75
+4;Chapter 2: Compare competitors;2019-07-08 00:00:00;2019-10-21 00:00:00;Writing;22
