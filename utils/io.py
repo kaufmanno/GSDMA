@@ -8,33 +8,92 @@ from striplog import Striplog, Lexicon, Interval
 from core.orm import BoreholeOrm, PositionOrm
 from ipywidgets import interact, IntSlider
 from IPython.display import display 
+from utils.config import DEFAULT_BOREHOLE_LENGTH, DEFAULT_BOREHOLE_DIAMETER, DEFAULT_LITHOLOGY
 
 
-def files_read(fdir, crit_col, columns=None):
+def df_from_sources(search_dir, filename, columns=None, verbose=False):
+    """
+    """
 
-    flist,files_interest=[],[]
+    f_list, files_interest = [], []
+
+    for path, dirs, files in walk(search_dir):
+        for f in files:
+            if f[0] != '.' and re.compile(f'{filename}\.(csv)').match(f) and f is not None:
+                f_list.append(f'{path}/{f}')
+
+    a, f = 0, 0
+    df_all = pd.DataFrame()
+
+    for fl in f_list:
+        f += 1  # files counter
+        header = []
+        df = pd.read_csv(fl)
+        if columns is None:
+            columns = list(df.columns)
+
+        for i in df.columns:
+            if i in columns:
+                header.append(i)
+        # for col in crit_col: #use list of criteria
+        #    print(col)
+        if verbose:
+            print(f'columns in header for file {fl}: {header}')
+
+        a += 1  # files used counter
+        print(f'--> {fl.strip(search_dir)}: ({len(df)} lines)')
+        files_interest.append(fl)
+
+        if 'ID' in df.columns:
+            df['ID'] = df['ID'].astype(str)
+        if 'X' in df_all.columns:
+            df['X'] = df['X'].apply(lambda x: \
+                                                x if isinstance(x, float) else float(x.replace(',', '.')))
+            df['Y'] = df['Y'].apply(lambda x: \
+                                                x if isinstance(x, float) else float(x.replace(',', '.')))
+            df['Z'] = df['Z'].apply(lambda x: \
+                                                x if isinstance(x, float) else float(x.replace(',', '.')))
+        df_all = df_all.append(df[header])
+        df_all.reset_index(inplace=True, drop=True)
+        # df_all.fillna('', inplace=True)
+
+
+
+    if 'X' in df_all.columns:
+        df_all = gpd.GeoDataFrame(df_all, geometry=gpd.points_from_xy(df_all.X, df_all.Y, crs=str('EPSG:31370')))
+
+    print(f'\nThe overall dataframe contains {len(df_all)} lines. {a} files used')
+    return df_all
+
+
+def files_read(fdir, crit_col, columns=None, verbose=False):
+    """
+    """
+
+    flist, files_interest = [] , []
     
     for path, dirs, files in walk(fdir):
             for f in files:
                 if f[0] != '.' and re.compile(r".+\.(csv)").match(f) and f is not None:
-                    flist.append('{}'.format(path+f))
+                    flist.append(f'{path}/{f}')
     
-    a,f=0,0
-    df_all=pd.DataFrame()
+    a, f = 0, 0
+    df_all = pd.DataFrame()
     
     for fl in flist:
-        f+=1 #files counter
-        header=[]
-        df=pd.read_csv(fl)
+        f += 1  # files counter
+        header = []
+        df = pd.read_csv(fl)
         if columns is None:
-            columns=list(df.columns)
+            columns = list(df.columns)
             
         for i in df.columns:
             if i in columns:
                 header.append(i)
         #for col in crit_col: #use list of criteria
         #    print(col)
-            
+        if verbose:
+            print(f'columns in header for file {fl}: {header}')
         if crit_col in header:
             a+=1 #files used counter
             print("--> ",fl.strip(fdir),f"({len(df)}lines)")
@@ -111,13 +170,13 @@ def striplog_from_df(df, bh_name=None, litho_col=None, thick_col=None, lexicon=N
                     tmp = df.query(sql).copy()  # divide and work fast ;)
                     tmp.reset_index(drop=True, inplace=True)
                 else:
-                    tmp=df
+                    tmp = df
 
                 intervals = []
                 for j in range(0,len(tmp)):
                     litho = ''
                     if litho_col is None:
-                        litho = 'white sand'
+                        litho = DEFAULT_LITHOLOGY
                     elif litho_col in list(tmp.columns):
                         litho = tmp.loc[j,litho_col]
                     
@@ -126,26 +185,28 @@ def striplog_from_df(df, bh_name=None, litho_col=None, thick_col=None, lexicon=N
                     else:
                         if use_default:
                             if verbose:
-                                print(f"|__ID:'{bh_id}' -- No length provide, treated with default (length=3)")
-                            length = 3
+                                print(f'|__ID:\'{bh_id}\' -- No length provided, treated with default '
+                                      f'(length={DEFAULT_BOREHOLE_LENGTH})')
+                            length = DEFAULT_BOREHOLE_LENGTH
                         else:
-                            length = 0
+                            length = 0.
 
                     if 'Top' in list(tmp.columns):    
                         top = tmp.loc[j, 'Top']
                     else:
-                        top = 0
+                        top = 0.
 
                     if 'Base' in list(tmp.columns):    
                         base = tmp.loc[j, 'Base']
                     else:
                         base = length
                     
-                    if base != 0:
+                    if base != 0.:
                         intervals = intervals+[Interval(top=top, base=base, description=litho, lexicon=lexicon)]
                 
                 if len(intervals) != 0:
-                    if verbose: print(f'|__ID:\'{bh_id}\' -- No lithology data, treated with default (\'sand\')')
+                    if verbose: print(f'|__ID:\'{bh_id}\' -- No lithology data, treated with default '
+                                      f'(\'{DEFAULT_LITHOLOGY}\')')
                     strip.update({bh_id:Striplog(list_of_Intervals=intervals)})
                 else:
                     print(f"|__ID:'{bh_id}' -- Cannot create a striplog, no interval (length or base = 0)")
@@ -207,7 +268,8 @@ def striplog_from_text(filename, lexicon=None):
     return strip
 
 
-def boreholes_from_files(boreholes_dict=None, x=None, y=None, verbose=False, use_default=True):
+def boreholes_from_files(boreholes_dict=None, x=None, y=None, verbose=False, use_default=True, diam_field='Diameter',
+                         length_field='Length'):
     """Creates a list of BoreholeORM objects from a list of dataframes 
         or dict of boreholes files (flat text or las files)
     
@@ -348,32 +410,36 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None, verbose=False, use
             
    #-----------------------------------dfs------------------------------------------#  
      
-    if isinstance(boreholes_dict, list):
-        if len(boreholes_dict)==0 : print("Error ! Cannot create boreholes with empty list or dict")
+    elif isinstance(boreholes_dict, list):
+        if len(boreholes_dict) == 0 :
+            print("Error ! Cannot create boreholes with empty list or dict")
 
         while (boreholes_dict is not None) and df<len(boreholes_dict):
-            print("\nDatraframe",df,"processing...\n================================")
+            print(f'\nDataframe {df} processing...\n================================')
             id_list=[]
             dict_bh=0
 
             x=boreholes_dict[df].X
             y=boreholes_dict[df].Y
-            if 'Diam' in boreholes_dict[df].columns:
-                diam = boreholes_dict[df].Diam
-            elif 'Diameter' in boreholes_dict[df].columns:
-                diam = boreholes_dict[df].Diameter
-            else:
-                diam = 1.
 
-            if 'Long' in boreholes_dict[df].columns:
-                length=boreholes_dict[df].Long
-            elif 'Length' in boreholes_dict[df].columns:
-                length=boreholes_dict[df].Length
+            if diam_field in boreholes_dict[df].columns:
+                diam = boreholes_dict[df][diam_field]
             else:
-                length = 0
+                if verbose:
+                    print(f'|__ID:\'{bh_id}\' -- No borehole diameter provided, treated with default '
+                          f'(diameter={DEFAULT_BOREHOLE_DIAMETER})')
+                diam = pd.Series([DEFAULT_BOREHOLE_DIAMETER]*len(boreholes_dict[df]))
+
+            if length_field in boreholes_dict[df].columns:
+                length = boreholes_dict[df][length_field]
+            else:
+                length = pd.Series([DEFAULT_BOREHOLE_LENGTH]*len(boreholes_dict[df]))
+
+            if verbose:
+                print(f'Length: {length}')
 
             for i,j in boreholes_dict[df].iterrows():
-                id_=j['ID']
+                id_ = j['ID']
 
                 if id_ not in id_list:
                     id_list.append(id_)
@@ -419,7 +485,8 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None, verbose=False, use
                             int_id += 1
                             pos_id += 2
                         
-                        if verbose: print(d,"\n")
+                        if verbose:
+                            print(f'{d}\n')
                         if dict_bh<len(boreholes): 
                             boreholes[dict_bh].intervals_values = d
                             boreholes[dict_bh].length = length[dict_bh]
@@ -433,11 +500,10 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None, verbose=False, use
                 components = {v: k for k, v in component_dict.items()}
 
             print(f"\nEnd of the process : {len(id_list)} unique ID found")
-            df+=1
+            df += 1
 
     elif not isinstance(boreholes_dict, dict) or isinstance(boreholes_dict, list):
         print('Error! Only take a dict or a dataframe to work !')
-    
 
     return boreholes, components
 
