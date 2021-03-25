@@ -581,7 +581,7 @@ def export_gdf(gdf, epsg, save_name=None):
         print(f'file\'s name extension not given or incorrect, please choose (.json, .gpkg, .csv)')
         
             
-def gdf_viewer(df, rows=10, cols=14, step_r=1, step_c=1, un_val=None):# display dataframes with  a widget
+def gdf_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None):# display dataframes with  a widget
       
     if un_val is None:
         print(f'Rows : {df.shape[0]}, columns : {df.shape[1]}')
@@ -662,7 +662,7 @@ def gdf_geom(gdf):
     
     return gdf
 
-def gdf_merger(gdf1, gdf2, how='inner', col=None, left_on=None, right_on=None):
+def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, fcol=None):
     """ Enhance data merging with automatic actions on dataframe after the merge
     
     parameters
@@ -672,7 +672,9 @@ def gdf_merger(gdf1, gdf2, how='inner', col=None, left_on=None, right_on=None):
     how: str
     col: str
     left_on: str
-    rigth_on: str
+    right_on: str
+    fcol: str
+        Column to take the first position in the dataset
     
     Returns
     --------
@@ -681,7 +683,6 @@ def gdf_merger(gdf1, gdf2, how='inner', col=None, left_on=None, right_on=None):
     
     """
     gdf=pd.DataFrame({})
-    
     
     def process():
         gdf_error=pd.DataFrame({})
@@ -712,21 +713,30 @@ def gdf_merger(gdf1, gdf2, how='inner', col=None, left_on=None, right_on=None):
                 if re.compile(r"_x|_y").search(gdf.columns.to_list()[x]) 
                 and gdf.columns.to_list()[x] not in error_col],
                 axis=1, inplace=True)
-        
+
         if error:
             print('Ambiguous values in both columns compared, change it manually !')
-            print('Columns',error_col,'must be droped manually !\n')    
+            print('Columns',error_col, error_row,'must be droped manually !\n')    
             print('Creation of a dataframe for ambiguous values, check it !')
             gdf_error=gdf.loc[error_row, [left]+error_col]
-            
-        
-        if 'Z' in gdf.columns : gdf.insert(gdf.columns.to_list().index('Y')+1, 'Z', gdf.pop('Z'))
-            
+
+        if fcol is not None:
+            gdf.insert(0, fcol, gdf.pop(fcol))
+
+        if fcol is not None: idx=gdf.columns.to_list().index(fcol)
+        elif col is not None: idx=gdf.columns.to_list().index(col)
+        else: idx=gdf.columns.to_list().index('ID')
+
+        if 'X' in gdf.columns: gdf.insert(idx + 1, 'X', gdf.pop('X'))
+        if 'Y' in gdf.columns: gdf.insert(idx + 2, 'Y', gdf.pop('Y'))
+        if 'Z' in gdf.columns : gdf.insert(idx + 3, 'Z', gdf.pop('Z'))
+        if 'Zsol' in gdf.columns: gdf.insert(idx + 4, 'Zsol', gdf.pop('Zsol'))
+
         return gdf, gdf_error
     
     if col is None and left_on is not None and right_on is not None:
         left=left_on
-        rigt=right_on
+        right=right_on
         gdf,gdf_error=process()
         
     elif col is not None:
