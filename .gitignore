@@ -1,6 +1,7 @@
 *.gpkg
 CF_data/
-playgrouns/TFE_test/tmp_files/
+playground/TFE_test/tmp_files/
+docs/source/examples/tmp_files/
 .idea
 
 # Byte-compiled / optimized / DLL files

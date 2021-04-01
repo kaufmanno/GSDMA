@@ -30,9 +30,12 @@ def striplog_legend_to_omf_legend(legend):
 
     omf_legend = []
     new_colors = [np.array([0.9, 0.9, 0.9, 1.])]
+    omf_legend.append(legend[0].colour)
     for i in legend:
         omf_legend.append(i.colour)
         new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([1.])]))
+    new_colors.append(np.array([0.9, 0.9, 0.9, 1.]))
+    omf_legend.append(legend[0].colour)
     return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), ListedColormap(new_colors)
 
 
@@ -142,8 +145,8 @@ class Borehole3D(Striplog):
 
         indices = []
         for i in self.intervals:
-            if i.components[0] in self.components:
-                indices.append(self.components.index(i.components[0]))
+            if i.primary in self.components:
+                indices.append(self.components.index(i.primary))
             else:
                 indices.append(-1)
         return np.array(indices)
@@ -240,7 +243,9 @@ class Borehole3D(Striplog):
         seg = ov.line_set_to_vtk(self.geometry)
         seg.set_active_scalars('component')
         ov.lineset.add_data(seg, self.geometry.data)
-        plotter.add_mesh(seg.tube(radius=diam), cmap=self.omf_cmap)
+        plotter.add_mesh(seg.tube(radius=diam), cmap=self.omf_cmap, clim=(-0.5, len(self.omf_cmap.colors)-0.5))
+
+        print(seg.active_scalars)
 
         if show and not x3d:
             plotter.show()
