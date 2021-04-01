@@ -7,7 +7,7 @@ from shapely import wkt
 from striplog import Striplog, Lexicon, Interval
 from core.orm import BoreholeOrm, PositionOrm
 from ipywidgets import interact, IntSlider
-from IPython.display import display 
+from IPython.display import display
 from utils.config import DEFAULT_BOREHOLE_LENGTH, DEFAULT_BOREHOLE_DIAMETER, DEFAULT_LITHOLOGY
 
 
@@ -47,17 +47,12 @@ def df_from_sources(search_dir, filename, columns=None, verbose=False):
         if 'ID' in df.columns:
             df['ID'] = df['ID'].astype(str)
         if 'X' in df_all.columns:
-            df['X'] = df['X'].apply(lambda x: \
-                                                x if isinstance(x, float) else float(x.replace(',', '.')))
-            df['Y'] = df['Y'].apply(lambda x: \
-                                                x if isinstance(x, float) else float(x.replace(',', '.')))
-            df['Z'] = df['Z'].apply(lambda x: \
-                                                x if isinstance(x, float) else float(x.replace(',', '.')))
+            df['X'] = df['X'].apply(lambda x: x if isinstance(x, float) else float(x.replace(',', '.')))
+            df['Y'] = df['Y'].apply(lambda x: x if isinstance(x, float) else float(x.replace(',', '.')))
+            df['Z'] = df['Z'].apply(lambda x: x if isinstance(x, float) else float(x.replace(',', '.')))
         df_all = df_all.append(df[header])
         df_all.reset_index(inplace=True, drop=True)
         # df_all.fillna('', inplace=True)
-
-
 
     if 'X' in df_all.columns:
         df_all = gpd.GeoDataFrame(df_all, geometry=gpd.points_from_xy(df_all.X, df_all.Y, crs=str('EPSG:31370')))
@@ -66,16 +61,15 @@ def df_from_sources(search_dir, filename, columns=None, verbose=False):
     return df_all
 
 
+"""
 def files_read(fdir, crit_col, columns=None, verbose=False):
-    """
-    """
 
     flist, files_interest = [] , []
     
-    for path, dirs, files in walk(fdir):
+    for dir, dirs, files in walk(fdir):
             for f in files:
                 if f[0] != '.' and re.compile(r".+\.(csv)").match(f) and f is not None:
-                    flist.append(f'{path}/{f}')
+                    flist.append(f'{dir}/{f}')
     
     a, f = 0, 0
     df_all = pd.DataFrame()
@@ -123,9 +117,11 @@ def files_read(fdir, crit_col, columns=None, verbose=False):
     
     print(f'\nThe overall dataframe contains {len(df_all)} lines. {a} files used')
     return df_all
+    """
 
 
-def striplog_from_df(df, bh_name=None, litho_col=None, thick_col=None, lexicon=None, use_default=True, verbose=False,
+def striplog_from_df(df, bh_name=None, litho_col=None, litho_top=None, litho_base=None,
+                     length_col=None, lexicon=None, use_default=True, verbose=False,
                      query=True):
     """ 
     creates a Striplog object from a dataframe
@@ -134,15 +130,16 @@ def striplog_from_df(df, bh_name=None, litho_col=None, thick_col=None, lexicon=N
     ----------
     df : Pandas.DataFrame
         dataframe that contains boreholes data
-        
+    bh_name: str
+        Borehole name (or ID)
     litho_col : str
         dataframe column that contains lithology or description text (default:None)
     
-    thick_col : str
+    length_col : str
         dataframe column that contains lithology thickness (default:None)
         
     lexicon : dict
-        A vocabulary for parsing lithologic or stratigraphic descriptions
+        A vocabulary for parsing lithological or stratigraphic descriptions
         (set to Lexicon.default() if lexicon is None)
               
     Returns
@@ -150,38 +147,44 @@ def striplog_from_df(df, bh_name=None, litho_col=None, thick_col=None, lexicon=N
     strip : dict of striplog objects
     
     """
-    strip={}
+    strip = {}
     if lexicon is None:
         lexicon = Lexicon.default()
-    
-    def process(df, bh_name, litho_col, thick_col, lexicon, use_default, verbose, query):
+
+    def process():
         bh_list = []
-        
-        for i in range(0,len(df)):
+
+        for i in range(0, len(df)):
             if bh_name is not None and bh_name in df.columns:
-                bh_id=bh_name
+                bh_id = bh_name
             else:
-                bh_id=df.loc[i, 'ID']
-                
+                bh_id = df.loc[i, 'ID']
+
             if bh_id not in bh_list:
                 bh_list.append(bh_id)
                 if query:
-                    sql = f'ID=="{bh_id}"'
-                    tmp = df.query(sql).copy()  # divide and work fast ;)
+                    sql = df['ID']==f"{bh_id}" # f'ID=="{bh_id}"'
+                    tmp = df[sql].copy() # df.query(sql).copy()  # divide and work fast ;)
                     tmp.reset_index(drop=True, inplace=True)
                 else:
                     tmp = df
 
                 intervals = []
-                for j in range(0,len(tmp)):
+                for j in range(0, len(tmp)):
+                    # lithology processing
                     litho = ''
                     if litho_col is None:
                         litho = DEFAULT_LITHOLOGY
                     elif litho_col in list(tmp.columns):
-                        litho = tmp.loc[j,litho_col]
-                    
-                    if thick_col is not None and thick_col in list(tmp.columns):    
-                        length = tmp.loc[j, thick_col]
+                        litho = tmp.loc[j, litho_col]
+                    # create intervals from lithological description
+
+                    # length processing
+                    if length_col is not None and length_col in list(tmp.columns) \
+                            and not pd.isnull(tmp.loc[j, length_col]):
+                        length = tmp.loc[j, length_col]
+                        if verbose:
+                            print(f'length={length:.2f}')
                     else:
                         if use_default:
                             if verbose:
@@ -191,36 +194,35 @@ def striplog_from_df(df, bh_name=None, litho_col=None, thick_col=None, lexicon=N
                         else:
                             length = 0.
 
-                    if 'Top' in list(tmp.columns):    
-                        top = tmp.loc[j, 'Top']
+
+                    # intervals processing
+                    if litho_top is not None and litho_top in list(tmp.columns):
+                        top = tmp.loc[j, litho_top]
                     else:
                         top = 0.
 
-                    if 'Base' in list(tmp.columns):    
-                        base = tmp.loc[j, 'Base']
+                    if litho_base is not None and litho_base in list(tmp.columns):
+                        base = tmp.loc[j, litho_base]
                     else:
                         base = length
-                    
+
                     if base != 0.:
-                        intervals = intervals+[Interval(top=top, base=base, description=litho, lexicon=lexicon)]
-                
+                        intervals = intervals + [Interval(top=top, base=base, description=litho, lexicon=lexicon)]
+
                 if len(intervals) != 0:
-                    if verbose: print(f'|__ID:\'{bh_id}\' -- No lithology data, treated with default '
-                                      f'(\'{DEFAULT_LITHOLOGY}\')')
-                    strip.update({bh_id:Striplog(list_of_Intervals=intervals)})
+                    if verbose:
+                        print(f'|__ID:\'{bh_id}\' -- No lithology data, treated with default (\'{DEFAULT_LITHOLOGY}\')')
+                    strip.update({bh_id: Striplog(list_of_Intervals=intervals)})
                 else:
-                    print(f"|__ID:'{bh_id}' -- Cannot create a striplog, no interval (length or base = 0)")
+                    print(f"|__ID:\'{bh_id}\' -- Cannot create a striplog, no interval (length or base = 0)")
         return strip
-    
-    if litho_col is None:
-        process(df,bh_name,litho_col,thick_col,lexicon,use_default,verbose,query)
-    
-    if litho_col in list(df.columns):
-        process(df,bh_name,litho_col,thick_col,lexicon,use_default,verbose,query)
-        
+
+    if litho_col is None or litho_col in list(df.columns):
+        process()
+
     elif litho_col is not None and litho_col not in list(df.columns):
         print("Error! The dataframe's columns don't match for striplog creation !")
-        strip={}
+        strip = {}
 
     return strip
 
@@ -241,17 +243,17 @@ def striplog_from_text(filename, lexicon=None):
     strip: striplog object
     
     """
-    
+
     if lexicon is None:
         lexicon = Lexicon.default()
 
     if re.compile(r".+\.las").match(filename):
-        #print(f"File {filename:s} OK! Creation of the striplog ...")
+        # print(f"File {filename:s} OK! Creation of the striplog ...")
         with open(filename, 'r') as las3:
             strip = Striplog.from_las3(las3.read(), lexicon)
 
     elif re.compile(r".+\.(csv|txt)").match(filename):
-        #print(f"File {filename:s} OK! Creation of the striplog ...")
+        # print(f"File {filename:s} OK! Creation of the striplog ...")
         f = re.DOTALL | re.IGNORECASE
         regex_data = r'start.+?\n(.+?)(?:\n\n+|\n*\#|\n*$)'  # retrieve data of BH
 
@@ -263,13 +265,15 @@ def striplog_from_text(filename, lexicon=None):
 
     else:
         print("Error! Please check the file extension !")
-        #raise
+        # raise
 
     return strip
 
 
-def boreholes_from_files(boreholes_dict=None, x=None, y=None, verbose=False, use_default=True, diam_field='Diameter',
-                         length_field='Length'):
+def boreholes_from_files(boreholes_dict=None, x=None, y=None,
+                         diam_field='Diameter', length_field='Length',
+                         litho_field=None, litho_top=None, litho_base=None,
+                         lexicon=None, verbose=False, use_default=True):
     """Creates a list of BoreholeORM objects from a list of dataframes 
         or dict of boreholes files (flat text or las files)
     
@@ -298,7 +302,7 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None, verbose=False, use
                 dictionary containing ID and component
 
     """
-    
+
     int_id = 0
     bh_id = 0
     pos_id = 0
@@ -307,27 +311,27 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None, verbose=False, use
     comp_id = 0
     component_dict = {}
     df = 0
-    
+
     if x is None:
-        x = [0., 20., 5, 10] 
-    else: 
-        x=x
-        
+        x = [0., 20., 5, 10]
+    else:
+        x = x
+
     if y is None:
-        y = [0., 40., 50, 2] 
-    else : 
-        y=y  
-    
+        y = [0., 40., 50, 2]
+    else:
+        y = y
+
     if boreholes_dict is None:
         print("Error! Borehole dictionary not given.")
 
     if isinstance(boreholes_dict, dict):
-        while (boreholes_dict is not None) and bh_id<len(boreholes_dict):
+        while (boreholes_dict is not None) and bh_id < len(boreholes_dict):
             print(f'\nFile {bh_id} processing...\n================================')
             for bh, filename in boreholes_dict.items():
                 interval_number = 0
                 boreholes.append(BoreholeOrm(id=bh))
-                strip = striplog_from_text(filename)                  
+                strip = striplog_from_text(filename)
 
                 for c in strip.components:
                     if c not in component_dict.keys():
@@ -337,124 +341,130 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None, verbose=False, use
                 d = {}
 
                 for interval in strip:
-                    top = PositionOrm(id=pos_id, upper=interval.top.upper, 
+                    top = PositionOrm(id=pos_id, upper=interval.top.upper,
                                       middle=interval.top.middle,
-                                      lower=interval.top.lower, 
+                                      lower=interval.top.lower,
                                       x=x[bh_id], y=y[bh_id])
 
                     base = PositionOrm(id=pos_id + 1, upper=interval.base.upper,
-                                       middle=interval.base.middle, 
-                                       lower=interval.base.lower, 
+                                       middle=interval.base.middle,
+                                       lower=interval.base.lower,
                                        x=x[bh_id], y=y[bh_id])
 
-                    d.update({int_id: {'description': interval.description, 
+                    d.update({int_id: {'description': interval.description,
                                        'interval_number': interval_number,
                                        'top': top, 'base': base
-                                      }})
+                                       }})
 
                     interval_number += 1
                     int_id += 1
                     pos_id += 2
 
-                if verbose: print(d)
+                if verbose:
+                    print(d)
 
                 boreholes[bh_id].intervals_values = d
                 bh_id += 1
             components = {v: k for k, v in component_dict.items()}
 
-        else :
-            pos=bh_id
-            for pos in np.arange(bh_id, len(x)) :
-                bh=f'F{bh_id+1}'
+        else:
+            # pos = bh_id
+            for pos in np.arange(bh_id, len(x)):
+                bh = f'F{bh_id + 1}'
+                print(f'bh: {bh}, pos: {pos}')
 
-                filename=boreholes_dict.setdefault('F1') #default filename used
+                filename = boreholes_dict.setdefault('F1')  # default filename used
 
                 interval_number = 0
                 boreholes.append(BoreholeOrm(id=bh))
 
                 if filename is not None and filename != '':
-                    strip = striplog_from_text(filename)
+                    strip = striplog_from_text(filename, lexicon)
                 else:
                     strip = None
 
                 for c in strip.components:
                     if c not in component_dict.keys():
-                        component_dict.update({c:comp_id})
+                        component_dict.update({c: comp_id})
                         comp_id += 1
-                d ={}
+                d = {}
                 for interval in strip:
-                    top = PositionOrm(id=pos_id, upper=interval.top.upper, 
-                                      middle=interval.top.middle,  
-                                      lower=interval.top.lower, 
+                    top = PositionOrm(id=pos_id, upper=interval.top.upper,
+                                      middle=interval.top.middle,
+                                      lower=interval.top.lower,
                                       x=x[bh_id], y=y[bh_id])
 
-                    base = PositionOrm(id=pos_id+1, upper=interval.base.upper, 
-                                       middle=interval.base.middle,  
-                                       lower=interval.base.lower, 
+                    base = PositionOrm(id=pos_id + 1, upper=interval.base.upper,
+                                       middle=interval.base.middle,
+                                       lower=interval.base.lower,
                                        x=x[bh_id], y=y[bh_id])
 
-                    d.update({int_id:{'description':interval.description, 
-                                      'interval_number' : interval_number, 
-                                      'top': top, 'base': base 
-                                     }})
+                    d.update({int_id: {'description': interval.description,
+                                       'interval_number': interval_number,
+                                       'top': top, 'base': base
+                                       }})
 
-                    interval_number+=1
+                    interval_number += 1
                     int_id += 1
                     pos_id += 2
 
-                if verbose: print(d,"\n")
+                if verbose:
+                    print(d, "\n")
 
                 boreholes[bh_id].intervals_values = d
-                bh_id += 1 
-            components = {v:k for k,v in component_dict.items()}
-            
-   #-----------------------------------dfs------------------------------------------#  
-     
+                bh_id += 1
+            components = {v: k for k, v in component_dict.items()}
+
+    # -----------------------------------dfs------------------------------------------#
+
     elif isinstance(boreholes_dict, list):
-        if len(boreholes_dict) == 0 :
+        if len(boreholes_dict) == 0:
             print("Error ! Cannot create boreholes with empty list or dict")
 
-        while (boreholes_dict is not None) and df<len(boreholes_dict):
+        while (boreholes_dict is not None) and df < len(boreholes_dict):
             print(f'\nDataframe {df} processing...\n================================')
-            id_list=[]
-            dict_bh=0
+            id_list = []
+            dict_bh = 0
 
-            x=boreholes_dict[df].X
-            y=boreholes_dict[df].Y
+            x = boreholes_dict[df].X
+            y = boreholes_dict[df].Y
 
             if diam_field in boreholes_dict[df].columns:
                 diam = boreholes_dict[df][diam_field]
             else:
                 if verbose:
-                    print(f'|__ID:\'{bh_id}\' -- No borehole diameter provided, treated with default '
-                          f'(diameter={DEFAULT_BOREHOLE_DIAMETER})')
-                diam = pd.Series([DEFAULT_BOREHOLE_DIAMETER]*len(boreholes_dict[df]))
+                    print(f'|__ID:\'{bh_id}\' -- No borehole diameter provided,'
+                          f' treated with default (diameter={DEFAULT_BOREHOLE_DIAMETER})')
+                diam = pd.Series([DEFAULT_BOREHOLE_DIAMETER] * len(boreholes_dict[df]))
 
             if length_field in boreholes_dict[df].columns:
                 length = boreholes_dict[df][length_field]
             else:
-                length = pd.Series([DEFAULT_BOREHOLE_LENGTH]*len(boreholes_dict[df]))
+                length = pd.Series([DEFAULT_BOREHOLE_LENGTH] * len(boreholes_dict[df]))
 
-            if verbose:
-                print(f'Length: {length}')
 
-            for i,j in boreholes_dict[df].iterrows():
+            for i, j in boreholes_dict[df].iterrows():
                 id_ = j['ID']
 
                 if id_ not in id_list:
                     id_list.append(id_)
-                    interval_number=0
+                    interval_number = 0
 
-                    sql=f'ID=="{id_}"'
-                    tmp=boreholes_dict[df].query(sql).copy() # divide and work fast ;)
+                    sql = boreholes_dict[df]['ID'] == f"{id_}"
+                    tmp = boreholes_dict[df][sql].copy()
+                    #sql = f'ID=="{id_}"'
+                    #tmp = boreholes_dict[df].query(sql).copy()
                     tmp.reset_index(drop=True, inplace=True)
-                    strip=striplog_from_df(tmp, bh_name=id_, 
-                                           use_default=use_default, 
-                                           verbose=verbose,query=False)
+                    strip = striplog_from_df(df=tmp, bh_name=id_,litho_col=litho_field,
+                                             litho_top=litho_top, litho_base=litho_base,
+                                             length_col=length_field,
+                                             use_default=use_default,
+                                             verbose=verbose, lexicon=lexicon,
+                                             query=False)
 
-                    boreholes.append(BoreholeOrm(id=id_))           
+                    boreholes.append(BoreholeOrm(id=id_))
 
-                    for k,v in strip.items():
+                    for k, v in strip.items():
                         for c in v.components:
                             if c not in component_dict.keys():
                                 component_dict.update({c: comp_id})
@@ -462,32 +472,33 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None, verbose=False, use
 
                         d = {}
 
+                        # ORM processing
                         for interval in v:
-                            #print(interval)
-                            top = PositionOrm(id=pos_id, upper=interval.top.upper, 
+                            # print(interval)
+                            top = PositionOrm(id=pos_id, upper=interval.top.upper,
                                               middle=interval.top.middle,
                                               lower=interval.top.lower,
                                               x=x[dict_bh], y=y[dict_bh]
-                                             )
-
-                            base = PositionOrm(id=pos_id + 1, upper=interval.base.upper, 
-                                               middle=interval.base.middle, 
-                                               lower=interval.base.lower, 
-                                               x=x[dict_bh], y=y[dict_bh]
                                               )
 
-                            d.update({int_id: {'description': interval.description, 
-                                               'interval_number': interval_number, 
+                            base = PositionOrm(id=pos_id + 1, upper=interval.base.upper,
+                                               middle=interval.base.middle,
+                                               lower=interval.base.lower,
+                                               x=x[dict_bh], y=y[dict_bh]
+                                               )
+
+                            d.update({int_id: {'description': interval.description,
+                                               'interval_number': interval_number,
                                                'top': top, 'base': base}
-                                     })
+                                      })
 
                             interval_number += 1
                             int_id += 1
                             pos_id += 2
-                        
+
                         if verbose:
                             print(f'{d}\n')
-                        if dict_bh<len(boreholes): 
+                        if dict_bh < len(boreholes):
                             boreholes[dict_bh].intervals_values = d
                             boreholes[dict_bh].length = length[dict_bh]
                             boreholes[dict_bh].diameter = diam[dict_bh]
@@ -495,7 +506,8 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None, verbose=False, use
                         dict_bh += 1
 
                 else:
-                    if verbose:print(f"|__ID '{id_}' already treated, skip")
+                    if verbose:
+                        print(f"|__ID '{id_}' already treated, skip")
 
                 components = {v: k for k, v in component_dict.items()}
 
@@ -508,7 +520,7 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None, verbose=False, use
     return boreholes, components
 
 
-def read_gdf_file(filename=None, epsg=None, to_epsg=None, interact=False): # file_dir=None,
+def read_gdf_file(filename=None, epsg=None, to_epsg=None, interact=False):  # file_dir=None,
     """
     create a geodataframe and transform coordinates system (if 'to_epsg' is set)
     
@@ -528,48 +540,46 @@ def read_gdf_file(filename=None, epsg=None, to_epsg=None, interact=False): # fil
     ---------
     geodataframe object
     
-    """  
-    
-    
-    
-    if filename == None:
-        filename = str(input("File name and extension (.json, .gpkg, .csv) ? : "))
-    
-    #if file_dir == None : 
-     #   file_dir = ROOT_DIR + '/playground/TFE_test/tmp_files/'    
-      #  filename=file_dir+filename
-    
+    """
 
-    gdf=gpd.GeoDataFrame()
-    
+    if filename is None:
+        filename = str(input("File name and extension (.json, .gpkg, .csv) ? : "))
+
+    # if file_dir == None :
+    #   file_dir = ROOT_DIR + '/playground/TFE_test/tmp_files/'
+    #  filename=file_dir+filename
+
+    gdf = gpd.GeoDataFrame()
+
     if re.compile(r".+\.json").match(filename):
-        with open(filename, 'r') as json:
+        with open(filename, 'r'):
             gdf = gpd.read_file(filename)
-    
+
     if re.compile(r".+\.gpkg").match(filename):
-        with open(filename, 'r') as gpkg:
+        with open(filename, 'r'):
             gdf = gpd.read_file(filename)
-            
+
     if re.compile(r".+\.csv").match(filename):
-        if epsg == None:
+        if epsg is None:
             epsg = input("data EPSG (a number) ? : ")
-            
-        with open(filename, 'r') as csv:
+
+        with open(filename, 'r'):
             df = pd.read_csv(filename, header=0, sep=',')
 
             if 'geometry' in df.columns:
                 df['geometry'] = df['geometry'].apply(wkt.loads)
                 gdf = gpd.GeoDataFrame(df, geometry='geometry', crs=str("EPSG:{}".format(epsg)))
 
-            elif ('Longitude' and 'Latitude' in df.columns) or ('longitude' and 'latitude' in df.columns):          
-                df=df.rename(columns={'longitude':'Longitude', 'latitude': 'Latitude'})
-                gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.Longitude, df.Latitude, crs=str("EPSG {}".format(epsg))))
+            elif ('Longitude' and 'Latitude' in df.columns) or ('longitude' and 'latitude' in df.columns):
+                df = df.rename(columns={'longitude': 'Longitude', 'latitude': 'Latitude'})
+                gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.Longitude, df.Latitude,
+                                                                       crs=str("EPSG {}".format(epsg))))
 
             elif ('X' and 'Y' in df.columns) or ('x' and 'y' in df.columns):
-                df=df.rename(columns={'x':'X', 'y': 'Y', 'Altitude':'Z'})
+                df = df.rename(columns={'x': 'X', 'y': 'Y', 'Altitude': 'Z'})
 
                 if 'altitude' in df.columns or 'Altitude' in df.columns:
-                    df=df.rename(columns={'altitude':'Z', 'Altitude':'Z'})
+                    df = df.rename(columns={'altitude': 'Z', 'Altitude': 'Z'})
 
                 gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.X, df.Y, crs=str("EPSG:{}".format(epsg))))
             else:
@@ -577,27 +587,29 @@ def read_gdf_file(filename=None, epsg=None, to_epsg=None, interact=False): # fil
 
     # EPSG conversion 
 
-    if to_epsg!=None and interact==True:
+    if to_epsg is not None and interact:
         gdf.to_crs(epsg=to_epsg, inplace=True)
 
-        while True :
-            resp = str(input("Last step before create the geodataframe\n Overwrite X,Y coordinates fields ? (y/n) : ")).strip().lower()
+        while True:
+            resp = str(input(
+                "Last step before create the geodataframe\n "
+                "Overwrite X,Y coordinates fields ? (y/n) : ")).strip().lower()
 
-            if resp == 'y':      
-                gdf=gdf.drop(['Longitude', 'Latitude', 'X', 'Y'], axis=1, errors='ignore')
-                gdf.insert(0, 'X',[row.geometry.x for idx, row in gdf.iterrows()]) 
-                gdf.insert(1, 'Y',[row.geometry.y for idx, row in gdf.iterrows()])
+            if resp == 'y':
+                gdf = gdf.drop(['Longitude', 'Latitude', 'X', 'Y'], axis=1, errors='ignore')
+                gdf.insert(0, 'X', [row.geometry.x for idx, row in gdf.iterrows()])
+                gdf.insert(1, 'Y', [row.geometry.y for idx, row in gdf.iterrows()])
                 break
             elif resp == 'n':
                 break
             print(f'{resp} is invalid, please try again...')
-            
-    elif to_epsg!=None and interact==False:
+
+    elif to_epsg is not None and interact is False:
         gdf.to_crs(epsg=to_epsg, inplace=True)
-        gdf=gdf.drop(['Longitude', 'Latitude', 'X', 'Y'], axis=1, errors='ignore')
-        gdf.insert(0, 'X',[row.geometry.x for idx, row in gdf.iterrows()]) 
-        gdf.insert(1, 'Y',[row.geometry.y for idx, row in gdf.iterrows()])
-             
+        gdf = gdf.drop(['Longitude', 'Latitude', 'X', 'Y'], axis=1, errors='ignore')
+        gdf.insert(0, 'X', [row.geometry.x for idx, row in gdf.iterrows()])
+        gdf.insert(1, 'Y', [row.geometry.y for idx, row in gdf.iterrows()])
+
     return gdf
 
 
@@ -616,63 +628,63 @@ def export_gdf(gdf, epsg, save_name=None):
     save_name: str
         file's name and extension format (.gpkg, .json, .csv)
     """
-    
+
     if save_name is None:
         save_name = str(input("File name and extension (.json, .gpkg, .csv) ? : "))
-    
+
     gdf.to_crs(epsg=str(epsg), inplace=True)
 
-    ext=save_name[save_name.rfind('.')+1:]
+    ext = save_name[save_name.rfind('.') + 1:]
 
     if ext == 'json':
         gdf.to_file(f'{save_name}', driver="GeoJSON")
-        print(f'{save_name}'+" has been saved !" )
-        
+        print(f'{save_name}' + " has been saved !")
+
     elif ext == 'gpkg':
         gdf.to_file(f'{save_name}', driver="GPKG", layer="Boreholes")
-        print(f'{save_name}'+" has been saved !" )
-        
+        print(f'{save_name}' + " has been saved !")
+
     elif ext == 'csv':
         if 'X' in gdf.columns:
-            gdf=gdf.drop(['X'], axis=1)
-            gdf.insert(0, 'X',gdf.geometry.x)
-        else :
-            gdf.insert(0, 'X',gdf.geometry.x)
+            gdf = gdf.drop(['X'], axis=1)
+            gdf.insert(0, 'X', gdf.geometry.x)
+        else:
+            gdf.insert(0, 'X', gdf.geometry.x)
 
         if 'Y' in gdf.columns:
-            gdf=gdf.drop(['Y'], axis=1)
-            gdf.insert(1, 'Y',gdf.geometry.y)
-        else :
-            gdf.insert(1, 'Y',gdf.geometry.y)
+            gdf = gdf.drop(['Y'], axis=1)
+            gdf.insert(1, 'Y', gdf.geometry.y)
+        else:
+            gdf.insert(1, 'Y', gdf.geometry.y)
 
-        gdf.to_csv(f'{save_name}', index_label="Id", index = False, sep=',')
-        print(f'{save_name}'+" has been saved !" )
+        gdf.to_csv(f'{save_name}', index_label="Id", index=False, sep=',')
+        print(f'{save_name}' + " has been saved !")
     else:
         print(f'file\'s name extension not given or incorrect, please choose (.json, .gpkg, .csv)')
-        
-            
-def gdf_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None):# display dataframes with  a widget
-      
+
+
+def gdf_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None):  # display dataframes with  a widget
+
     if un_val is None:
         print(f'Rows : {df.shape[0]}, columns : {df.shape[1]}')
     else:
         print(f"Rows : {df.shape[0]}, columns : {df.shape[1]}, Unique on '{un_val}': {len(set(df[un_val]))}")
-    
-    @interact(last_row=IntSlider(min=min(rows, df.shape[0]),max=df.shape[0],
-                                 step=step_r,description='rows',readout=False,
-                                 disabled=False,continuous_update=True,
-                                 orientation='horizontal',slider_color='blue'),
-              last_column=IntSlider(min=min(cols, df.shape[1]),
-                                    max=df.shape[1],step=step_c,
-                                    description='columns',readout=False,
-                                    disabled=False,continuous_update=True,
-                                    orientation='horizontal',slider_color='blue')
-             )
-    def _freeze_header(last_row, last_column):
-        display(df.iloc[max(0, last_row-rows):last_row,
-                        max(0, last_column-cols):last_column])
 
-        
+    @interact(last_row=IntSlider(min=min(rows, df.shape[0]), max=df.shape[0],
+                                 step=step_r, description='rows', readout=False,
+                                 disabled=False, continuous_update=True,
+                                 orientation='horizontal', slider_color='blue'),
+              last_column=IntSlider(min=min(cols, df.shape[1]),
+                                    max=df.shape[1], step=step_c,
+                                    description='columns', readout=False,
+                                    disabled=False, continuous_update=True,
+                                    orientation='horizontal', slider_color='blue')
+              )
+    def _freeze_header(last_row, last_column):
+        display(df.iloc[max(0, last_row - rows):last_row,
+                max(0, last_column - cols):last_column])
+
+
 def gen_id_dated(gdf, ref_col='Ref', date_col=None, date_ref='No_date'):
     """
     Generate a Id-dated reference for a (geo)dataframe
@@ -686,50 +698,53 @@ def gen_id_dated(gdf, ref_col='Ref', date_col=None, date_ref='No_date'):
     date_col: Column containing dates
     """
     print('Generation of ID-dated...')
-    
-    if 'Date' in gdf.columns and date_ref== 'No_date' and date_col is None:
-        print("Using 'Date' column in the (geo)dataframe !")
-        gdf[ref_col] = gdf['Date'].apply(lambda x: str(x.year) + '-' if not pd.isnull(x) else '') + gdf[ref_col].apply(lambda x: str(x) if not pd.isnull(x) else '')
-        #Id=[]
-       # for Idx, row in gdf.iterrows():
-            #if not pd.isnull(row['Date'].year):
-           #     Id.append(str(row['Date'].year)+'-'+str(row[refcol]))
-          #  else:
-         #       Id.append(row[refcol])
 
-        #gdf[refcol]=Id
-        
-        gdf['ID_date'] = gdf[date_col].apply(lambda x : str(x.year) + '-' if not pd.isnull(x) else '') + gdf[ref_col].apply(lambda x : str(x) if not pd.isnull(x) else '')
-        first_column = gdf.pop('ID_date') 
+    if 'Date' in gdf.columns and date_ref == 'No_date' and date_col is None:
+        print("Using 'Date' column in the (geo)dataframe !")
+        gdf[ref_col] = gdf['Date'].apply(lambda x: str(x.year) + '-' if not pd.isnull(x) else '') + gdf[ref_col].apply(
+            lambda x: str(x) if not pd.isnull(x) else '')
+        # Id=[]
+        # for Idx, row in gdf.iterrows():
+        # if not pd.isnull(row['Date'].year):
+        #     Id.append(str(row['Date'].year)+'-'+str(row[refcol]))
+        #  else:
+        #       Id.append(row[refcol])
+
+        # gdf[refcol]=Id
+
+        gdf['ID_date'] = gdf[date_col].apply(lambda x: str(x.year) + '-' if not pd.isnull(x) else '') + gdf[
+            ref_col].apply(lambda x: str(x) if not pd.isnull(x) else '')
+        first_column = gdf.pop('ID_date')
         gdf.insert(0, 'ID_date', first_column)
         print('Process ended, check you (geo)dataframe')
-        
-    elif date_ref!= 'No_date':
+
+    elif date_ref != 'No_date':
         print("Using default date given !")
-        gdf['ID_date'] = date_ref + '-' + gdf[ref_col].apply(lambda x : str(x) if not pd.isnull(x) else '')
-        first_column = gdf.pop('ID_date') 
+        gdf['ID_date'] = date_ref + '-' + gdf[ref_col].apply(lambda x: str(x) if not pd.isnull(x) else '')
+        first_column = gdf.pop('ID_date')
         gdf.insert(0, 'ID_date', first_column)
         print('Process ended, check you (geo)dataframe')
-        
+
     elif date_col is not None:
         print("Using column '", date_col, "' in the (geo)dataframe !")
-        gdf['ID_date'] = gdf[date_col].apply(lambda x : str(x.year) + '-' if not pd.isnull(x) else '') + gdf[ref_col].apply(lambda x : str(x) if not pd.isnull(x) else '')
-        first_column = gdf.pop('ID_date') 
-        gdf.insert(0, 'ID_date', first_column) 
+        gdf['ID_date'] = gdf[date_col].apply(lambda x: str(x.year) + '-' if not pd.isnull(x) else '') + gdf[
+            ref_col].apply(lambda x: str(x) if not pd.isnull(x) else '')
+        first_column = gdf.pop('ID_date')
+        gdf.insert(0, 'ID_date', first_column)
         print('Process ended, check you (geo)dataframe')
-        
+
     else:
         print("No date given and no column 'Date' is the (geo)dataframe, Process cancelled !")
-        
-    #return gdf[refcol]       
 
-        
+    # return gdf[refcol]
+
+
 def gdf_geom(gdf):
-    #geom = gpd.GeoSeries(gdf.apply(lambda x: Point(x['X'], x['Y']),1),crs={'init': 'epsg:31370'})
-    #gdf = gpd.GeoDataFrame(gdf, geometry=geom, crs="EPSG:31370")
-    
-    gdf= gpd.GeoDataFrame(gdf, geometry=gpd.points_from_xy(gdf.X, gdf.Y, crs=str('EPSG:31370')))
-    
+    # geom = gpd.GeoSeries(gdf.apply(lambda x: Point(x['X'], x['Y']),1),crs={'init': 'epsg:31370'})
+    # gdf = gpd.GeoDataFrame(gdf, geometry=geom, crs="EPSG:31370")
+
+    gdf = gpd.GeoDataFrame(gdf, geometry=gpd.points_from_xy(gdf.X, gdf.Y, crs=str('EPSG:31370')))
+
     return gdf
 
 
@@ -760,27 +775,29 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
         gdf_error = pd.DataFrame()
         gdf = gdf1.merge(gdf2, how=how, left_on=left, right_on=right)
 
-        cols=set([gdf.columns.to_list()[x].strip('_x|_y') for x in range(len(gdf.columns)) 
-                  if re.compile(r"_x|_y").search(gdf.columns.to_list()[x])])
-        error=False
-        error_col=[]
-        error_row=[]
-        
+        cols = set([gdf.columns.to_list()[x].strip('_x|_y') for x in range(len(gdf.columns))
+                    if re.compile(r"_x|_y").search(gdf.columns.to_list()[x])])
+        error = False
+        error_col = []
+        error_row = []
+
         for i in cols:
             for j in range(len(gdf)):
-                if gdf.loc[j,i+'_x'] == gdf.loc[j,i+'_y']:
-                    gdf.loc[j,i] = gdf.loc[j,i+'_x']
+                if gdf.loc[j, i + '_x'] == gdf.loc[j, i + '_y']:
+                    gdf.loc[j, i] = gdf.loc[j, i + '_x']
 
-                elif pd.isnull(gdf.loc[j,i+'_x']):
-                    gdf.loc[j,i] = gdf.loc[j,i+'_y']
+                elif pd.isnull(gdf.loc[j, i + '_x']):
+                    gdf.loc[j, i] = gdf.loc[j, i + '_y']
 
-                elif pd.isnull(gdf.loc[j,i+'_y']):
-                    gdf.loc[j,i] = gdf.loc[j,i+'_x']
+                elif pd.isnull(gdf.loc[j, i + '_y']):
+                    gdf.loc[j, i] = gdf.loc[j, i + '_x']
                 else:
-                    if i+'_x' not in error_col : error_col=error_col+[i+'_x',i+'_y']
-                    if j not in error_row : error_row=error_row+[j]
-                    error=True
-        
+                    if i + '_x' not in error_col:
+                        error_col = error_col + [i + '_x', i + '_y']
+                    if j not in error_row:
+                        error_row = error_row + [j]
+                    error = True
+
         gdf.drop(columns=[gdf.columns.to_list()[x] for x in range(len(gdf.columns))
                           if re.compile(r"_x|_y").search(gdf.columns.to_list()[x])
                           and gdf.columns.to_list()[x] not in error_col],
@@ -788,34 +805,41 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
 
         if error:
             print('Ambiguous values in both columns compared, change it manually !')
-            print('Columns',error_col, error_row, 'must be dropped manually !\n')
+            print('Columns', error_col, error_row, 'must be dropped manually !\n')
             print('Creation of a dataframe for ambiguous values, check it !')
-            gdf_error = gdf.loc[error_row, [left]+error_col]
+            gdf_error = gdf.loc[error_row, [left] + error_col]
 
         if fcol is not None:
             gdf.insert(0, fcol, gdf.pop(fcol))
 
-        if fcol is not None: idx=gdf.columns.to_list().index(fcol)
-        elif col is not None: idx=gdf.columns.to_list().index(col)
-        else: idx=gdf.columns.to_list().index('ID')
+        if fcol is not None:
+            idx = gdf.columns.to_list().index(fcol)
+        elif col is not None:
+            idx = gdf.columns.to_list().index(col)
+        else:
+            idx = gdf.columns.to_list().index('ID')
 
-        if 'X' in gdf.columns: gdf.insert(idx + 1, 'X', gdf.pop('X'))
-        if 'Y' in gdf.columns: gdf.insert(idx + 2, 'Y', gdf.pop('Y'))
-        if 'Z' in gdf.columns : gdf.insert(idx + 3, 'Z', gdf.pop('Z'))
-        if 'Zsol' in gdf.columns: gdf.insert(idx + 4, 'Zsol', gdf.pop('Zsol'))
+        if 'X' in gdf.columns:
+            gdf.insert(idx + 1, 'X', gdf.pop('X'))
+        if 'Y' in gdf.columns:
+            gdf.insert(idx + 2, 'Y', gdf.pop('Y'))
+        if 'Z' in gdf.columns:
+            gdf.insert(idx + 3, 'Z', gdf.pop('Z'))
+        if 'Zsol' in gdf.columns:
+            gdf.insert(idx + 4, 'Zsol', gdf.pop('Zsol'))
 
         return gdf, gdf_error
-    
+
     if col is None and left_on is not None and right_on is not None:
         left = left_on
         right = right_on
         gdf, gdf_error = process()
-        
+
     elif col is not None:
         left = col
         right = col
         gdf, gdf_error = process()
     else:
         print("error! 'col' cannot be defined with 'left_on' or 'right_on'")
-        
+
     return gdf, gdf_error
