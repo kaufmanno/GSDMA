@@ -34,7 +34,7 @@ def striplog_legend_to_omf_legend(legend):
     for i in legend:
         omf_legend.append(i.colour)
         new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([1.])]))
-    new_colors.append(np.array([0.9, 0.9, 0.9, 1.]))
+    #new_colors.append(np.array([0.9, 0.9, 0.9, 1.]))
     omf_legend.append(legend[0].colour)
     return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), ListedColormap(new_colors)
 
@@ -144,9 +144,12 @@ class Borehole3D(Striplog):
         """
 
         indices = []
+        idx=0
         for i in self.intervals:
             if i.primary in self.components:
-                indices.append(self.components.index(i.primary))
+                idx+=1
+                indices.append(idx)
+                #indices.append(self.components.index(i.primary))
             else:
                 indices.append(-1)
         return np.array(indices)
@@ -210,10 +213,6 @@ class Borehole3D(Striplog):
 
         return self.geometry
 
-    # def plot(self, legend, ax):
-    #   fix, ax = plt.subplots(ncols=2, figsize=(6,6))
-
-    #  return self.plot(legend=legend, ax=ax[0]), self.legend.plot(ax=ax[1])
 
     def plot3d(self, plotter=None, x3d=False, diam=None):
         """
@@ -243,9 +242,9 @@ class Borehole3D(Striplog):
         seg = ov.line_set_to_vtk(self.geometry)
         seg.set_active_scalars('component')
         ov.lineset.add_data(seg, self.geometry.data)
-        plotter.add_mesh(seg.tube(radius=diam), cmap=self.omf_cmap, clim=(-0.5, len(self.omf_cmap.colors)-0.5))
+        plotter.add_mesh(seg.tube(radius=diam), cmap=self.omf_cmap, clim=[-0.1, len(self.omf_cmap.colors)-1])
 
-        print(seg.active_scalars)
+        #print(seg.active_scalars)
 
         if show and not x3d:
             plotter.show()
@@ -265,8 +264,8 @@ class Borehole3D(Striplog):
                        ' please read  <a href="https://doc.x3dom.org/tutorials/animationInteraction/' \
                        'navigation/index.html">the docs</a>  \n</p>\n' \
                        '<x3d width=\'968px\' height=\'600px\'>\n <scene>\n' \
-                       '<viewpoint position="-1.94639 1.79771 -2.89271"' \
-                       ' orientation="0.03886 0.99185 0.12133 3.75685">' \
+                       '<viewpoint position="-3.03956 -14.95776 2.17179"' \
+                       ' orientation="0.98276 -0.08411 -0.16462 1.15299">' \
                        '</viewpoint>\n <Inline nameSpaceName="Borehole" ' \
                        'mapDEFToID="true" url="' + filename + '" />' \
                                                               '\n</scene>\n</x3d>\n</body>\n</html>\n'
@@ -282,10 +281,10 @@ class Borehole3D(Striplog):
         for i in self.intervals:
             bh_litho.append(i.primary.lithology)
 
-        for i in legend:
-            if i.component.lithology in bh_litho:
-                plot_decors.append(i)
-                i.width = width
+        for i in range((len(legend)-1),-1,-1):
+            if legend[i].component.lithology in bh_litho:
+                plot_decors.append(legend[i])
+                legend[i].width = width
         plot_legend = Legend(plot_decors)
 
         fig, ax = plt.subplots(ncols=2, figsize=figsize)
