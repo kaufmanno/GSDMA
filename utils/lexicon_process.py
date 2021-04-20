@@ -2,6 +2,7 @@ from importlib import import_module
 import re
 import pandas as pd
 from os import walk, path, makedirs
+from definitions import ROOT_DIR
 
 
 def desc_process(df, desc_col):
@@ -56,7 +57,7 @@ def modifier_process(desc, lexicon_file=None, kind=None):
     """
 
     if lexicon_file is None:
-        lexicon_file = import_module('utils.defaults.basic_lexicon_FR')
+        lexicon_file = import_module('utils.lexicon.defaults.basic_lexicon_FR')
         lexicon = lexicon_file.LEXICON
     elif isinstance(lexicon_file, str):
         lexicon_file = import_module(lexicon_file)
@@ -132,7 +133,7 @@ def modifier_process(desc, lexicon_file=None, kind=None):
 
 def update_lexicon_db(save_lexicon, lexicon_db=None, colour_db=None):
     if save_lexicon is None:
-        save_lexicon = 'lexicon/Lexicon_FR_updated.py'
+        save_lexicon = ROOT_DIR + 'utils/lexicon/Lexicon_FR_updated.py'
     else:
         save_lexicon = f"{save_lexicon}"
 
@@ -280,7 +281,7 @@ def build_lexicon(fdir=None, kind_list=None, df_dict=None, desc_col='Description
             all description keywords
     """
     if lexicon_file is None:
-        lexicon_mod = import_module('utils.defaults.basic_lexicon_FR')
+        lexicon_mod = import_module('utils.lexicon.defaults.basic_lexicon_FR')
     else:
         lexicon_mod = import_module(lexicon_file)
 

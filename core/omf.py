@@ -148,8 +148,8 @@ class Borehole3D(Striplog):
         for i in self.intervals:
             if i.primary in self.components:
                 idx+=1
-                indices.append(idx)
-                #indices.append(self.components.index(i.primary))
+                indices.append(idx) # not really effective
+                # indices.append(self.components.index(i.primary)) #old code
             else:
                 indices.append(-1)
         return np.array(indices)

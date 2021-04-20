@@ -5,7 +5,6 @@ from vtk import vtkX3DExporter
 from IPython.display import HTML
 import pyvista as pv
 
-
 class Project:
     """
     Create a project that will contain Borehole object
@@ -131,7 +130,7 @@ class Project:
         self.commit()
         self.refresh()
 
-    def plot3d(self, x3d=False):
+    def plot3d(self, plotter=None, x3d=False):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -140,7 +139,11 @@ class Project:
         x3d : bool
             if True, generates a 3xd file of the 3D (default=False)
         """
-        pl = pv.Plotter()
+        if plotter is not None:
+            pl=plotter
+        else:
+            pl = pv.Plotter()
+
         for bh in self.boreholes_3d:
             bh.plot3d(plotter=pl)
             
