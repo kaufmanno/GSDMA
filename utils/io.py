@@ -3,7 +3,9 @@ from os import walk
 import numpy as np
 import geopandas as gpd
 import pandas as pd
+from docutils.nodes import error
 from shapely import wkt
+from shapely.geometry import Point
 from striplog import Striplog, Lexicon, Interval, Component
 from core.orm import BoreholeOrm, PositionOrm
 from ipywidgets import interact, IntSlider
@@ -684,26 +686,27 @@ def export_gdf(gdf, epsg, save_name=None):
         print(f'file\'s name extension not given or incorrect, please choose (.json, .gpkg, .csv)')
 
 
-def gdf_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None):  # display dataframes with  a widget
+def gdf_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None, view=True):  # display dataframes with  a widget
 
     if un_val is None:
         print(f'Rows : {df.shape[0]}, columns : {df.shape[1]}')
     else:
         print(f"Rows : {df.shape[0]}, columns : {df.shape[1]}, Unique on '{un_val}': {len(set(df[un_val]))}")
 
-    @interact(last_row=IntSlider(min=min(rows, df.shape[0]), max=df.shape[0],
-                                 step=step_r, description='rows', readout=False,
-                                 disabled=False, continuous_update=True,
-                                 orientation='horizontal', slider_color='blue'),
-              last_column=IntSlider(min=min(cols, df.shape[1]),
-                                    max=df.shape[1], step=step_c,
-                                    description='columns', readout=False,
-                                    disabled=False, continuous_update=True,
-                                    orientation='horizontal', slider_color='blue')
-              )
-    def _freeze_header(last_row, last_column):
-        display(df.iloc[max(0, last_row - rows):last_row,
-                max(0, last_column - cols):last_column])
+    if view:
+        @interact(last_row=IntSlider(min=min(rows, df.shape[0]), max=df.shape[0],
+                                     step=step_r, description='rows', readout=False,
+                                     disabled=False, continuous_update=True,
+                                     orientation='horizontal', slider_color='blue'),
+                  last_column=IntSlider(min=min(cols, df.shape[1]),
+                                        max=df.shape[1], step=step_c,
+                                        description='columns', readout=False,
+                                        disabled=False, continuous_update=True,
+                                        orientation='horizontal', slider_color='blue')
+                  )
+        def _freeze_header(last_row, last_column):
+            display(df.iloc[max(0, last_row - rows):last_row,
+                    max(0, last_column - cols):last_column])
 
 
 def gen_id_dated(gdf, ref_col='Ref', date_col=None, date_ref='No_date'):
@@ -737,14 +740,14 @@ def gen_id_dated(gdf, ref_col='Ref', date_col=None, date_ref='No_date'):
             ref_col].apply(lambda x: str(x) if not pd.isnull(x) else '')
         first_column = gdf.pop('ID_date')
         gdf.insert(0, 'ID_date', first_column)
-        print('Process ended, check you (geo)dataframe')
+        print('Process ended, check the (geo)dataframe')
 
     elif date_ref != 'No_date':
         print("Using default date given !")
         gdf['ID_date'] = date_ref + '-' + gdf[ref_col].apply(lambda x: str(x) if not pd.isnull(x) else '')
         first_column = gdf.pop('ID_date')
         gdf.insert(0, 'ID_date', first_column)
-        print('Process ended, check you (geo)dataframe')
+        print('Process ended, check the (geo)dataframe')
 
     elif date_col is not None:
         print("Using column '", date_col, "' in the (geo)dataframe !")
@@ -752,7 +755,7 @@ def gen_id_dated(gdf, ref_col='Ref', date_col=None, date_ref='No_date'):
             ref_col].apply(lambda x: str(x) if not pd.isnull(x) else '')
         first_column = gdf.pop('ID_date')
         gdf.insert(0, 'ID_date', first_column)
-        print('Process ended, check you (geo)dataframe')
+        print('Process ended, check the (geo)dataframe')
 
     else:
         print("No date given and no column 'Date' is the (geo)dataframe, Process cancelled !")
@@ -769,33 +772,33 @@ def gdf_geom(gdf):
     return gdf
 
 
-def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, fcol=None, scope=globals()):
+def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, fcol=None, dist_max=None, err_val=None, non_na=5, col_n=None, scope=globals(), verbose=False, debug=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
-    
+
     parameters
     ------------
     gdf1, gdf2 : pandas (Geo)DataFrame
-    
+
     how: str
     col: str
     left_on: str
     right_on: str
     fcol: str
         Column to take the first position in the dataset
-    
+
     Returns
     --------
     gdf: merged dataframe
     gdf_error: dataframe that contains ambiguous values encounter
-    
+
     """
     gdf = pd.DataFrame()
     gdf_error = pd.DataFrame()
 
     def var_name(obj, scope=scope):
         if scope is None:
-            scope=globals()
-        varname=''
+            scope = globals()
+        varname = ''
         for name in scope:
             if scope[name] is obj:
                 varname = name
@@ -803,83 +806,359 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
 
         return varname
 
-    def process():
+    def process():  # err_val=err_val):
         gdf_error = pd.DataFrame()
         gdf = gdf1.merge(gdf2, how=how, left_on=left, right_on=right)
+        mdf = gdf.copy()  # to retrieve values for gdf_error
 
-        dble_cols = set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns))
-                    if re.compile(r"_x|_y").search(gdf.columns.to_list()[x])])
+
+        gdf.replace('nan', np.nan, inplace=True)
+
+        dble_cols = set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns)) if
+                         re.compile(r"_x|_y").search(gdf.columns.to_list()[x])])
         error = False
+        global error_row
+        global error_col
         error_col = []
         error_row = []
+        dist = 0
+
+        # if err_val is None:
+        #     err_val = 3  # order of magnitude
 
         for i in dble_cols:
-            for j in range(len(gdf)):
-               # if j==1:
-               #     print(i)
-                if gdf.loc[j, i + '_x'] == gdf.loc[j, i + '_y']:
-                    gdf.loc[j, i] = gdf.loc[j, i + '_x']
+            gdf[i] = np.nan # creation of the final column
+            if verbose: print('\nColumn :', i)
 
-                elif pd.isnull(gdf.loc[j, i + '_x']):
-                    gdf.loc[j, i] = gdf.loc[j, i + '_y']
+            if debug: print('column:', gdf[i + '_x'].name)
+            for j in gdf.index:
+                if re.search('int|float', gdf[i + '_x'].dtype.name):
+                    if debug:
+                        print(i, j)
+                        # print(gdf[i + '_x'].median(skipna=True), gdf[i + '_y'].median(skipna=True))
+                    med = np.mean([gdf[i + '_x'].median(skipna=True), gdf[i + '_y'].median(skipna=True)])
+                    xgap = abs(gdf.loc[j, i + '_x'] - med) # gap between the value and median
+                    ygap = abs(gdf.loc[j, i + '_y'] - med)
 
-                elif pd.isnull(gdf.loc[j, i + '_y']):
-                    gdf.loc[j, i] = gdf.loc[j, i + '_x']
+                if 'X' in dble_cols:
+                    if not pd.isnull(gdf.loc[j, col]):
+                        # print(j,'xx',type(gdf.loc[j, 'X_x']),'yx',type(gdf.loc[j,'Y_x']),'\n')
+                        # print(j,'xy',type(gdf.loc[j, 'X_y']),'yy',type(gdf.loc[j,'Y_y']))
+
+                        pos_x = Point(gdf.loc[j, 'X_x'], gdf.loc[j, 'Y_x'])
+                        pos_y = Point(gdf.loc[j, 'X_y'], gdf.loc[j, 'Y_y'])
+
+                    dist = pos_x.distance(pos_y)
+
+                if dist_max is None:  # simple merging
+                    if pd.isnull(gdf.loc[j, i + '_x']) and not pd.isnull(gdf.loc[j, i + '_y']):
+                        gdf.loc[j, i] = gdf.loc[j, i + '_y']
+                        gdf.loc[j, i + '_y'] = np.nan
+                        if verbose: print('1A')
+                    elif pd.isnull(gdf.loc[j, i + '_y']) and not pd.isnull(gdf.loc[j, i + '_x']):
+                        gdf.loc[j, i] = gdf.loc[j, i + '_x']
+                        gdf.loc[j, i + '_x'] = np.nan
+                        if verbose: print('1B')
+                    elif gdf.loc[j, i + '_x'] == gdf.loc[j, i + '_y']:
+                        gdf.loc[j, i] = gdf.loc[j, i + '_x']
+                        gdf.loc[j, i + '_x'] = np.nan
+                        gdf.loc[j, i + '_y'] = np.nan
+                        if verbose: print('1C')
+                    else:
+                        if verbose: print('1D')
+                        if i + '_x' not in error_col:
+                            error_col = error_col + [i + '_x', i + '_y']
+                        if j not in error_row:
+                            error_row = error_row + [j]
+                        error = True
+
+                elif dist_max is not None and dist <= dist_max:  # merging considering object position
+                    # different objects must be distant to 2 meters at least !
+                    if pd.isnull(gdf.loc[j, i + '_x']) and not pd.isnull(gdf.loc[j, i + '_y']):
+                        gdf.loc[j, i] = gdf.loc[j, i + '_y']
+                        gdf.loc[j, i + '_y'] = np.nan
+                        if verbose: print('2A')
+                    elif pd.isnull(gdf.loc[j, i + '_y']) and not pd.isnull(gdf.loc[j, i + '_x']):
+                        gdf.loc[j, i] = gdf.loc[j, i + '_x']
+                        gdf.loc[j, i + '_x'] = np.nan
+                        if verbose: print('2B')
+                    else:
+                        if not pd.isnull(gdf.loc[j, i + '_x']):
+                            val = gdf.loc[j, i + '_x']
+                        else:
+                            val = gdf.loc[j, i + '_y']
+
+                        if re.search('X|Y', i):
+                            if verbose: print('2C', val)
+                            gdf.loc[j, i] = val
+                            gdf.loc[j, i + '_x'] = np.nan
+                            gdf.loc[j, i + '_y'] = np.nan
+                        elif re.search('int|float', gdf[i + '_x'].dtype.name):  # for numeric columns
+                            if xgap < ygap:
+                                gdf.loc[j, i] = gdf.loc[j, i + '_x']
+                                gdf.loc[j, i + '_x'] = np.nan
+                                gdf.loc[j, i + '_y'] = np.nan
+                            else:
+                                gdf.loc[j, i] = gdf.loc[j, i + '_y']
+                                gdf.loc[j, i + '_x'] = np.nan
+                                gdf.loc[j, i + '_y'] = np.nan
+                                """
+                                maxi = max(gdf.loc[j, i + '_x'], gdf.loc[j, i + '_y'])
+                                mini = min(gdf.loc[j, i + '_x'], gdf.loc[j, i + '_y'])
+                                if maxi / mini < err_val:
+                                    if verbose: print('2D')
+                                    gdf.loc[j, i] = val
+                                    gdf.loc[j, i + '_x'] = np.nan
+                                    gdf.loc[j, i + '_y'] = np.nan
+                                else:
+                                    if verbose: print('2E')
+                                """
+
+                        else:  # for str (or other type) columns
+                            # if gdf.loc[j, i + '_x'] == gdf.loc[j, i + '_y']:
+                            if str(gdf.loc[j, i + '_x']).lower() == str(gdf.loc[j, i + '_y']).lower():
+                                gdf.loc[j, i] = gdf.loc[j, i + '_x']
+                                gdf.loc[j, i + '_x'] = np.nan
+                                gdf.loc[j, i + '_y'] = np.nan
+                                if verbose: print('2F')
+                            else:
+                                if i + '_x' not in error_col:
+                                    error_col = error_col + [i + '_x', i + '_y']
+                                if j not in error_row:
+                                    error_row = error_row + [j]
+                                error = True
                 else:
-                    if i + '_x' not in error_col:
-                        error_col = error_col + [i + '_x', i + '_y']
-                    if j not in error_row:
-                        error_row = error_row + [j]
-                    error = True
+                    # not the same object seemingly
+                    #if debug:
+                    #    print(f"{j}, {i}, vx:{gdf.loc[j, i + '_x']}, vy: {gdf.loc[j, i + '_y']}")
+                    if pd.isnull(gdf.loc[j, i + '_x']) and not pd.isnull(gdf.loc[j, i + '_y']):
+                        gdf.loc[j, i] = gdf.loc[j, i + '_y']
+                        gdf.loc[j, i + '_y'] = np.nan
+                        if verbose: print('3A')
+                    elif pd.isnull(gdf.loc[j, i + '_y']) and not pd.isnull(gdf.loc[j, i + '_x']):
+                        gdf.loc[j, i] = gdf.loc[j, i + '_x']
+                        gdf.loc[j, i + '_x'] = np.nan
+                        if verbose: print('3B')
+                    elif gdf.loc[j, i + '_x'] == gdf.loc[j, i + '_y']:
+                        gdf.loc[j, i] = gdf.loc[j, i + '_x']
+                        gdf.loc[j, i + '_x'] = np.nan
+                        gdf.loc[j, i + '_y'] = np.nan
+                        if verbose: print('3C')
+                    else:  # 2 different values
+                        if verbose: print('3D')
+                        if re.search('int|float', gdf[i + '_x'].dtype.name):
+                            if xgap < ygap:
+                                gdf.loc[j, i] = gdf.loc[j, i + '_x']
+                                gdf.loc[j, i + '_x'] = np.nan
+                                gdf.loc[j, i + '_y'] = np.nan
+                            else:
+                                gdf.loc[j, i] = gdf.loc[j, i + '_y']
+                                gdf.loc[j, i + '_x'] = np.nan
+                                gdf.loc[j, i + '_y'] = np.nan
 
-        gdf.drop(columns=[gdf.columns.to_list()[x] for x in range(len(gdf.columns))
-                          if re.compile(r"_x|_y").search(gdf.columns.to_list()[x])
-                          and gdf.columns.to_list()[x] not in error_col],
-                 axis=1, inplace=True)
-
-        if error:
-            print('Ambiguous values in both columns compared, change it manually !')
-            print('Columns', error_col, 'must be dropped manually !')
-            #print('Creation of a dataframe for ambiguous values, check it !')
-            gdf_error = gdf.loc[error_row, [left] + error_col]
-
+                                """
+                           maxi = max(gdf.loc[j, i + '_x'], gdf.loc[j, i + '_y'])
+                           mini = min(gdf.loc[j, i + '_x'], gdf.loc[j, i + '_y'])
+                           if maxi / mini < err_val:
+                               if verbose: print('3E')
+                               gdf.loc[j, i] = val
+                               gdf.loc[j, i + '_x'] = np.nan
+                               gdf.loc[j, i + '_y'] = np.nan """
+                        else:
+                            if verbose: print('3F')
+                            if i + '_x' not in error_col:
+                                error_col = error_col + [i + '_x', i + '_y']
+                            if j not in error_row:
+                                error_row = error_row + [j]
+                            error = True
 
         if fcol is not None:
             gdf.insert(0, fcol, gdf.pop(fcol))
 
         if fcol is not None:
-            idx = gdf.columns.to_list().index(fcol)
+            idx_col = gdf.columns.to_list().index(fcol)
         elif col is not None:
-            idx = gdf.columns.to_list().index(col)
+            idx_col = gdf.columns.to_list().index(col)
         else:
-            idx = gdf.columns.to_list().index('ID')
+            idx_col = gdf.columns.to_list().index('ID')
 
+        gdf.insert(0, col, gdf.pop(col))
         if 'X' in gdf.columns:
-            gdf.insert(idx + 1, 'X', gdf.pop('X'))
+            gdf.insert(idx_col + 1, 'X', gdf.pop('X'))
         if 'Y' in gdf.columns:
-            gdf.insert(idx + 2, 'Y', gdf.pop('Y'))
+            gdf.insert(idx_col + 2, 'Y', gdf.pop('Y'))
         if 'Z' in gdf.columns:
-            gdf.insert(idx + 3, 'Z', gdf.pop('Z'))
+            gdf.insert(idx_col + 3, 'Z', gdf.pop('Z'))
         if 'Zsol' in gdf.columns:
-            gdf.insert(idx + 4, 'Zsol', gdf.pop('Zsol'))
+            gdf.insert(idx_col + 4, 'Zsol', gdf.pop('Zsol'))
+
+        if error:
+            gdf_error = mdf.loc[error_row, [left] + error_col]
+           # if len(gdf_error) >= 1:
+           #     print('Ambiguous values in both columns compared, change it manually !')
+           #     print('Columns', error_col, 'must be dropped manually !')
+
+
+        if verbose: print(len(gdf))
 
         return gdf, gdf_error
 
     if col is None and left_on is not None and right_on is not None:
         left = left_on
         right = right_on
-        gdf, gdf_error = process()
+        gdf, gdf_error = process()  # err_val)
 
     elif col is not None:
         left = col
         right = col
-        gdf, gdf_error = process()
-        if len(gdf_error)!=0:
-            error_csv=f'merging_error_log({var_name(gdf1)}-{var_name(gdf2)})'
-            gdf_error.to_csv(f'tmp_files/{error_csv}.csv', index=True)
-            print(f"error file created in 'tmp_files/{error_csv}.csv'")
+        gdf, gdf_error = process()  # err_val)
+    # else:
+        # print("error! 'col' cannot be defined with 'left_on' or 'right_on'")
+
+    gdf = na_col_drop(gdf, non_na)
+    if col_n is not None:
+        gdf = na_line_drop(gdf, col_n=col_n)
+    elif col_n is None and col is not None:
+        n = gdf.columns.to_list().index(col) + 1
+        gdf = na_line_drop(gdf, col_n=n)
     else:
-        print("error! 'col' cannot be defined with 'left_on' or 'right_on'")
+        gdf = na_line_drop(gdf, col_n=0)
+
+    gdf_error = na_line_drop(gdf_error, col_n=1)
+    gdf_error = na_col_drop(gdf_error, non_na=1)
+
+    real_error_col = []
+    for c in gdf_error.columns:
+        if c in gdf.columns:
+            real_error_col.append(c)  # error columns to display
+            error_view = True
+        else:
+            error_view = False
+
+    gdf_error = gdf_error[real_error_col]
+
+    if len(gdf_error) >= 1 and len(gdf_error.columns) >=2 and error_view:
+        error_csv = f'merging_error_log({var_name(gdf1)}-{var_name(gdf2)})'
+        gdf_error.to_csv(f'tmp_files/{error_csv}.csv', index=True)
+
+        print('Ambiguous values in both columns compared, change it manually !')
+        print('Columns', real_error_col, 'must be dropped manually !')
+        print(f"error file created in 'tmp_files/{error_csv}.csv'")
 
     return gdf, gdf_error
 
+def na_col_drop(data, non_na=10, drop=True, verbose=False):
+    """
+    delete NaN columns in the dataframe based on a minimum number of non-NaN values
+
+    """
+
+    drop_cols = []
+    if verbose: print('Non-NaN values\n----------------')
+    for c in data.columns:
+        v = len(data.iloc[:, 0]) - data[c].isnull().sum() # number of non-na values
+        if verbose: print(f'{c} --> val: {v} | Nan: {data[c].isnull().sum()}')
+        if v < non_na:
+            drop_cols.append(c)
+
+    if drop and len(drop_cols) != 0:
+        print(f'\nColumns dropped :{drop_cols}\n')
+        data.drop(drop_cols, axis=1, inplace=True)
+
+    return data
+
+
+def na_line_drop(data, col_n=3):
+    l1 = len(data)
+    data['line_na'] = False
+
+    for i in list(data.index): # range(len(data)):
+        #print(i,'/',len(data))
+        verif = True
+        for j in data.columns.to_list()[col_n:-1]:
+            if not pd.isnull(data.loc[i, j]): verif = False
+
+        data.loc[i, 'line_na'] = verif
+
+    data = data.query('line_na==False')
+    data.reset_index(drop=True, inplace=True)
+    data.drop('line_na', axis=1, inplace=True)
+    l2 = len(data)
+    nb_lines = l1 - l2
+    if nb_lines > 0: print(f'{nb_lines} NaN lines dropped')
+
+    return data
+
+
+def dble_col_drop(data, drop=True):
+    twins = {}
+    idx_drop = {}
+    for i in range(len(data.columns)):  # locate double columns
+        c = data.columns[i]
+        if c not in twins.keys():
+            twins.update({c: i})
+        # elif data.iloc[:,i].isnull().sum()<data.iloc[:,twins[c]].isnull().sum():
+        #    idx_drop.update({twins[c]:i})
+        #    twins.update({c:i})
+        else:
+            idx_drop.update({i: c})
+
+    for i in range(len(data.columns)):  # attempt to collect data if exist in double columns
+        for k, v in idx_drop.items():
+            if data.columns[i] == v:
+                for j in data.index:
+                    if pd.isnull(data.iloc[j, i]):
+                        data.iloc[j, i] = data.iloc[j, k]
+                    elif not isinstance(data.iloc[j, i], str) and not isinstance(data.iloc[j, k], str):
+                        data.iloc[j, i] = max(data.iloc[j, i], data.iloc[j, k])
+
+    print(f"column(s) dropped: {[f'{x}:{y}' for x, y in idx_drop.items()]}")
+    new_col = list(set(range(len(data.columns))) - set(idx_drop.keys()))
+    if drop: data = data.iloc[:, new_col]
+
+    return data
+
+
+def col_ren(data, line_to_col=1, mode=0, name=[]):
+    """
+    mode: int
+        set 0 to rename columns with a line, set 1 if provide name list or dict
+    """
+    new_name = {}
+
+    if mode != 0 and mode != 1:
+        print("Error! Parameter \'Mode\' must be 0 or 1 (if 1, colums length must be equal to name length)")
+
+    elif mode == 0:
+        for i in data.columns:
+            col = str(data.iloc[line_to_col, i])
+            if re.search('nan', col, flags=re.IGNORECASE):
+                new_name.update({i: f'col_{i}'})
+            else:
+                new_name.update({i: col})
+
+        data.drop([line_to_col], axis=0, inplace=True)
+        data.reset_index(drop=True, inplace=True)
+
+    elif mode == 1:
+        if isinstance(name, list) and len(name) == len(data.columns):
+            for i in range(len(name)):
+                new_name.update({data.columns[i]: name[i]})
+
+        elif isinstance(name, dict):
+            strp = ',| |>|<|-|\n|_|\(|\.|\)'
+
+            for i in range(len(data.columns)):
+                keys = list(name.keys())
+                old = data.columns[i]
+
+                for k in keys:
+                    if re.match(f"{re.sub(strp, '', k)}", re.sub(strp, '', old), flags=re.I):
+                        new_name.update({old: name[k]})
+
+        elif isinstance(name, list) and len(name) != len(data.columns):
+            print('Error! names list length and columns length are not the same.')
+
+    data.rename(columns=new_name, inplace=True)
+
+    return data
