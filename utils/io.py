@@ -775,7 +775,7 @@ def gdf_geom(gdf):
 def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, fcol=None, dist_max=None, err_val=None, non_na=5, col_n=None, scope=globals(), verbose=False, debug=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
 
-    parameters
+    Parameters
     ------------
     gdf1, gdf2 : pandas (Geo)DataFrame
 
@@ -864,8 +864,11 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
                         gdf.loc[j, i + '_x'] = np.nan
                         gdf.loc[j, i + '_y'] = np.nan
                         if verbose: print('1C')
-                    else:
+                    elif pd.isnull(gdf.loc[j, i + '_x']) and pd.isnull(gdf.loc[j, i + '_y']):
+                        gdf.loc[j, i] = np.nan
                         if verbose: print('1D')
+                    else:
+                        if verbose: print('1E')
                         if i + '_x' not in error_col:
                             error_col = error_col + [i + '_x', i + '_y']
                         if j not in error_row:
@@ -882,6 +885,9 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
                         gdf.loc[j, i] = gdf.loc[j, i + '_x']
                         gdf.loc[j, i + '_x'] = np.nan
                         if verbose: print('2B')
+                    elif pd.isnull(gdf.loc[j, i + '_x']) and pd.isnull(gdf.loc[j, i + '_y']):
+                        gdf.loc[j, i] = np.nan
+                        if verbose: print('2D')
                     else:
                         if not pd.isnull(gdf.loc[j, i + '_x']):
                             val = gdf.loc[j, i + '_x']
@@ -944,8 +950,11 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
                         gdf.loc[j, i + '_x'] = np.nan
                         gdf.loc[j, i + '_y'] = np.nan
                         if verbose: print('3C')
-                    else:  # 2 different values
+                    elif pd.isnull(gdf.loc[j, i + '_x']) and pd.isnull(gdf.loc[j, i + '_y']):
+                        gdf.loc[j, i] = np.nan
                         if verbose: print('3D')
+                    else:  # 2 different values
+                        if verbose: print('3E')
                         if re.search('int|float', gdf[i + '_x'].dtype.name):
                             if xgap < ygap:
                                 gdf.loc[j, i] = gdf.loc[j, i + '_x']
