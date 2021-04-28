@@ -810,18 +810,17 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
         gdf_error = pd.DataFrame()
         gdf = gdf1.merge(gdf2, how=how, left_on=left, right_on=right)
         mdf = gdf.copy()  # to retrieve values for gdf_error
-
-
         gdf.replace('nan', np.nan, inplace=True)
 
-        dble_cols = set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns)) if
-                         re.compile(r"_x|_y").search(gdf.columns.to_list()[x])])
         error = False
         global error_row
         global error_col
         error_col = []
         error_row = []
         dist = 0
+
+        dble_cols = set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns)) if
+                         re.compile(r"_x|_y").search(gdf.columns.to_list()[x])])
 
         # if err_val is None:
         #     err_val = 3  # order of magnitude
@@ -836,9 +835,9 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
                     if debug:
                         print(i, j)
                         # print(gdf[i + '_x'].median(skipna=True), gdf[i + '_y'].median(skipna=True))
-                    med = np.mean([gdf[i + '_x'].median(skipna=True), gdf[i + '_y'].median(skipna=True)])
-                    xgap = abs(gdf.loc[j, i + '_x'] - med) # gap between the value and median
-                    ygap = abs(gdf.loc[j, i + '_y'] - med)
+                    #med = np.mean([gdf[i + '_x'].median(skipna=True), gdf[i + '_y'].median(skipna=True)])
+                    #xgap = abs(gdf.loc[j, i + '_x'] - med) # gap between the value and median
+                    #ygap = abs(gdf.loc[j, i + '_y'] - med)
 
                 if 'X' in dble_cols:
                     if not pd.isnull(gdf.loc[j, col]):
@@ -868,12 +867,19 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
                         gdf.loc[j, i] = np.nan
                         if verbose: print('1D')
                     else:
-                        if verbose: print('1E')
-                        if i + '_x' not in error_col:
-                            error_col = error_col + [i + '_x', i + '_y']
-                        if j not in error_row:
-                            error_row = error_row + [j]
-                        error = True
+                        if not re.search('int|float', gdf[i + '_x'].dtype.name) and \
+                                str(gdf.loc[j, i + '_x']).lower() == str(gdf.loc[j, i + '_y']).lower():
+                            gdf.loc[j, i] = str(gdf.loc[j, i + '_x']).capitalize()
+                            gdf.loc[j, i + '_x'] = np.nan
+                            gdf.loc[j, i + '_y'] = np.nan
+                            if verbose: print('1E')
+                        else:
+                            if verbose: print('1F')
+                            if i + '_x' not in error_col:
+                                error_col = error_col + [i + '_x', i + '_y']
+                            if j not in error_row:
+                                error_row = error_row + [j]
+                            error = True
 
                 elif dist_max is not None and dist <= dist_max:  # merging considering object position
                     # different objects must be distant to 2 meters at least !
@@ -885,10 +891,16 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
                         gdf.loc[j, i] = gdf.loc[j, i + '_x']
                         gdf.loc[j, i + '_x'] = np.nan
                         if verbose: print('2B')
+                    elif gdf.loc[j, i + '_x'] == gdf.loc[j, i + '_y']:
+                        gdf.loc[j, i] = gdf.loc[j, i + '_x']
+                        gdf.loc[j, i + '_x'] = np.nan
+                        gdf.loc[j, i + '_y'] = np.nan
+                        if verbose: print('2C')
                     elif pd.isnull(gdf.loc[j, i + '_x']) and pd.isnull(gdf.loc[j, i + '_y']):
                         gdf.loc[j, i] = np.nan
                         if verbose: print('2D')
                     else:
+                        """
                         if not pd.isnull(gdf.loc[j, i + '_x']):
                             val = gdf.loc[j, i + '_x']
                         else:
@@ -899,7 +911,10 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
                             gdf.loc[j, i] = val
                             gdf.loc[j, i + '_x'] = np.nan
                             gdf.loc[j, i + '_y'] = np.nan
-                        elif re.search('int|float', gdf[i + '_x'].dtype.name):  # for numeric columns
+                        """
+                        # not really good to do that
+                        if re.search('int|float', gdf[i + '_x'].dtype.name):  # for numeric columns
+                            if verbose: print('2E')
                             if xgap < ygap:
                                 gdf.loc[j, i] = gdf.loc[j, i + '_x']
                                 gdf.loc[j, i + '_x'] = np.nan
@@ -921,13 +936,13 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
                                 """
 
                         else:  # for str (or other type) columns
-                            # if gdf.loc[j, i + '_x'] == gdf.loc[j, i + '_y']:
                             if str(gdf.loc[j, i + '_x']).lower() == str(gdf.loc[j, i + '_y']).lower():
-                                gdf.loc[j, i] = gdf.loc[j, i + '_x']
+                                gdf.loc[j, i] = str(gdf.loc[j, i + '_x']).capitalize()
                                 gdf.loc[j, i + '_x'] = np.nan
                                 gdf.loc[j, i + '_y'] = np.nan
                                 if verbose: print('2F')
                             else:
+                                if verbose: print('2G')
                                 if i + '_x' not in error_col:
                                     error_col = error_col + [i + '_x', i + '_y']
                                 if j not in error_row:
@@ -955,7 +970,7 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
                         if verbose: print('3D')
                     else:  # 2 different values
                         if verbose: print('3E')
-                        if re.search('int|float', gdf[i + '_x'].dtype.name):
+                        if re.search('int|float', gdf[i + '_x'].dtype.name): # numeric columns
                             if xgap < ygap:
                                 gdf.loc[j, i] = gdf.loc[j, i + '_x']
                                 gdf.loc[j, i + '_x'] = np.nan
@@ -973,13 +988,20 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
                                gdf.loc[j, i] = val
                                gdf.loc[j, i + '_x'] = np.nan
                                gdf.loc[j, i + '_y'] = np.nan """
-                        else:
-                            if verbose: print('3F')
-                            if i + '_x' not in error_col:
-                                error_col = error_col + [i + '_x', i + '_y']
-                            if j not in error_row:
-                                error_row = error_row + [j]
-                            error = True
+                        else:  # for str (or other type) columns
+                            if str(gdf.loc[j, i + '_x']).lower() == str(gdf.loc[j, i + '_y']).lower():
+                                gdf.loc[j, i] = str(gdf.loc[j, i + '_x']).capitalize()
+                                gdf.loc[j, i + '_x'] = np.nan
+                                gdf.loc[j, i + '_y'] = np.nan
+                                if verbose: print('3F')
+                            else:
+                                if verbose: print('3G')
+                                if i + '_x' not in error_col:
+                                    error_col = error_col + [i + '_x', i + '_y']
+                                if j not in error_row:
+                                    error_row = error_row + [j]
+                                error = True
+
 
         if fcol is not None:
             gdf.insert(0, fcol, gdf.pop(fcol))
