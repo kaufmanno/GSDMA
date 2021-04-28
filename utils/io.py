@@ -784,7 +784,7 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
     left_on: str
     right_on: str
     fcol: str
-        Column to take the first position in the dataset
+        name of the column to use as first column in the returned gdf dataframe
 
     Returns
     --------
@@ -793,7 +793,7 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
 
     """
     gdf = pd.DataFrame()
-    gdf_error = pd.DataFrame()
+    gdf_conflict = pd.DataFrame()
 
     def var_name(obj, scope=scope):
         if scope is None:
@@ -807,72 +807,73 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
         return varname
 
     def process():  # err_val=err_val):
-        gdf_error = pd.DataFrame()
-        gdf = gdf1.merge(gdf2, how=how, left_on=left, right_on=right)
-        mdf = gdf.copy()  # to retrieve values for gdf_error
-        gdf.replace('nan', np.nan, inplace=True)
+        gdf_conflict = pd.DataFrame()
+        mdf = gdf1.merge(gdf2, how=how, left_on=left, right_on=right)
+        mdf.replace('nan', np.nan, inplace=True)
+        gdf = mdf.copy()  # to retrieve values for gdf_error
 
         error = False
         global error_row
         global error_col
         error_col = []
         error_row = []
-        dist = 0
+        dist = 0.
 
         dble_cols = set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns)) if
                          re.compile(r"_x|_y").search(gdf.columns.to_list()[x])])
 
-        # if err_val is None:
-        #     err_val = 3  # order of magnitude
-
         for i in dble_cols:
             gdf[i] = np.nan # creation of the final column
-            if verbose: print('\nColumn :', i)
+            if verbose:
+                print('\nColumn :', i)
 
-            if debug: print('column:', gdf[i + '_x'].name)
+            if debug:
+                print('column:', gdf[i + '_x'].name)
+
             for j in gdf.index:
-                if re.search('int|float', gdf[i + '_x'].dtype.name):
-                    if debug:
-                        print(i, j)
-                        # print(gdf[i + '_x'].median(skipna=True), gdf[i + '_y'].median(skipna=True))
-                    #med = np.mean([gdf[i + '_x'].median(skipna=True), gdf[i + '_y'].median(skipna=True)])
-                    #xgap = abs(gdf.loc[j, i + '_x'] - med) # gap between the value and median
-                    #ygap = abs(gdf.loc[j, i + '_y'] - med)
-
-                if 'X' in dble_cols:
-                    if not pd.isnull(gdf.loc[j, col]):
-                        # print(j,'xx',type(gdf.loc[j, 'X_x']),'yx',type(gdf.loc[j,'Y_x']),'\n')
-                        # print(j,'xy',type(gdf.loc[j, 'X_y']),'yy',type(gdf.loc[j,'Y_y']))
-
-                        pos_x = Point(gdf.loc[j, 'X_x'], gdf.loc[j, 'Y_x'])
-                        pos_y = Point(gdf.loc[j, 'X_y'], gdf.loc[j, 'Y_y'])
-
+                distinct_objects = True
+                if dist_max is None:
+                    distinct_objects = False
+                elif 'X' in dble_cols:  # coordinates in both dataframes
+                    # compute distance between the points coming from each dataframe
+                    pos_x = Point(mdf.loc[j, 'X_x'], mdf.loc[j, 'Y_x'])
+                    pos_y = Point(mdf.loc[j, 'X_y'], mdf.loc[j, 'Y_y'])
                     dist = pos_x.distance(pos_y)
+                    if dist <= dist_max:  # consider as same object
+                        distinct_objects = False
 
-                if dist_max is None:  # simple merging
-                    if pd.isnull(gdf.loc[j, i + '_x']) and not pd.isnull(gdf.loc[j, i + '_y']):
-                        gdf.loc[j, i] = gdf.loc[j, i + '_y']
+                # If objects are distinct -> compare them and merge values or generate error
+                # Else add a new row in gdf to store two distinct object
+                if not distinct_objects:  # comparison and merging
+                    # if repeated column i contains nan in gdf1 and a value in gdf2 -> keep value in gdf2
+                    if pd.isnull(mdf.loc[j, i + '_x']) and not pd.isnull(mdf.loc[j, i + '_y']):
+                        gdf.loc[j, i] = mdf.loc[j, i + '_y']
                         gdf.loc[j, i + '_y'] = np.nan
                         if verbose: print('1A')
-                    elif pd.isnull(gdf.loc[j, i + '_y']) and not pd.isnull(gdf.loc[j, i + '_x']):
-                        gdf.loc[j, i] = gdf.loc[j, i + '_x']
+                    # if repeated column i contains nan in gdf2 and a value in gdf1 -> keep value in gdf1
+                    elif pd.isnull(mdf.loc[j, i + '_y']) and not pd.isnull(mdf.loc[j, i + '_x']):
+                        gdf.loc[j, i] = mdf.loc[j, i + '_x']
                         gdf.loc[j, i + '_x'] = np.nan
                         if verbose: print('1B')
-                    elif gdf.loc[j, i + '_x'] == gdf.loc[j, i + '_y']:
-                        gdf.loc[j, i] = gdf.loc[j, i + '_x']
+                    # if repeated columns contain the same value -> keep value in gdf1
+                    elif mdf.loc[j, i + '_x'] == mdf.loc[j, i + '_y']:
+                        gdf.loc[j, i] = mdf.loc[j, i + '_x']
                         gdf.loc[j, i + '_x'] = np.nan
                         gdf.loc[j, i + '_y'] = np.nan
                         if verbose: print('1C')
-                    elif pd.isnull(gdf.loc[j, i + '_x']) and pd.isnull(gdf.loc[j, i + '_y']):
+                    # if both repeated columns contain nan -> put nan in gdf
+                    elif pd.isnull(mdf.loc[j, i + '_x']) and pd.isnull(mdf.loc[j, i + '_y']):
                         gdf.loc[j, i] = np.nan
                         if verbose: print('1D')
+                    # if repeated columns contain different values -> handle following dtype
                     else:
-                        if not re.search('int|float', gdf[i + '_x'].dtype.name) and \
-                                str(gdf.loc[j, i + '_x']).lower() == str(gdf.loc[j, i + '_y']).lower():
-                            gdf.loc[j, i] = str(gdf.loc[j, i + '_x']).capitalize()
-                            gdf.loc[j, i + '_x'] = np.nan
+                        # if the values are not numeric -> cast to string and compare lowercase; if same -> Capitalize and put in gdf
+                        if not re.search('int|float', mdf[i + '_x'].dtype.name) and \
+                                str(mdf.loc[j, i + '_x']).lower() == str(mdf.loc[j, i + '_y']).lower():
+                            gdf.loc[j, i] = str(mdf.loc[j, i + '_x']).capitalize()
                             gdf.loc[j, i + '_y'] = np.nan
                             if verbose: print('1E')
+                        # if the values are numeric or values are not numeric but not considered as the same -> stage to put in gdf_error
                         else:
                             if verbose: print('1F')
                             if i + '_x' not in error_col:
@@ -880,128 +881,9 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
                             if j not in error_row:
                                 error_row = error_row + [j]
                             error = True
-
-                elif dist_max is not None and dist <= dist_max:  # merging considering object position
-                    # different objects must be distant to 2 meters at least !
-                    if pd.isnull(gdf.loc[j, i + '_x']) and not pd.isnull(gdf.loc[j, i + '_y']):
-                        gdf.loc[j, i] = gdf.loc[j, i + '_y']
-                        gdf.loc[j, i + '_y'] = np.nan
-                        if verbose: print('2A')
-                    elif pd.isnull(gdf.loc[j, i + '_y']) and not pd.isnull(gdf.loc[j, i + '_x']):
-                        gdf.loc[j, i] = gdf.loc[j, i + '_x']
-                        gdf.loc[j, i + '_x'] = np.nan
-                        if verbose: print('2B')
-                    elif gdf.loc[j, i + '_x'] == gdf.loc[j, i + '_y']:
-                        gdf.loc[j, i] = gdf.loc[j, i + '_x']
-                        gdf.loc[j, i + '_x'] = np.nan
-                        gdf.loc[j, i + '_y'] = np.nan
-                        if verbose: print('2C')
-                    elif pd.isnull(gdf.loc[j, i + '_x']) and pd.isnull(gdf.loc[j, i + '_y']):
-                        gdf.loc[j, i] = np.nan
-                        if verbose: print('2D')
-                    else:
-                        """
-                        if not pd.isnull(gdf.loc[j, i + '_x']):
-                            val = gdf.loc[j, i + '_x']
-                        else:
-                            val = gdf.loc[j, i + '_y']
-
-                        if re.search('X|Y', i):
-                            if verbose: print('2C', val)
-                            gdf.loc[j, i] = val
-                            gdf.loc[j, i + '_x'] = np.nan
-                            gdf.loc[j, i + '_y'] = np.nan
-                        """
-                        # not really good to do that
-                        if re.search('int|float', gdf[i + '_x'].dtype.name):  # for numeric columns
-                            if verbose: print('2E')
-                            if xgap < ygap:
-                                gdf.loc[j, i] = gdf.loc[j, i + '_x']
-                                gdf.loc[j, i + '_x'] = np.nan
-                                gdf.loc[j, i + '_y'] = np.nan
-                            else:
-                                gdf.loc[j, i] = gdf.loc[j, i + '_y']
-                                gdf.loc[j, i + '_x'] = np.nan
-                                gdf.loc[j, i + '_y'] = np.nan
-                                """
-                                maxi = max(gdf.loc[j, i + '_x'], gdf.loc[j, i + '_y'])
-                                mini = min(gdf.loc[j, i + '_x'], gdf.loc[j, i + '_y'])
-                                if maxi / mini < err_val:
-                                    if verbose: print('2D')
-                                    gdf.loc[j, i] = val
-                                    gdf.loc[j, i + '_x'] = np.nan
-                                    gdf.loc[j, i + '_y'] = np.nan
-                                else:
-                                    if verbose: print('2E')
-                                """
-
-                        else:  # for str (or other type) columns
-                            if str(gdf.loc[j, i + '_x']).lower() == str(gdf.loc[j, i + '_y']).lower():
-                                gdf.loc[j, i] = str(gdf.loc[j, i + '_x']).capitalize()
-                                gdf.loc[j, i + '_x'] = np.nan
-                                gdf.loc[j, i + '_y'] = np.nan
-                                if verbose: print('2F')
-                            else:
-                                if verbose: print('2G')
-                                if i + '_x' not in error_col:
-                                    error_col = error_col + [i + '_x', i + '_y']
-                                if j not in error_row:
-                                    error_row = error_row + [j]
-                                error = True
                 else:
-                    # not the same object seemingly
-                    #if debug:
-                    #    print(f"{j}, {i}, vx:{gdf.loc[j, i + '_x']}, vy: {gdf.loc[j, i + '_y']}")
-                    if pd.isnull(gdf.loc[j, i + '_x']) and not pd.isnull(gdf.loc[j, i + '_y']):
-                        gdf.loc[j, i] = gdf.loc[j, i + '_y']
-                        gdf.loc[j, i + '_y'] = np.nan
-                        if verbose: print('3A')
-                    elif pd.isnull(gdf.loc[j, i + '_y']) and not pd.isnull(gdf.loc[j, i + '_x']):
-                        gdf.loc[j, i] = gdf.loc[j, i + '_x']
-                        gdf.loc[j, i + '_x'] = np.nan
-                        if verbose: print('3B')
-                    elif gdf.loc[j, i + '_x'] == gdf.loc[j, i + '_y']:
-                        gdf.loc[j, i] = gdf.loc[j, i + '_x']
-                        gdf.loc[j, i + '_x'] = np.nan
-                        gdf.loc[j, i + '_y'] = np.nan
-                        if verbose: print('3C')
-                    elif pd.isnull(gdf.loc[j, i + '_x']) and pd.isnull(gdf.loc[j, i + '_y']):
-                        gdf.loc[j, i] = np.nan
-                        if verbose: print('3D')
-                    else:  # 2 different values
-                        if verbose: print('3E')
-                        if re.search('int|float', gdf[i + '_x'].dtype.name): # numeric columns
-                            if xgap < ygap:
-                                gdf.loc[j, i] = gdf.loc[j, i + '_x']
-                                gdf.loc[j, i + '_x'] = np.nan
-                                gdf.loc[j, i + '_y'] = np.nan
-                            else:
-                                gdf.loc[j, i] = gdf.loc[j, i + '_y']
-                                gdf.loc[j, i + '_x'] = np.nan
-                                gdf.loc[j, i + '_y'] = np.nan
-
-                                """
-                           maxi = max(gdf.loc[j, i + '_x'], gdf.loc[j, i + '_y'])
-                           mini = min(gdf.loc[j, i + '_x'], gdf.loc[j, i + '_y'])
-                           if maxi / mini < err_val:
-                               if verbose: print('3E')
-                               gdf.loc[j, i] = val
-                               gdf.loc[j, i + '_x'] = np.nan
-                               gdf.loc[j, i + '_y'] = np.nan """
-                        else:  # for str (or other type) columns
-                            if str(gdf.loc[j, i + '_x']).lower() == str(gdf.loc[j, i + '_y']).lower():
-                                gdf.loc[j, i] = str(gdf.loc[j, i + '_x']).capitalize()
-                                gdf.loc[j, i + '_x'] = np.nan
-                                gdf.loc[j, i + '_y'] = np.nan
-                                if verbose: print('3F')
-                            else:
-                                if verbose: print('3G')
-                                if i + '_x' not in error_col:
-                                    error_col = error_col + [i + '_x', i + '_y']
-                                if j not in error_row:
-                                    error_row = error_row + [j]
-                                error = True
-
+                    # distinct_objects_to_add.update({j:{i:gdf.loc[j, i + '_y']}})
+                    pass
 
         if fcol is not None:
             gdf.insert(0, fcol, gdf.pop(fcol))
@@ -1024,15 +906,14 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
             gdf.insert(idx_col + 4, 'Zsol', gdf.pop('Zsol'))
 
         if error:
-            gdf_error = mdf.loc[error_row, [left] + error_col]
+            gdf_conflict = mdf.loc[error_row, [left] + error_col]
            # if len(gdf_error) >= 1:
            #     print('Ambiguous values in both columns compared, change it manually !')
            #     print('Columns', error_col, 'must be dropped manually !')
 
-
         if verbose: print(len(gdf))
 
-        return gdf, gdf_error
+        return gdf, gdf_conflict
 
     if col is None and left_on is not None and right_on is not None:
         left = left_on
