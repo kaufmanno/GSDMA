@@ -894,7 +894,7 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, left_on=None, right_on=None, di
                             gdf.loc[idx, col_i + '_y'] = np.nan
                             if verbose: print('1G')
                         else:
-                            # print('not implemented yet!')
+                            # TODO : Implemented  a test to check whether the values are equivalent (close enough)
                             gdf.loc[idx, col_i] = '#conflict'
                             if col_i + '_x' not in conflict_col:
                                 conflict_col = conflict_col + [col_i + '_x', col_i + '_y']
@@ -926,6 +926,7 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, left_on=None, right_on=None, di
     gdf = pd.concat([gdf, distinct_objects_df], ignore_index=False)
     gdf = gdf[single_cols + dble_cols + ['split_distinct']]
     gdf.reset_index(drop=False, inplace=True)
+    print(gdf)
     gdf.loc[gdf['split_distinct']==True, 'index'] = np.nan
 
     if conflict:
