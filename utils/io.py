@@ -3,9 +3,7 @@ from os import walk
 import numpy as np
 import geopandas as gpd
 import pandas as pd
-from docutils.nodes import error
 from shapely import wkt
-from shapely.geometry import Point
 from striplog import Striplog, Lexicon, Interval, Component
 from core.orm import BoreholeOrm, PositionOrm
 from ipywidgets import interact, IntSlider
@@ -773,9 +771,7 @@ def gdf_geom(gdf):
     return gdf
 
 
-def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, indicator=False, step_merge=False,
-               fcol='ID', dist_max=None, col_non_na=1, line_non_na=1, col_n=None, drop_by_position=False,
-               verbose=False):
+def gdf_merger(gdf1, gdf2, how='outer', on=None, left_on=None, right_on=None, dist_max=None, verbose=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
 
     Parameters
@@ -783,40 +779,37 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, i
     gdf1, gdf2 : pandas (Geo)DataFrame
 
     how: str
-    col: str
+    on: str
     left_on: str
     right_on: str
-    fcol: str
-        name of the column to use as first column in the returned gdf dataframe
-
+    dist_max:
+    verbose:
     Returns
     --------
     gdf: merged dataframe
     gdf_error: dataframe that contains ambiguous values encounter
 
     """
-    gdf = pd.DataFrame()
-    gdf_conflict = pd.DataFrame()
-    conflict_row = []
-    conflict_col = []
 
-    if col is None and left_on is not None and right_on is not None:
+    if on is None and left_on is not None and right_on is not None:
         left = left_on
         right = right_on
-    elif col is not None:
-        left = col
-        right = col
+    elif on is not None:
+        left = on
+        right = on
 
-    gdf_conflict = pd.DataFrame()  # to retrieve values for gdf_conflict
     distinct_objects_to_add = {}
     idx_distinct_obj = 0
 
-    mdf = gdf1.merge(gdf2, how=how, left_on=left, right_on=right, indicator=indicator)
-
+    mdf = gdf1.merge(gdf2, how=how, left_on=left, right_on=right)
     mdf.reset_index(drop=True, inplace=True)
     mdf.replace('nan', np.nan, inplace=True)
-    gdf = mdf.copy()
 
+    gdf = mdf.copy()
+    gdf_conflict = pd.DataFrame()
+
+    conflict_row = []
+    conflict_col = []
     conflict = False
 
     single_cols = list(set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns)) if not
@@ -844,7 +837,7 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, i
             if not pd.isnull(mdf.loc[idx, 'X_x']) and not pd.isnull(mdf.loc[idx, 'X_y']):
                 dist = (mdf.loc[idx, 'X_x'] - mdf.loc[idx, 'X_y']) ** 2 + (
                         mdf.loc[idx, 'Y_x'] - mdf.loc[idx, 'Y_y']) ** 2
-                if dist <= (dist_max) ** 2:  # consider as same object
+                if dist <= dist_max ** 2:  # consider as same object
                     distinct_objects = False
 
             else:
@@ -876,14 +869,15 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, i
                     if verbose: print('1D')
                 # if repeated columns contain different values -> handle following dtype
                 else:
-                    # always keep one object position values because same objects
+                    # always keep one single object position values because not distinct objects
                     if col_i == 'X' or col_i == 'Y' or col_i == 'Z':
                         gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
                         gdf.loc[idx, col_i + '_x'] = np.nan
                         gdf.loc[idx, col_i + '_y'] = np.nan
 
                     # if the values are not numeric -> cast to string and compare lowercase; if same -> Capitalize and put in gdf
-                    elif not re.search('int|float', mdf[col_i + '_x'].dtype.name): # str conditions
+                    elif pd.api.types.infer_dtype(mdf[col_i + '_x']) != 'floating' or \
+                            pd.api.types.infer_dtype(mdf[col_i + '_y']) != 'floating':
                         if str(mdf.loc[idx, col_i + '_x']).lower() == str(mdf.loc[idx, col_i + '_y']).lower():
                             gdf.loc[idx, col_i] = str(mdf.loc[idx, col_i + '_x']).capitalize()
                             gdf.loc[idx, col_i + '_x'] = np.nan
@@ -899,15 +893,18 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, i
                             gdf.loc[idx, col_i + '_x'] = np.nan
                             gdf.loc[idx, col_i + '_y'] = np.nan
                             if verbose: print('1G')
-                    # if the values are not considered as the same -> stage to put in gdf_error
-                    else:
-                        if verbose: print('1F')
-                        if not re.search('int|float', mdf[col_i + '_x'].dtype.name):
-                            # specify default value that shows there are conflicts
-                            gdf.loc[idx, col_i] = 'conflict'
                         else:
-                            gdf.loc[idx, col_i] = 99999
-
+                            # print('not implemented yet!')
+                            gdf.loc[idx, col_i] = '#conflict'
+                            if col_i + '_x' not in conflict_col:
+                                conflict_col = conflict_col + [col_i + '_x', col_i + '_y']
+                            if idx not in conflict_row:
+                                conflict_row = conflict_row + [idx]
+                            conflict = True
+                    # if the values are not considered as the same -> stage to put in gdf_conflict
+                    else:
+                        if verbose: print('1H')
+                        gdf.loc[idx, col_i] = np.nan
                         if col_i + '_x' not in conflict_col:
                             conflict_col = conflict_col + [col_i + '_x', col_i + '_y']
                         if idx not in conflict_row:
@@ -915,82 +912,28 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, i
                         conflict = True
         else:
             if verbose: print('2A')
-            # keep values of non-doubled columns
-            # gdf.loc[idx + 0.5, single_cols] = mdf.loc[idx, single_cols]
-            print(single_cols)
             distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
             update_dict(distinct_objects_to_add, {idx_distinct_obj: {i: mdf.loc[idx, i+'_x'] for i in dble_cols}})
             idx_distinct_obj += 1
             distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
             update_dict(distinct_objects_to_add, {idx_distinct_obj: {i: mdf.loc[idx, i + '_y'] for i in dble_cols}})
             idx_distinct_obj += 1
-            # # add a new row to the dataframe for the distinct object
-            # if not re.search('int|float', mdf[col_i + '_x'].dtype.name):
-            #     if verbose: print(col_i, idx, mdf[col_i + '_x'].dtype.name)
-            #     # print(mdf.loc[idx, col_i + '_x'], mdf.loc[idx, col_i + '_y'])
-            #
-            #     # gdf.loc[idx, col_i] = str(mdf.loc[idx, col_i + '_x']).capitalize()
-            #     # gdf.loc[idx + 0.5, col_i] = str(mdf.loc[idx, col_i + '_y']).capitalize()
-            #
-            #     if not pd.isnull(mdf.loc[idx, col_i + '_x']):
-            #         gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x'].capitalize()
-            #
-            #     if not pd.isnull(mdf.loc[idx, col_i + '_y']):
-            #         gdf.loc[idx + 0.5, col_i] = mdf.loc[idx, col_i + '_y'].capitalize()
-            #
-            # else:
-            #     gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
-            #     gdf.loc[idx + 0.5, col_i] = mdf.loc[idx, col_i + '_y']
-            #
-            # gdf.loc[idx, col_i + '_x'] = np.nan
-            # gdf.loc[idx, col_i + '_y'] = np.nan
+            gdf.drop(idx, axis='index', inplace=True)
 
-    print(f'distinct objects to add:\n {distinct_objects_to_add}')
-    gdf = gdf[single_cols + dble_cols]
-    gdf.reset_index(drop=True, inplace=True)
-
-    if fcol is not None:
-        gdf.insert(0, fcol, gdf.pop(fcol))
-        idx_col = gdf.columns.to_list().index(fcol)
-    elif col is not None:
-        idx_col = gdf.columns.to_list().index(col)
-    else:
-        idx_col = gdf.columns.to_list().index('ID')
-
-    gdf.insert(0, col, gdf.pop(col))
-
-    if 'X' in gdf.columns:
-        gdf.insert(idx_col + 1, 'X', gdf.pop('X'))
-    if 'Y' in gdf.columns:
-        gdf.insert(idx_col + 2, 'Y', gdf.pop('Y'))
-    if 'Z' in gdf.columns:
-        gdf.insert(idx_col + 3, 'Z', gdf.pop('Z'))
-    if 'Zsol' in gdf.columns:
-        gdf.insert(idx_col + 4, 'Zsol', gdf.pop('Zsol'))
+    distinct_objects_df = pd.DataFrame.from_dict(distinct_objects_to_add, orient='index')
+    gdf['split_distinct'] = False
+    distinct_objects_df['split_distinct'] = True
+    gdf = pd.concat([gdf, distinct_objects_df], ignore_index=False)
+    gdf = gdf[single_cols + dble_cols + ['split_distinct']]
+    gdf.reset_index(drop=False, inplace=True)
+    gdf.loc[gdf['split_distinct']==True, 'index'] = np.nan
 
     if conflict:
         gdf_conflict = mdf.loc[conflict_row, [left] + conflict_col]
         gdf_conflict['Source_index'] = conflict_row
-
-    gdf = na_col_drop(gdf, col_non_na)
-
-    if col_n is not None:
-        gdf = na_line_drop(gdf, col_n=col_n, line_non_na=line_non_na, drop_by_position=drop_by_position)
-    elif col_n is None and col is not None:
-        n = gdf.columns.to_list().index(col) + 1
-        gdf = na_line_drop(gdf, col_n=n, line_non_na=line_non_na, drop_by_position=drop_by_position)
+        print('Ambiguous values present. Please resolve this manually !')
     else:
-        gdf = na_line_drop(gdf, col_n=1, line_non_na=line_non_na, drop_by_position=drop_by_position)
-
-    conflict_col = gdf_conflict.columns
-    gdf_conflict = na_line_drop(gdf_conflict, col_n=1, line_non_na=line_non_na, drop_by_position=drop_by_position)
-    gdf_conflict = na_col_drop(gdf_conflict, col_non_na=1)
-
-    if len(gdf_conflict) >= 1 and len(gdf_conflict.columns) >= 2:  # and error_view:
-        print('Ambiguous values in both columns compared, change it manually !')
-        print('Columns', list(conflict_col[1:-1]), 'must be dropped manually !')
-    else:
-        gdf_conflict = pd.DataFrame()
+        gdf.drop(['index', 'split_distinct'], axis='columns', inplace=True)
 
     return gdf, gdf_conflict
 
