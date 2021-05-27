@@ -42,22 +42,22 @@ def df_from_sources(search_dir, filename, columns=None, verbose=False):
         if verbose:
             print(f'columns in header for file {fl}: {header}')
 
-        a += 1  # files used counter
-        print(f'--> {fl.strip(search_dir)}: ({len(df)} lines)')
-        files_interest.append(fl)
+        print(f'--> {fl.replace(search_dir,"")}: ({len(df)} lines)')
+        #files_interest.append(fl)
 
         if 'ID' in df.columns:
             df['ID'] = df['ID'].astype(str)
-        if 'X' in df_all.columns:
+        if 'X' in df.columns:
+            a += 1  # files used counter
             df['X'] = df['X'].apply(lambda x: x if isinstance(x, float) else float(x.replace(',', '.')))
             df['Y'] = df['Y'].apply(lambda x: x if isinstance(x, float) else float(x.replace(',', '.')))
             df['Z'] = df['Z'].apply(lambda x: x if isinstance(x, float) else float(x.replace(',', '.')))
-        df_all = df_all.append(df[header])
-        df_all.reset_index(inplace=True, drop=True)
-        # df_all.fillna('', inplace=True)
+            df_all = df_all.append(df[header]) #files must contains position to be kept
+            df_all.reset_index(inplace=True, drop=True)
+            # df_all.fillna('', inplace=True)
 
-    if 'X' in df_all.columns:
-        df_all = gpd.GeoDataFrame(df_all, geometry=gpd.points_from_xy(df_all.X, df_all.Y, crs=str('EPSG:31370')))
+    # if 'X' in df_all.columns:
+    df_all = gpd.GeoDataFrame(df_all, geometry=gpd.points_from_xy(df_all.X, df_all.Y, crs=str('EPSG:31370')))
 
     print(f'\nThe overall dataframe contains {len(df_all)} lines. {a} files used')
     return df_all
@@ -691,7 +691,7 @@ def gdf_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None, view=True)
     if un_val is None:
         print(f'Rows : {df.shape[0]}, columns : {df.shape[1]}')
     else:
-        print(f"Rows : {df.shape[0]}, columns : {df.shape[1]}, Unique on '{un_val}': {len(set(df[un_val]))}")
+        print(f"Rows : {df.shape[0]}, columns : {df.shape[1]}, Unique col '{un_val}': {len(set(df[un_val]))}")
 
     if view:
         @interact(last_row=IntSlider(min=min(rows, df.shape[0]), max=df.shape[0],
@@ -772,7 +772,9 @@ def gdf_geom(gdf):
     return gdf
 
 
-def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, fcol=None, dist_max=None, err_val=None, non_na=5, col_n=None, scope=globals(), verbose=False, debug=False):
+def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, indicator=False, step_merge=False,
+               fcol='ID', dist_max=None,col_non_na=1, line_non_na=1, col_n=None, drop_by_position=False,
+               verbose=False, debug=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
 
     Parameters
@@ -794,101 +796,156 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
     """
     gdf = pd.DataFrame()
     gdf_conflict = pd.DataFrame()
+    error_row = []
+    error_col = []
 
-    def var_name(obj, scope=scope):
-        if scope is None:
-            scope = globals()
-        varname = ''
-        for name in scope:
-            if scope[name] is obj:
-                varname = name
-                break
+    def process(error_row, error_col, dist_max, indicator, step_merge):
+        gdf_conflict = pd.DataFrame()  # to retrieve values for gdf_error
 
-        return varname
+        if step_merge : # merging done in 2 steps to avoid useless rows with 'outer' join in some cases
+            mdf_outer = gdf1.merge(gdf2, how='outer', left_on=left, right_on=right, indicator=True).loc[lambda x : x.query('_merge =="right_only" or _merge=="left_only"').index] # take uncommon elements
+            mdf_inner = gdf1.merge(gdf2, how='inner', left_on=left, right_on=right) # take common elements
+            mdf = mdf_outer.append(mdf_inner)
+            print(f'{len(mdf_outer)}, {len(mdf_inner)}, {len(mdf)}')
+        else:
+            mdf = gdf1.merge(gdf2, how=how, left_on=left, right_on=right, indicator=indicator)
 
-    def process():  # err_val=err_val):
-        gdf_conflict = pd.DataFrame()
-        mdf = gdf1.merge(gdf2, how=how, left_on=left, right_on=right)
+        mdf.reset_index(drop=True, inplace=True)
         mdf.replace('nan', np.nan, inplace=True)
-        gdf = mdf.copy()  # to retrieve values for gdf_error
+        gdf = mdf.copy()
 
         error = False
-        global error_row
-        global error_col
-        error_col = []
-        error_row = []
-        dist = 0.
 
-        dble_cols = set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns)) if
-                         re.compile(r"_x|_y").search(gdf.columns.to_list()[x])])
+        single_cols = list(set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns)) if not
+        re.compile(r"_x|_y").search(gdf.columns.to_list()[x])]))
 
-        for i in dble_cols:
-            gdf[i] = np.nan # creation of the final column
+        dble_cols = list(set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns)) if
+                              re.compile(r"_x|_y").search(gdf.columns.to_list()[x])]))
+
+        if 'X' not in dble_cols:
+            dist_max = None # avoid error due to dist_max definition without position data
+
+        for col_i in dble_cols:
+            gdf[col_i] = np.nan  # creation of the final column
             if verbose:
-                print('\nColumn :', i)
+                print('\nColumn :', col_i)
 
             if debug:
-                print('column:', gdf[i + '_x'].name)
+                print('column:', gdf[col_i + '_x'].name)
 
-            for j in gdf.index:
+            for idx in mdf.index:
                 distinct_objects = True
+
                 if dist_max is None:
                     distinct_objects = False
+
                 elif 'X' in dble_cols:  # coordinates in both dataframes
                     # compute distance between the points coming from each dataframe
-                    pos_x = Point(mdf.loc[j, 'X_x'], mdf.loc[j, 'Y_x'])
-                    pos_y = Point(mdf.loc[j, 'X_y'], mdf.loc[j, 'Y_y'])
-                    dist = pos_x.distance(pos_y)
-                    if dist <= dist_max:  # consider as same object
+                    if not pd.isnull(mdf.loc[idx, 'X_x']) and not pd.isnull(mdf.loc[idx, 'X_y']):
+                        dist = (mdf.loc[idx, 'X_x'] - mdf.loc[idx, 'X_y']) ** 2 + (
+                                mdf.loc[idx, 'Y_x'] - mdf.loc[idx, 'Y_y']) ** 2
+                        if dist <= (dist_max) ** 2:  # consider as same object
+                            distinct_objects = False
+
+                    else:
                         distinct_objects = False
+
+                #str_cdt = not re.search('int|float', mdf[col_i + '_x'].dtype.name) and \
+                #          str(mdf.loc[idx, col_i + '_x']).lower() == str(mdf.loc[idx, col_i + '_y']).lower()
 
                 # If objects are distinct -> compare them and merge values or generate error
                 # Else add a new row in gdf to store two distinct object
                 if not distinct_objects:  # comparison and merging
                     # if repeated column i contains nan in gdf1 and a value in gdf2 -> keep value in gdf2
-                    if pd.isnull(mdf.loc[j, i + '_x']) and not pd.isnull(mdf.loc[j, i + '_y']):
-                        gdf.loc[j, i] = mdf.loc[j, i + '_y']
-                        gdf.loc[j, i + '_y'] = np.nan
+                    if pd.isnull(mdf.loc[idx, col_i + '_x']) and not pd.isnull(mdf.loc[idx, col_i + '_y']):
+                        gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_y']
+                        gdf.loc[idx, col_i + '_y'] = np.nan
                         if verbose: print('1A')
                     # if repeated column i contains nan in gdf2 and a value in gdf1 -> keep value in gdf1
-                    elif pd.isnull(mdf.loc[j, i + '_y']) and not pd.isnull(mdf.loc[j, i + '_x']):
-                        gdf.loc[j, i] = mdf.loc[j, i + '_x']
-                        gdf.loc[j, i + '_x'] = np.nan
+                    elif pd.isnull(mdf.loc[idx, col_i + '_y']) and not pd.isnull(mdf.loc[idx, col_i + '_x']):
+                        gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
+                        gdf.loc[idx, col_i + '_x'] = np.nan
                         if verbose: print('1B')
                     # if repeated columns contain the same value -> keep value in gdf1
-                    elif mdf.loc[j, i + '_x'] == mdf.loc[j, i + '_y']:
-                        gdf.loc[j, i] = mdf.loc[j, i + '_x']
-                        gdf.loc[j, i + '_x'] = np.nan
-                        gdf.loc[j, i + '_y'] = np.nan
+                    elif mdf.loc[idx, col_i + '_x'] == mdf.loc[idx, col_i + '_y']:
+                        gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
+                        gdf.loc[idx, col_i + '_x'] = np.nan
+                        gdf.loc[idx, col_i + '_y'] = np.nan
                         if verbose: print('1C')
                     # if both repeated columns contain nan -> put nan in gdf
-                    elif pd.isnull(mdf.loc[j, i + '_x']) and pd.isnull(mdf.loc[j, i + '_y']):
-                        gdf.loc[j, i] = np.nan
+                    elif pd.isnull(mdf.loc[idx, col_i + '_x']) and pd.isnull(mdf.loc[idx, col_i + '_y']):
+                        gdf.loc[idx, col_i] = np.nan
                         if verbose: print('1D')
                     # if repeated columns contain different values -> handle following dtype
                     else:
+                        # always keep one object position values because same objects
+                        if col_i == 'X' or col_i == 'Y' or col_i == 'Z':
+                            gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
+                            gdf.loc[idx, col_i + '_x'] = np.nan
+                            gdf.loc[idx, col_i + '_y'] = np.nan
+
                         # if the values are not numeric -> cast to string and compare lowercase; if same -> Capitalize and put in gdf
-                        if not re.search('int|float', mdf[i + '_x'].dtype.name) and \
-                                str(mdf.loc[j, i + '_x']).lower() == str(mdf.loc[j, i + '_y']).lower():
-                            gdf.loc[j, i] = str(mdf.loc[j, i + '_x']).capitalize()
-                            gdf.loc[j, i + '_y'] = np.nan
-                            if verbose: print('1E')
-                        # if the values are numeric or values are not numeric but not considered as the same -> stage to put in gdf_error
+                        elif not re.search('int|float', mdf[col_i + '_x'].dtype.name): # str conditions
+                            if str(mdf.loc[idx, col_i + '_x']).lower() == str(mdf.loc[idx, col_i + '_y']).lower():
+                                gdf.loc[idx, col_i] = str(mdf.loc[idx, col_i + '_x']).capitalize()
+                                gdf.loc[idx, col_i + '_x'] = np.nan
+                                gdf.loc[idx, col_i + '_y'] = np.nan
+                                if verbose: print('1E')
+                            elif str(mdf.loc[idx, col_i + '_x']).lower() == '' or str(mdf.loc[idx, col_i + '_x']).lower() == 'nan':
+                                gdf.loc[idx, col_i] = str(mdf.loc[idx, col_i + '_y']).capitalize()
+                                gdf.loc[idx, col_i + '_x'] = np.nan
+                                gdf.loc[idx, col_i + '_y'] = np.nan
+                                if verbose: print('1F')
+                            elif str(mdf.loc[idx, col_i + '_y']).lower() == '' or str(mdf.loc[idx, col_i + '_y']).lower() == 'nan':
+                                gdf.loc[idx, col_i] = str(mdf.loc[idx, col_i + '_x']).capitalize()
+                                gdf.loc[idx, col_i + '_x'] = np.nan
+                                gdf.loc[idx, col_i + '_y'] = np.nan
+                                if verbose: print('1G')
+                        # if the values are not considered as the same -> stage to put in gdf_error
                         else:
                             if verbose: print('1F')
-                            if i + '_x' not in error_col:
-                                error_col = error_col + [i + '_x', i + '_y']
-                            if j not in error_row:
-                                error_row = error_row + [j]
+                            if not re.search('int|float', mdf[col_i + '_x'].dtype.name):
+                                # specify default value that shows there are conflicts
+                                gdf.loc[idx, col_i] = 'conflict'
+                            else:
+                                gdf.loc[idx, col_i] = 99999
+
+                            if col_i + '_x' not in error_col:
+                                error_col = error_col + [col_i + '_x', col_i + '_y']
+                            if idx not in error_row:
+                                error_row = error_row + [idx]
                             error = True
                 else:
-                    # distinct_objects_to_add.update({j:{i:gdf.loc[j, i + '_y']}})
-                    pass
+                    if verbose: print('2A')
+                    # keep values of non-doubled columns
+                    gdf.loc[idx + 0.5, single_cols] = mdf.loc[idx, single_cols]
+
+                    # add new rows to the dataframe for the distinct object
+                    if not re.search('int|float', mdf[col_i + '_x'].dtype.name):
+                        if verbose: print(col_i, idx, mdf[col_i + '_x'].dtype.name)
+                        # print(mdf.loc[idx, col_i + '_x'], mdf.loc[idx, col_i + '_y'])
+
+                        # gdf.loc[idx, col_i] = str(mdf.loc[idx, col_i + '_x']).capitalize()
+                        # gdf.loc[idx + 0.5, col_i] = str(mdf.loc[idx, col_i + '_y']).capitalize()
+
+                        if not pd.isnull(mdf.loc[idx, col_i + '_x']):
+                            gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x'].capitalize()
+
+                        if not pd.isnull(mdf.loc[idx, col_i + '_y']):
+                            gdf.loc[idx + 0.5, col_i] = mdf.loc[idx, col_i + '_y'].capitalize()
+
+                    else:
+                        gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
+                        gdf.loc[idx + 0.5, col_i] = mdf.loc[idx, col_i + '_y']
+
+                    gdf.loc[idx, col_i + '_x'] = np.nan
+                    gdf.loc[idx, col_i + '_y'] = np.nan
+
+        gdf = gdf[single_cols + dble_cols]
+        gdf.reset_index(drop=True, inplace=True)
 
         if fcol is not None:
             gdf.insert(0, fcol, gdf.pop(fcol))
-
-        if fcol is not None:
             idx_col = gdf.columns.to_list().index(fcol)
         elif col is not None:
             idx_col = gdf.columns.to_list().index(col)
@@ -896,6 +953,7 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
             idx_col = gdf.columns.to_list().index('ID')
 
         gdf.insert(0, col, gdf.pop(col))
+
         if 'X' in gdf.columns:
             gdf.insert(idx_col + 1, 'X', gdf.pop('X'))
         if 'Y' in gdf.columns:
@@ -907,70 +965,56 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, f
 
         if error:
             gdf_conflict = mdf.loc[error_row, [left] + error_col]
-           # if len(gdf_error) >= 1:
-           #     print('Ambiguous values in both columns compared, change it manually !')
-           #     print('Columns', error_col, 'must be dropped manually !')
-
-        if verbose: print(len(gdf))
+            gdf_conflict['Source_index'] = error_row
 
         return gdf, gdf_conflict
+
+    # ------------------ End of process() ---------------------------------------
 
     if col is None and left_on is not None and right_on is not None:
         left = left_on
         right = right_on
-        gdf, gdf_error = process()  # err_val)
+        gdf, gdf_conflict = process(error_row, error_col, dist_max, indicator, step_merge)
 
     elif col is not None:
         left = col
         right = col
-        gdf, gdf_error = process()  # err_val)
-    # else:
-        # print("error! 'col' cannot be defined with 'left_on' or 'right_on'")
+        gdf, gdf_conflict = process(error_row, error_col, dist_max, indicator, step_merge)
 
-    gdf = na_col_drop(gdf, non_na)
+    gdf = na_col_drop(gdf, col_non_na)
+
     if col_n is not None:
-        gdf = na_line_drop(gdf, col_n=col_n)
+        gdf = na_line_drop(gdf, col_n=col_n, line_non_na=line_non_na, drop_by_position=drop_by_position)
     elif col_n is None and col is not None:
         n = gdf.columns.to_list().index(col) + 1
-        gdf = na_line_drop(gdf, col_n=n)
+        gdf = na_line_drop(gdf, col_n=n, line_non_na=line_non_na, drop_by_position=drop_by_position)
     else:
-        gdf = na_line_drop(gdf, col_n=0)
+        gdf = na_line_drop(gdf, col_n=1, line_non_na=line_non_na, drop_by_position=drop_by_position)
 
-    gdf_error = na_line_drop(gdf_error, col_n=1)
-    gdf_error = na_col_drop(gdf_error, non_na=1)
+    error_col = gdf_conflict.columns
+    gdf_conflict = na_line_drop(gdf_conflict, col_n=1, line_non_na=line_non_na, drop_by_position=drop_by_position)
+    gdf_conflict = na_col_drop(gdf_conflict, col_non_na=1)
 
-    real_error_col = []
-    for c in gdf_error.columns:
-        if c in gdf.columns:
-            real_error_col.append(c)  # error columns to display
-            error_view = True
-        else:
-            error_view = False
-
-    gdf_error = gdf_error[real_error_col]
-
-    if len(gdf_error) >= 1 and len(gdf_error.columns) >=2 and error_view:
-        error_csv = f'merging_error_log({var_name(gdf1)}-{var_name(gdf2)})'
-        gdf_error.to_csv(f'tmp_files/{error_csv}.csv', index=True)
-
+    if len(gdf_conflict) >= 1 and len(gdf_conflict.columns) >= 2:  # and error_view:
         print('Ambiguous values in both columns compared, change it manually !')
-        print('Columns', real_error_col, 'must be dropped manually !')
-        print(f"error file created in 'tmp_files/{error_csv}.csv'")
+        print('Columns', list(error_col[1:-1]), 'must be dropped manually !')
+    else:
+        gdf_conflict = pd.DataFrame()
 
-    return gdf, gdf_error
+    return gdf, gdf_conflict
 
-def na_col_drop(data, non_na=10, drop=True, verbose=False):
+
+def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
     """
-    delete NaN columns in the dataframe based on a minimum number of non-NaN values
+    delete NaN columns in the dataframe based col a minimum number of non-NaN values
 
     """
 
     drop_cols = []
     if verbose: print('Non-NaN values\n----------------')
     for c in data.columns:
-        v = len(data.iloc[:, 0]) - data[c].isnull().sum() # number of non-na values
-        if verbose: print(f'{c} --> val: {v} | Nan: {data[c].isnull().sum()}')
-        if v < non_na:
+        if verbose: print(f'{c} --> val: {data[c].notnull().sum()} | Nan: {data[c].isnull().sum()}')
+        if data[c].notnull().sum() < col_non_na:
             drop_cols.append(c)
 
     if drop and len(drop_cols) != 0:
@@ -980,24 +1024,29 @@ def na_col_drop(data, non_na=10, drop=True, verbose=False):
     return data
 
 
-def na_line_drop(data, col_n=3):
+def na_line_drop(data, col_n=3, line_non_na=0, drop_by_position=False, old_idx=False, verbose=False):
     l1 = len(data)
+    no_pos = []
     data['line_na'] = False
 
-    for i in list(data.index): # range(len(data)):
-        #print(i,'/',len(data))
-        verif = True
-        for j in data.columns.to_list()[col_n:-1]:
-            if not pd.isnull(data.loc[i, j]): verif = False
+    # drop if no position coordinates
+    if drop_by_position and 'X' in data.columns:
+        no_pos = data.query('X.isnull() and Y.isnull()').index
+        data.drop(index=no_pos, inplace=True)
+        print(f"{len(no_pos)} without position -> lines dropped !")
 
-        data.loc[i, 'line_na'] = verif
+    for i in range(len(data)): # data.index:
+        if verbose : print(i)
+
+        if line_non_na >= data.iloc[i, col_n:-1].notnull().sum():
+            data.loc[i, 'line_na'] = True
 
     data = data.query('line_na==False')
-    data.reset_index(drop=True, inplace=True)
-    data.drop('line_na', axis=1, inplace=True)
+    data.reset_index(drop=(not old_idx), inplace=True)
+    data.drop(columns='line_na', inplace=True)
     l2 = len(data)
     nb_lines = l1 - l2
-    if nb_lines > 0: print(f'{nb_lines} NaN lines dropped')
+    if nb_lines > 0 and nb_lines != len(no_pos): print(f'{nb_lines} NaN lines dropped')
 
     return data
 
@@ -1074,3 +1123,161 @@ def col_ren(data, line_to_col=1, mode=0, name=[]):
     data.rename(columns=new_name, inplace=True)
 
     return data
+
+
+def gdf_filter(data, position=True, id_col='ID', expression=None, bypass_col=[], dist_crit=1, rapp_val=2, drop=False,
+               verbose=False):
+    """
+    filter a dataframe of duplicate values (considering ID and/or position)
+    """
+
+    drop_idx = []
+    check_idx = []
+    id_list = []
+    cols = data.columns.to_list()
+
+    if expression is not None:
+        keep = []
+        query = data.query(f"{id_col}.str.contains('{expression}')", engine='python')[id_col]
+        dble_obj = [(p, q.strip(expression)) for p, q in zip(query.index, query)]
+
+        for obj in dble_obj:
+            if obj[1] not in keep:
+                keep.append(obj[1])
+            else:
+                drop_idx.append(obj[0])
+
+    for i in range(len(data)):
+        uid = data.loc[i, id_col]
+        tmp = data[data[id_col] == f"{uid}"]
+
+        if position:  # use position XY
+            pos_1 = [data.loc[i, 'X'], data.loc[i, 'Y']]
+
+            if uid not in id_list and len(tmp) >= 2:
+                id_list.append(uid)
+
+                for j in tmp.index:  # retrieve duplicates ID index
+                    if j != i:
+                        pos_2 = [data.loc[j, 'X'], data.loc[j, 'Y']]
+                        distinct = not ((pos_1[0] - pos_2[0]) ** 2 + (pos_1[1] - pos_2[1]) ** 2 <= dist_crit ** 2)
+
+                        if not distinct:
+                            start = data.columns.to_list().index('Y') + 1
+                            if j not in drop_idx:
+                                for c in range(start, len(data.columns)):
+                                    if cols[c] not in bypass_col:
+                                        # print('1-', cols[c])
+                                        if data.iloc[i, c] == data.iloc[j, c]:  # all values (str, numeric)
+                                            same = True
+
+                                        elif data.iloc[i, c] != data.iloc[j, c] and \
+                                                re.search('int|float', data[cols[c]].dtype.name):
+
+                                            rapp = max(data.iloc[i, c], data.iloc[j, c]) - min(data.iloc[i, c],
+                                                                                               data.iloc[j, c])
+                                            if rapp <= rapp_val:
+                                                same = True
+
+                                            else:
+                                                same = False
+                                                if j not in check_idx: check_idx.append(j)
+                                                if verbose: print(f"check [{j},{cols[c]}]")
+
+                                        else:  # str values
+                                            same = False
+                                            if j not in check_idx: check_idx.append(j)
+                                            if verbose: print(f"check [{j},{cols[c]}]")
+
+                                if same: drop_idx.append(j)  # same objet -> most be dropped
+
+        else:  # without position XY, use ID
+            if uid not in id_list and len(tmp) >= 2:
+                id_list.append(uid)
+
+                for j in tmp.index:
+                    if j != i:
+                        start = data.columns.to_list().index('Y') + 1
+                        if j not in drop_idx:
+                            for c in range(start, len(data.columns)):
+                                if cols[c] not in bypass_col:
+                                    # print('2-',cols[c])
+                                    if data.iloc[i, c] == data.iloc[j, c]:
+                                        same = True
+
+                                    elif data.iloc[i, c] != data.iloc[j, c] and re.search('int|float',
+                                                                                          data[cols[c]].dtype.name):
+                                        rapp = max(data.iloc[i, c], data.iloc[j, c]) / min(data.iloc[i, c],
+                                                                                           data.iloc[j, c])
+                                        if rapp <= rapp_val:
+                                            same = True
+                                        else:
+                                            same = False
+                                            if j not in check_idx: check_idx.append(j)
+                                            if verbose: print(f"check [{j},{cols[c]}]")
+                                    else:
+                                        same = False
+                                        if j not in check_idx: check_idx.append(j)
+                                        if verbose: print(f"check [{j},{cols[c]}]")
+
+                            if same:
+                                drop_idx.append(j)  # same objet -> most be dropped
+
+    check_data = data.loc[check_idx, :]
+    if len(check_data) > 0:
+        print(f"some data must be checked , look at indices : {check_idx}")
+
+    if len(drop_idx) > 0:
+        print(f"same objects at indices:{drop_idx}, will be dropped if drop is set True!")
+
+    if drop:
+        data.drop(index=drop_idx, inplace=True)
+        data.reset_index(drop=True, inplace=True)
+
+    print(f"Rows : {data.shape[0]} ; Columns : {data.shape[1]} ; Unique on '{id_col}' : {len(set(data[id_col]))} ; ")
+
+    return data, check_data
+
+
+def compute_BH_length(df, length_col_name='Profondeur', top_col='Litho_top', base_col='Litho_base', verbose=False):
+    """
+
+    """
+    for i in df.index:
+        try:
+            float(df.loc[i, top_col])
+        except ValueError:
+            df.loc[i, top_col] = np.nan
+
+        try:
+            float(df.loc[i, base_col])
+        except ValueError:
+            df.loc[i, base_col] = np.nan
+
+    df[top_col] = df[top_col].astype('float64')
+    df[base_col] = df[base_col].astype('float64')
+
+    # compute length based on litho_top and litho_base
+    id_list = []
+
+    for i in df.index:
+        id_ = df.loc[i, 'ID']
+
+        if verbose: print(i, id_, df.loc[i, top_col], df.loc[i, base_col])
+        if id_ not in id_list:
+            id_list.append(id_)
+            if isinstance(id_, str):
+                sql_id = f"{id_}"
+            elif isinstance(id_, float) or isinstance(id_, int):
+                sql_id = id_
+
+            tmp = df[df['ID'] == sql_id]
+
+            if verbose: print(len(tmp))
+            # if len(tmp) > 0:
+            df.loc[tmp.index, length_col_name] = float(max(tmp[base_col])) - float(min(tmp[top_col]))
+
+    df.drop(index=df.query(f'{base_col}.isnull() and {top_col}.isnull()').index, inplace=True)
+    df.insert(df.columns.to_list().index('ID') + 1, length_col_name, df.pop(length_col_name))
+    # df.reset_index(drop=True, inplace=True)
+

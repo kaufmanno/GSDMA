@@ -18,7 +18,7 @@ class MyTestCase(unittest.TestCase):
                            'Y': [122596, 122500, 122556, 122565, 122575, np.nan, 122556, 122523, 122546, 122600],
                            'Name': ['A', 'B', 'D', 'C', 'E', 'F', 'G', 'h', 'i', 'k'],
                            'Value': [1, 3, 2, 4, np.nan, np.nan, 6, 7, 8, 9]})
-        actual_df, df_err = utils.io.gdf_merger(df1, df2, how='outer', non_na=0, col='ID')
+        actual_df, df_err = utils.io.gdf_merger(df1, df2, how='outer', col_non_na=0, col='ID')
         actual_df.drop(['X_x', 'X_y', 'Y_x', 'Y_y', 'Value_x', 'Value_y', 'Name_x', 'Name_y'], axis='columns', inplace=True)
         actual_df=actual_df[['ID', 'X', 'Y', 'Name', 'Value']]
         expected_df = pd.DataFrame({'ID': ['id1', 'id2', 'id3', 'id4', 'id5', 'id6', 'id7', 'id8', np.nan, np.nan],

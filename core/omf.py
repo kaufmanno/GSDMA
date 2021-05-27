@@ -41,7 +41,7 @@ def striplog_legend_to_omf_legend(legend):
 
 class Borehole3D(Striplog):
     """
-    Borehole object based on striplog object that can be displayed in a 3D environment
+    Borehole object based col striplog object that can be displayed in a 3D environment
     
     Attributes
     -----------
@@ -260,7 +260,7 @@ class Borehole3D(Striplog):
                        '<script type=\'text/javascript\' src=\'http://www.x3dom.org/download/x3dom.js\'> </script>\n'\
                        '<link rel=\'stylesheet\' type=\'text/css\' href=\'http://www.x3dom.org/download/x3dom.css\'/>\n'\
                        '</head>\n<body>\n<p>\n For interaction, click in the view and press "a" or "i" to see the whole scene, ' \
-                       '"d" to display info, "space" for shortcuts. For more info on interaction,' \
+                       '"d" to display info, "space" for shortcuts. For more info col interaction,' \
                        ' please read  <a href="https://doc.x3dom.org/tutorials/animationInteraction/' \
                        'navigation/index.html">the docs</a>  \n</p>\n' \
                        '<x3d width=\'968px\' height=\'600px\'>\n <scene>\n' \
