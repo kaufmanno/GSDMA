@@ -11,6 +11,7 @@ from core.orm import BoreholeOrm, PositionOrm
 from ipywidgets import interact, IntSlider
 from IPython.display import display
 from utils.config import DEFAULT_BOREHOLE_LENGTH, DEFAULT_BOREHOLE_DIAMETER, DEFAULT_LITHOLOGY
+from utils.utils import update_dict
 
 
 def df_from_sources(search_dir, filename, columns=None, verbose=False):
@@ -52,7 +53,7 @@ def df_from_sources(search_dir, filename, columns=None, verbose=False):
             df['X'] = df['X'].apply(lambda x: x if isinstance(x, float) else float(x.replace(',', '.')))
             df['Y'] = df['Y'].apply(lambda x: x if isinstance(x, float) else float(x.replace(',', '.')))
             df['Z'] = df['Z'].apply(lambda x: x if isinstance(x, float) else float(x.replace(',', '.')))
-            df_all = df_all.append(df[header]) #files must contains position to be kept
+            df_all = df_all.append(df[header])  # files must contains position to be kept
             df_all.reset_index(inplace=True, drop=True)
             # df_all.fillna('', inplace=True)
 
@@ -773,8 +774,8 @@ def gdf_geom(gdf):
 
 
 def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, indicator=False, step_merge=False,
-               fcol='ID', dist_max=None,col_non_na=1, line_non_na=1, col_n=None, drop_by_position=False,
-               verbose=False, debug=False):
+               fcol='ID', dist_max=None, col_non_na=1, line_non_na=1, col_n=None, drop_by_position=False,
+               verbose=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
 
     Parameters
@@ -796,190 +797,180 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, i
     """
     gdf = pd.DataFrame()
     gdf_conflict = pd.DataFrame()
-    error_row = []
-    error_col = []
-
-    def process(error_row, error_col, dist_max, indicator, step_merge):
-        gdf_conflict = pd.DataFrame()  # to retrieve values for gdf_error
-
-        if step_merge : # merging done in 2 steps to avoid useless rows with 'outer' join in some cases
-            mdf_outer = gdf1.merge(gdf2, how='outer', left_on=left, right_on=right, indicator=True).loc[lambda x : x.query('_merge =="right_only" or _merge=="left_only"').index] # take uncommon elements
-            mdf_inner = gdf1.merge(gdf2, how='inner', left_on=left, right_on=right) # take common elements
-            mdf = mdf_outer.append(mdf_inner)
-            print(f'{len(mdf_outer)}, {len(mdf_inner)}, {len(mdf)}')
-        else:
-            mdf = gdf1.merge(gdf2, how=how, left_on=left, right_on=right, indicator=indicator)
-
-        mdf.reset_index(drop=True, inplace=True)
-        mdf.replace('nan', np.nan, inplace=True)
-        gdf = mdf.copy()
-
-        error = False
-
-        single_cols = list(set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns)) if not
-        re.compile(r"_x|_y").search(gdf.columns.to_list()[x])]))
-
-        dble_cols = list(set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns)) if
-                              re.compile(r"_x|_y").search(gdf.columns.to_list()[x])]))
-
-        if 'X' not in dble_cols:
-            dist_max = None # avoid error due to dist_max definition without position data
-
-        for col_i in dble_cols:
-            gdf[col_i] = np.nan  # creation of the final column
-            if verbose:
-                print('\nColumn :', col_i)
-
-            if debug:
-                print('column:', gdf[col_i + '_x'].name)
-
-            for idx in mdf.index:
-                distinct_objects = True
-
-                if dist_max is None:
-                    distinct_objects = False
-
-                elif 'X' in dble_cols:  # coordinates in both dataframes
-                    # compute distance between the points coming from each dataframe
-                    if not pd.isnull(mdf.loc[idx, 'X_x']) and not pd.isnull(mdf.loc[idx, 'X_y']):
-                        dist = (mdf.loc[idx, 'X_x'] - mdf.loc[idx, 'X_y']) ** 2 + (
-                                mdf.loc[idx, 'Y_x'] - mdf.loc[idx, 'Y_y']) ** 2
-                        if dist <= (dist_max) ** 2:  # consider as same object
-                            distinct_objects = False
-
-                    else:
-                        distinct_objects = False
-
-                #str_cdt = not re.search('int|float', mdf[col_i + '_x'].dtype.name) and \
-                #          str(mdf.loc[idx, col_i + '_x']).lower() == str(mdf.loc[idx, col_i + '_y']).lower()
-
-                # If objects are distinct -> compare them and merge values or generate error
-                # Else add a new row in gdf to store two distinct object
-                if not distinct_objects:  # comparison and merging
-                    # if repeated column i contains nan in gdf1 and a value in gdf2 -> keep value in gdf2
-                    if pd.isnull(mdf.loc[idx, col_i + '_x']) and not pd.isnull(mdf.loc[idx, col_i + '_y']):
-                        gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_y']
-                        gdf.loc[idx, col_i + '_y'] = np.nan
-                        if verbose: print('1A')
-                    # if repeated column i contains nan in gdf2 and a value in gdf1 -> keep value in gdf1
-                    elif pd.isnull(mdf.loc[idx, col_i + '_y']) and not pd.isnull(mdf.loc[idx, col_i + '_x']):
-                        gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
-                        gdf.loc[idx, col_i + '_x'] = np.nan
-                        if verbose: print('1B')
-                    # if repeated columns contain the same value -> keep value in gdf1
-                    elif mdf.loc[idx, col_i + '_x'] == mdf.loc[idx, col_i + '_y']:
-                        gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
-                        gdf.loc[idx, col_i + '_x'] = np.nan
-                        gdf.loc[idx, col_i + '_y'] = np.nan
-                        if verbose: print('1C')
-                    # if both repeated columns contain nan -> put nan in gdf
-                    elif pd.isnull(mdf.loc[idx, col_i + '_x']) and pd.isnull(mdf.loc[idx, col_i + '_y']):
-                        gdf.loc[idx, col_i] = np.nan
-                        if verbose: print('1D')
-                    # if repeated columns contain different values -> handle following dtype
-                    else:
-                        # always keep one object position values because same objects
-                        if col_i == 'X' or col_i == 'Y' or col_i == 'Z':
-                            gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
-                            gdf.loc[idx, col_i + '_x'] = np.nan
-                            gdf.loc[idx, col_i + '_y'] = np.nan
-
-                        # if the values are not numeric -> cast to string and compare lowercase; if same -> Capitalize and put in gdf
-                        elif not re.search('int|float', mdf[col_i + '_x'].dtype.name): # str conditions
-                            if str(mdf.loc[idx, col_i + '_x']).lower() == str(mdf.loc[idx, col_i + '_y']).lower():
-                                gdf.loc[idx, col_i] = str(mdf.loc[idx, col_i + '_x']).capitalize()
-                                gdf.loc[idx, col_i + '_x'] = np.nan
-                                gdf.loc[idx, col_i + '_y'] = np.nan
-                                if verbose: print('1E')
-                            elif str(mdf.loc[idx, col_i + '_x']).lower() == '' or str(mdf.loc[idx, col_i + '_x']).lower() == 'nan':
-                                gdf.loc[idx, col_i] = str(mdf.loc[idx, col_i + '_y']).capitalize()
-                                gdf.loc[idx, col_i + '_x'] = np.nan
-                                gdf.loc[idx, col_i + '_y'] = np.nan
-                                if verbose: print('1F')
-                            elif str(mdf.loc[idx, col_i + '_y']).lower() == '' or str(mdf.loc[idx, col_i + '_y']).lower() == 'nan':
-                                gdf.loc[idx, col_i] = str(mdf.loc[idx, col_i + '_x']).capitalize()
-                                gdf.loc[idx, col_i + '_x'] = np.nan
-                                gdf.loc[idx, col_i + '_y'] = np.nan
-                                if verbose: print('1G')
-                        # if the values are not considered as the same -> stage to put in gdf_error
-                        else:
-                            if verbose: print('1F')
-                            if not re.search('int|float', mdf[col_i + '_x'].dtype.name):
-                                # specify default value that shows there are conflicts
-                                gdf.loc[idx, col_i] = 'conflict'
-                            else:
-                                gdf.loc[idx, col_i] = 99999
-
-                            if col_i + '_x' not in error_col:
-                                error_col = error_col + [col_i + '_x', col_i + '_y']
-                            if idx not in error_row:
-                                error_row = error_row + [idx]
-                            error = True
-                else:
-                    if verbose: print('2A')
-                    # keep values of non-doubled columns
-                    gdf.loc[idx + 0.5, single_cols] = mdf.loc[idx, single_cols]
-
-                    # add new rows to the dataframe for the distinct object
-                    if not re.search('int|float', mdf[col_i + '_x'].dtype.name):
-                        if verbose: print(col_i, idx, mdf[col_i + '_x'].dtype.name)
-                        # print(mdf.loc[idx, col_i + '_x'], mdf.loc[idx, col_i + '_y'])
-
-                        # gdf.loc[idx, col_i] = str(mdf.loc[idx, col_i + '_x']).capitalize()
-                        # gdf.loc[idx + 0.5, col_i] = str(mdf.loc[idx, col_i + '_y']).capitalize()
-
-                        if not pd.isnull(mdf.loc[idx, col_i + '_x']):
-                            gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x'].capitalize()
-
-                        if not pd.isnull(mdf.loc[idx, col_i + '_y']):
-                            gdf.loc[idx + 0.5, col_i] = mdf.loc[idx, col_i + '_y'].capitalize()
-
-                    else:
-                        gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
-                        gdf.loc[idx + 0.5, col_i] = mdf.loc[idx, col_i + '_y']
-
-                    gdf.loc[idx, col_i + '_x'] = np.nan
-                    gdf.loc[idx, col_i + '_y'] = np.nan
-
-        gdf = gdf[single_cols + dble_cols]
-        gdf.reset_index(drop=True, inplace=True)
-
-        if fcol is not None:
-            gdf.insert(0, fcol, gdf.pop(fcol))
-            idx_col = gdf.columns.to_list().index(fcol)
-        elif col is not None:
-            idx_col = gdf.columns.to_list().index(col)
-        else:
-            idx_col = gdf.columns.to_list().index('ID')
-
-        gdf.insert(0, col, gdf.pop(col))
-
-        if 'X' in gdf.columns:
-            gdf.insert(idx_col + 1, 'X', gdf.pop('X'))
-        if 'Y' in gdf.columns:
-            gdf.insert(idx_col + 2, 'Y', gdf.pop('Y'))
-        if 'Z' in gdf.columns:
-            gdf.insert(idx_col + 3, 'Z', gdf.pop('Z'))
-        if 'Zsol' in gdf.columns:
-            gdf.insert(idx_col + 4, 'Zsol', gdf.pop('Zsol'))
-
-        if error:
-            gdf_conflict = mdf.loc[error_row, [left] + error_col]
-            gdf_conflict['Source_index'] = error_row
-
-        return gdf, gdf_conflict
-
-    # ------------------ End of process() ---------------------------------------
+    conflict_row = []
+    conflict_col = []
 
     if col is None and left_on is not None and right_on is not None:
         left = left_on
         right = right_on
-        gdf, gdf_conflict = process(error_row, error_col, dist_max, indicator, step_merge)
-
     elif col is not None:
         left = col
         right = col
-        gdf, gdf_conflict = process(error_row, error_col, dist_max, indicator, step_merge)
+
+    gdf_conflict = pd.DataFrame()  # to retrieve values for gdf_conflict
+    distinct_objects_to_add = {}
+    idx_distinct_obj = 0
+
+    mdf = gdf1.merge(gdf2, how=how, left_on=left, right_on=right, indicator=indicator)
+
+    mdf.reset_index(drop=True, inplace=True)
+    mdf.replace('nan', np.nan, inplace=True)
+    gdf = mdf.copy()
+
+    conflict = False
+
+    single_cols = list(set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns)) if not
+                            re.compile(r"_x|_y").search(gdf.columns.to_list()[x])]))
+
+    dble_cols = list(set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns)) if
+                          re.compile(r"_x|_y").search(gdf.columns.to_list()[x])]))
+
+    if 'X' not in dble_cols:
+        dist_max = None  # avoid error due to dist_max definition without position data
+
+    for col_i in dble_cols:
+        gdf[col_i] = np.nan  # creation of the definitive column
+        if verbose:
+            print('\nColumn :', col_i)
+
+    for idx in mdf.index:
+        distinct_objects = True
+
+        if dist_max is None:
+            distinct_objects = False
+
+        elif 'X' in dble_cols:  # coordinates in both dataframes
+            # compute distance between the points coming from each dataframe
+            if not pd.isnull(mdf.loc[idx, 'X_x']) and not pd.isnull(mdf.loc[idx, 'X_y']):
+                dist = (mdf.loc[idx, 'X_x'] - mdf.loc[idx, 'X_y']) ** 2 + (
+                        mdf.loc[idx, 'Y_x'] - mdf.loc[idx, 'Y_y']) ** 2
+                if dist <= (dist_max) ** 2:  # consider as same object
+                    distinct_objects = False
+
+            else:
+                distinct_objects = False
+
+        # If objects are not distinct -> compare them and merge values or generate conflict
+        # else add a new row in gdf to store two distinct object
+        if not distinct_objects:  # comparison and merging
+            for col_i in dble_cols:
+                # if repeated column i contains nan in gdf1 and a value in gdf2 -> keep value in gdf2
+                if pd.isnull(mdf.loc[idx, col_i + '_x']) and not pd.isnull(mdf.loc[idx, col_i + '_y']):
+                    gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_y']
+                    gdf.loc[idx, col_i + '_y'] = np.nan
+                    if verbose: print('1A')
+                # if repeated column i contains nan in gdf2 and a value in gdf1 -> keep value in gdf1
+                elif pd.isnull(mdf.loc[idx, col_i + '_y']) and not pd.isnull(mdf.loc[idx, col_i + '_x']):
+                    gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
+                    gdf.loc[idx, col_i + '_x'] = np.nan
+                    if verbose: print('1B')
+                # if repeated columns contain the same value -> keep value in gdf1
+                elif mdf.loc[idx, col_i + '_x'] == mdf.loc[idx, col_i + '_y']:
+                    gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
+                    gdf.loc[idx, col_i + '_x'] = np.nan
+                    gdf.loc[idx, col_i + '_y'] = np.nan
+                    if verbose: print('1C')
+                # if both repeated columns contain nan -> put nan in gdf
+                elif pd.isnull(mdf.loc[idx, col_i + '_x']) and pd.isnull(mdf.loc[idx, col_i + '_y']):
+                    gdf.loc[idx, col_i] = np.nan
+                    if verbose: print('1D')
+                # if repeated columns contain different values -> handle following dtype
+                else:
+                    # always keep one object position values because same objects
+                    if col_i == 'X' or col_i == 'Y' or col_i == 'Z':
+                        gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
+                        gdf.loc[idx, col_i + '_x'] = np.nan
+                        gdf.loc[idx, col_i + '_y'] = np.nan
+
+                    # if the values are not numeric -> cast to string and compare lowercase; if same -> Capitalize and put in gdf
+                    elif not re.search('int|float', mdf[col_i + '_x'].dtype.name): # str conditions
+                        if str(mdf.loc[idx, col_i + '_x']).lower() == str(mdf.loc[idx, col_i + '_y']).lower():
+                            gdf.loc[idx, col_i] = str(mdf.loc[idx, col_i + '_x']).capitalize()
+                            gdf.loc[idx, col_i + '_x'] = np.nan
+                            gdf.loc[idx, col_i + '_y'] = np.nan
+                            if verbose: print('1E')
+                        elif str(mdf.loc[idx, col_i + '_x']).lower() == '' or str(mdf.loc[idx, col_i + '_x']).lower() == 'nan':
+                            gdf.loc[idx, col_i] = str(mdf.loc[idx, col_i + '_y']).capitalize()
+                            gdf.loc[idx, col_i + '_x'] = np.nan
+                            gdf.loc[idx, col_i + '_y'] = np.nan
+                            if verbose: print('1F')
+                        elif str(mdf.loc[idx, col_i + '_y']).lower() == '' or str(mdf.loc[idx, col_i + '_y']).lower() == 'nan':
+                            gdf.loc[idx, col_i] = str(mdf.loc[idx, col_i + '_x']).capitalize()
+                            gdf.loc[idx, col_i + '_x'] = np.nan
+                            gdf.loc[idx, col_i + '_y'] = np.nan
+                            if verbose: print('1G')
+                    # if the values are not considered as the same -> stage to put in gdf_error
+                    else:
+                        if verbose: print('1F')
+                        if not re.search('int|float', mdf[col_i + '_x'].dtype.name):
+                            # specify default value that shows there are conflicts
+                            gdf.loc[idx, col_i] = 'conflict'
+                        else:
+                            gdf.loc[idx, col_i] = 99999
+
+                        if col_i + '_x' not in conflict_col:
+                            conflict_col = conflict_col + [col_i + '_x', col_i + '_y']
+                        if idx not in conflict_row:
+                            conflict_row = conflict_row + [idx]
+                        conflict = True
+        else:
+            if verbose: print('2A')
+            # keep values of non-doubled columns
+            # gdf.loc[idx + 0.5, single_cols] = mdf.loc[idx, single_cols]
+            print(single_cols)
+            distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
+            update_dict(distinct_objects_to_add, {idx_distinct_obj: {i: mdf.loc[idx, i+'_x'] for i in dble_cols}})
+            idx_distinct_obj += 1
+            distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
+            update_dict(distinct_objects_to_add, {idx_distinct_obj: {i: mdf.loc[idx, i + '_y'] for i in dble_cols}})
+            idx_distinct_obj += 1
+            # # add a new row to the dataframe for the distinct object
+            # if not re.search('int|float', mdf[col_i + '_x'].dtype.name):
+            #     if verbose: print(col_i, idx, mdf[col_i + '_x'].dtype.name)
+            #     # print(mdf.loc[idx, col_i + '_x'], mdf.loc[idx, col_i + '_y'])
+            #
+            #     # gdf.loc[idx, col_i] = str(mdf.loc[idx, col_i + '_x']).capitalize()
+            #     # gdf.loc[idx + 0.5, col_i] = str(mdf.loc[idx, col_i + '_y']).capitalize()
+            #
+            #     if not pd.isnull(mdf.loc[idx, col_i + '_x']):
+            #         gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x'].capitalize()
+            #
+            #     if not pd.isnull(mdf.loc[idx, col_i + '_y']):
+            #         gdf.loc[idx + 0.5, col_i] = mdf.loc[idx, col_i + '_y'].capitalize()
+            #
+            # else:
+            #     gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
+            #     gdf.loc[idx + 0.5, col_i] = mdf.loc[idx, col_i + '_y']
+            #
+            # gdf.loc[idx, col_i + '_x'] = np.nan
+            # gdf.loc[idx, col_i + '_y'] = np.nan
+
+    print(f'distinct objects to add:\n {distinct_objects_to_add}')
+    gdf = gdf[single_cols + dble_cols]
+    gdf.reset_index(drop=True, inplace=True)
+
+    if fcol is not None:
+        gdf.insert(0, fcol, gdf.pop(fcol))
+        idx_col = gdf.columns.to_list().index(fcol)
+    elif col is not None:
+        idx_col = gdf.columns.to_list().index(col)
+    else:
+        idx_col = gdf.columns.to_list().index('ID')
+
+    gdf.insert(0, col, gdf.pop(col))
+
+    if 'X' in gdf.columns:
+        gdf.insert(idx_col + 1, 'X', gdf.pop('X'))
+    if 'Y' in gdf.columns:
+        gdf.insert(idx_col + 2, 'Y', gdf.pop('Y'))
+    if 'Z' in gdf.columns:
+        gdf.insert(idx_col + 3, 'Z', gdf.pop('Z'))
+    if 'Zsol' in gdf.columns:
+        gdf.insert(idx_col + 4, 'Zsol', gdf.pop('Zsol'))
+
+    if conflict:
+        gdf_conflict = mdf.loc[conflict_row, [left] + conflict_col]
+        gdf_conflict['Source_index'] = conflict_row
 
     gdf = na_col_drop(gdf, col_non_na)
 
@@ -991,13 +982,13 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, i
     else:
         gdf = na_line_drop(gdf, col_n=1, line_non_na=line_non_na, drop_by_position=drop_by_position)
 
-    error_col = gdf_conflict.columns
+    conflict_col = gdf_conflict.columns
     gdf_conflict = na_line_drop(gdf_conflict, col_n=1, line_non_na=line_non_na, drop_by_position=drop_by_position)
     gdf_conflict = na_col_drop(gdf_conflict, col_non_na=1)
 
     if len(gdf_conflict) >= 1 and len(gdf_conflict.columns) >= 2:  # and error_view:
         print('Ambiguous values in both columns compared, change it manually !')
-        print('Columns', list(error_col[1:-1]), 'must be dropped manually !')
+        print('Columns', list(conflict_col[1:-1]), 'must be dropped manually !')
     else:
         gdf_conflict = pd.DataFrame()
 
@@ -1006,7 +997,7 @@ def gdf_merger(gdf1, gdf2, how='outer', col=None, left_on=None, right_on=None, i
 
 def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
     """
-    delete NaN columns in the dataframe based col a minimum number of non-NaN values
+    Delete columns in the dataframe where the count of non-NaN values is lower than col_non_na
 
     """
 
@@ -1025,6 +1016,11 @@ def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
 
 
 def na_line_drop(data, col_n=3, line_non_na=0, drop_by_position=False, old_idx=False, verbose=False):
+    """
+    Delete rows in the dataframe where the count of non-NaN values is lower than rows_non_na
+
+    """
+
     l1 = len(data)
     no_pos = []
     data['line_na'] = False
