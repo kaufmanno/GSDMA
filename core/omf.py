@@ -34,7 +34,7 @@ def striplog_legend_to_omf_legend(legend):
     for i in legend:
         omf_legend.append(i.colour)
         new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([1.])]))
-    #new_colors.append(np.array([0.9, 0.9, 0.9, 1.]))
+    # new_colors.append(np.array([0.9, 0.9, 0.9, 1.]))
     omf_legend.append(legend[0].colour)
     return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), ListedColormap(new_colors)
 
@@ -125,14 +125,16 @@ class Borehole3D(Striplog):
             print("No intervals given, pay attention that default interval is actually used !\n")
 
         self.intervals = intervals
-        self.geometry = []
+        self._geometry = []
+        self._vtk = None
 
         # instantiation with supers properties
         Striplog.__init__(self, list_of_Intervals=self.intervals)
 
         # self.uid=uuid #get a unique for identification of borehole in the project
 
-        self.build_geometry
+        self.geometry
+        self.vtk()
 
     def get_components_indices(self):
         """
@@ -154,8 +156,17 @@ class Borehole3D(Striplog):
                 indices.append(-1)
         return np.array(indices)
 
+    def vtk(self, radius=None):
+        """ build a vtk tube of given radius based on the borehole geometry """
+        if radius is None:
+            radius = self.diameter/2
+            vtk_obj = ov.line_set_to_vtk(self.geometry).tube(radius=radius)
+            vtk_obj.set_active_scalars('component')
+            self._vtk = vtk_obj
+        return self._vtk
+
     @property
-    def build_geometry(self):
+    def geometry(self):
         """
         build an omf.LineSetElement geometry of the borehole
         
@@ -198,7 +209,7 @@ class Borehole3D(Striplog):
 
         # print(f'Vertices: {vertices} -- Segments: {segments}')
 
-        self.geometry = omf.LineSetElement(name=self.name,
+        self._geometry = omf.LineSetElement(name=self.name,
                                            geometry=omf.LineSetGeometry(
                                                vertices=vertices,
                                                segments=segments),
@@ -211,10 +222,10 @@ class Borehole3D(Striplog):
 
         print("Borehole geometry created successfully !")
 
-        return self.geometry
+        return self._geometry
 
 
-    def plot3d(self, plotter=None, x3d=False, diam=None):
+    def plot3d(self, plotter=None, x3d=False, diam=None, update_vtk=False):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -238,11 +249,14 @@ class Borehole3D(Striplog):
             show = True
         else:
             show = False
-
-        seg = ov.line_set_to_vtk(self.geometry)
+        if update_vtk or diam is not None:
+            seg = self.vtk(radius=diam/2)
+        else:
+            seg = self._vtk
+        # seg = ov.line_set_to_vtk(self.geometry)
         seg.set_active_scalars('component')
-        ov.lineset.add_data(seg, self.geometry.data)
-        plotter.add_mesh(seg.tube(radius=diam), cmap=self.omf_cmap, clim=[-0.1, len(self.omf_cmap.colors)-1])
+        # ov.lineset.add_data(seg, self.geometry.data)
+        plotter.add_mesh(seg, cmap=self.omf_cmap, clim=[-0.1, len(self.omf_cmap.colors)-1])
 
         #print(seg.active_scalars)
 
