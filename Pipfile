@@ -27,6 +27,8 @@ sphinx-gallery = "*"
 nbsphinx = "*"
 xlrd = "*"
 descartes = "*"
+vedo = "*"
+ipyvtklink = "*"
 
 [requires]
 python_version = "3.8"
