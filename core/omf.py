@@ -29,7 +29,8 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
     # we must add colors as a parameter to allow to change colors style
 
     omf_legend = []
-    new_colors = [] # [np.array([0.9, 0.9, 0.9, alpha])] # new_colors in RGBA format
+    new_colors = [] # new_colors in RGBA format
+    #new_colors = [np.array([0.9, 0.9, 0.9, alpha])]
     #omf_legend.append(legend[0].colour)
     #n = 0
 

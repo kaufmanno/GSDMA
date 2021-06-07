@@ -1,6 +1,6 @@
 from core.orm import BoreholeOrm, ComponentOrm, LinkIntervalComponentOrm
 from core.omf import Borehole3D
-from utils.orm import get_interval_list
+from utils.io import get_interval_list
 from vtk import vtkX3DExporter
 from IPython.display import HTML
 import pyvista as pv
@@ -20,8 +20,8 @@ class Project:
     Methods
     --------
     refresh(update_3d=false)
-    add_borehole(self, bh)
     commit()
+    add_borehole(self, bh)
     add_components(self, components)
     plot3d(self, x3d=False)
         
@@ -62,6 +62,7 @@ class Project:
             self.boreholes_3d = []
             for bh in self.boreholes:
                 list_of_intervals, bh.length = get_interval_list(bh)
+                print()
                 if verbose:
                     print(bh.id, " added")
                 self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals, legend=self.legend, length=bh.length))

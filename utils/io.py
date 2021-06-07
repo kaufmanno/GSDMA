@@ -4,7 +4,8 @@ import numpy as np
 import geopandas as gpd
 import pandas as pd
 from shapely import wkt
-from striplog import Striplog, Lexicon, Interval, Component
+from striplog import Striplog, Lexicon, Interval, Component, Position
+from lexicon.Lexicon_FR_updated import LEXICON
 from core.orm import BoreholeOrm, PositionOrm
 from ipywidgets import interact, IntSlider
 from IPython.display import display
@@ -61,9 +62,7 @@ def df_from_sources(search_dir, filename, columns=None, verbose=False):
     print(f'\nThe overall dataframe contains {len(df_all)} lines. {a} files used')
     return df_all
 
-
-"""
-def files_read(fdir, crit_col, columns=None, verbose=False):
+def read_files(fdir, crit_col, columns=None, verbose=False):
 
     flist, files_interest = [] , []
     
@@ -118,12 +117,41 @@ def files_read(fdir, crit_col, columns=None, verbose=False):
     
     print(f'\nThe overall dataframe contains {len(df_all)} lines. {a} files used')
     return df_all
-    """
 
+
+def get_interval_list(bh, lexicon=None):
+    """create a list of interval from a list of boreholeORM ojects
+
+    Parameters
+    ----------
+    bh: list
+        list of boreholeORM
+    lexicon : dict
+        lexicon to retrieve lithological information from descriptions
+
+    Returns
+    -------
+    interval_list: list
+                   list of Interval objects
+
+    """
+    if lexicon is None:
+        lexic = Lexicon.default()  # Lexicon(LEXICON)
+    else:
+        lexic = Lexicon(lexicon)
+
+    interval_list, depth = [], []
+    for i in bh.intervals.values():
+        top = Position(upper=i.top.upper, middle=i.top.middle, lower=i.top.lower, x=i.top.x, y=i.top.y)
+        base = Position(upper=i.base.upper, middle=i.base.middle, lower=i.base.lower, x=i.top.x, y=i.top.y)
+        comp = Component.from_text(i.description, lexicon=lexic)
+        interval_list.append(Interval(top=top, base=base, description=i.description, components=[comp]))
+        depth.append(i.base.middle)
+    return interval_list, max(depth)
 
 def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
-                     litho_base_col=None, thick_col=None, lexicon=None,
-                     use_default=True, verbose=False, query=True):
+                     litho_base_col=None, thick_col=None, color_col=None,
+                     lexicon=None, use_default=True, verbose=False, query=True):
     """ 
     creates a Striplog object from a dataframe
     
@@ -148,6 +176,19 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
     strip : dict of striplog objects
     
     """
+    if litho_col is not None and litho_col in list(df.columns):
+        litho_cdt = True
+    if thick_col is not None and thick_col in list(df.columns):
+        thick_cdt = True
+    if litho_top_col is not None and litho_top_col in list(df.columns):
+        litho_top_cdt = True
+    if litho_base_col is not None and litho_base_col in list(df.columns):
+        litho_base_cdt = True
+    if color_col is not None and color_col in list(df.columns):
+        litho_cdt = True
+
+
+
     strip = {}
     if lexicon is None:
         lexicon = Lexicon.default()
@@ -174,14 +215,16 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
 
             for j in tmp.index:
                 # lithology processing -------------------------------------------
-                if litho_col in list(tmp.columns):
+                if litho_col and color_col :
+                    pass
+                if litho_col :
                     litho = tmp.loc[j, litho_col]
                 else:
                     raise(KeyError(f"Error : '{litho_col}' not in the dataframe's columns !"))
 
                 # create components from lithological description
                 if Component.from_text(litho, lexicon).summary() == '_': # empty component !
-                    print(f"Error : No lithology correspondance with '{litho}' in given lexicon")
+                    print(f"Error : No lithology matching with '{litho}' in given lexicon")
                     if use_default:
                         print(f"Warning : ++ interval's component replaced by default ('{DEFAULT_LITHOLOGY}')")
                         litho = DEFAULT_LITHOLOGY
@@ -195,12 +238,11 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
                     thick = tmp.loc[j, thick_col]
                 else:
                     if use_default:
-                        print(f'Warning : ++ No length provided, treated with default '
+                        print(f'Warning : ++ No thickness provided, default is used '
                                   f'(length={DEFAULT_BOREHOLE_LENGTH})')
                         thick = DEFAULT_BOREHOLE_LENGTH
                     else:
                         raise(ValueError('Cannot create interval with null thickness !'))
-                        #thick = 0.
 
                 # intervals processing ----------------------------------------------
                 if litho_top_col is not None and litho_top_col in list(tmp.columns):
@@ -450,10 +492,10 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                 if verbose:
                     print(f'Warning : -- No borehole diameter, default is used (diameter={DEFAULT_BOREHOLE_DIAMETER})')
 
-            if thick_field in boreholes_dict[df].columns:
-                thick = boreholes_dict[df][thick_field]
-            else:
-                thick = pd.Series([DEFAULT_BOREHOLE_LENGTH] * len(boreholes_dict[df]))
+            # if thick_field in boreholes_dict[df].columns:
+            #     thick = boreholes_dict[df][thick_field]
+            # else:
+            #     thick = pd.Series([DEFAULT_BOREHOLE_LENGTH] * len(boreholes_dict[df]))
 
             for i, j in boreholes_dict[df].iterrows():
                 id_ = j['ID']
@@ -469,7 +511,8 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                     # tmp = boreholes_dict[df].query(sql).copy()
                     tmp.reset_index(drop=True, inplace=True)
                     strip = striplog_from_df(df=tmp, bh_name=id_, litho_col=litho_field,
-                                             litho_top_col=litho_top_field, litho_base_col=litho_base_field,
+                                             litho_top_col=litho_top_field,
+                                             litho_base_col=litho_base_field,
                                              thick_col=thick_field,
                                              use_default=use_default,
                                              verbose=verbose, lexicon=lexicon,
@@ -514,9 +557,9 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                             print(f'{d}\n')
                         if dict_bh < len(boreholes):
                             boreholes[dict_bh].intervals_values = d
-                            boreholes[dict_bh].length = tmp[thick_field].cumsum().max() #thick[dict_bh]
+                            boreholes[dict_bh].length = tmp[thick_field].cumsum().max()
                             if diam[dict_bh] is not None and not pd.isnull(diam[dict_bh]):
-                                boreholes[dict_bh].diameter = tmp[diam_field][0] # diam[dict_bh]
+                                boreholes[dict_bh].diameter = tmp[diam_field][0]
                             else:
                                 boreholes[dict_bh].diameter = DEFAULT_BOREHOLE_DIAMETER
 

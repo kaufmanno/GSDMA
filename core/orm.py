@@ -38,7 +38,7 @@ class BoreholeOrm(Base):
                                                      top=v['top'], base=v['base']))
     
     def __repr__(self):
-        obj_class=str(self.__class__).strip('"<class>"').strip("' ")
+        obj_class = str(self.__class__).strip('"<class>"').strip("' ")
         return f"<{obj_class}>(Name={self.id}, Length={self.length}, Diameter={self.diameter}, Intervals={len(self.intervals)})"
 
 
@@ -131,6 +131,10 @@ class ComponentOrm(Base):
     id = Column(Integer, primary_key=True)
     intervals = relationship(IntervalOrm, secondary='Linkintervalcomponent')
     description = Column(String(32))
+
+    def __repr__(self):
+        obj_class = str(self.__class__).strip('"<class>"').strip("' ")
+        return f"<{obj_class}>(Id={self.id}, Description={self.description}, Intervals={len(self.intervals)})"
 
 
 class LinkIntervalComponentOrm(Base):
