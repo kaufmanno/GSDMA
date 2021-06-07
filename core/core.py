@@ -64,7 +64,7 @@ class Project:
                 list_of_intervals, bh.length = get_interval_list(bh)
                 if verbose:
                     print(bh.id, " added")
-                self.boreholes_3d.append(Borehole3D(intervals=list_of_intervals, legend=self.legend, diam=bh.diameter, length=bh.length))
+                self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals, legend=self.legend, length=bh.length))
 
     def commit(self):
         'Validate all modifications done in the project'
@@ -89,7 +89,7 @@ class Project:
         self.commit()
         self.refresh()
         list_of_intervals, bh.length = get_interval_list(bh)
-        self.boreholes_3d.append(Borehole3D(intervals=list_of_intervals, legend=self.legend, diam=bh.diameter, length=bh.length))
+        self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals, legend=self.legend, length=bh.length))
             
     def add_components(self, components):
         """

@@ -10,7 +10,7 @@ from vtk import vtkX3DExporter
 from IPython.display import HTML
 
 
-def striplog_legend_to_omf_legend(legend):
+def striplog_legend_to_omf_legend(legend, alpha=1.):
     """
     Creates an omf.data.Legend object from a striplog.Legend object
     
@@ -29,13 +29,17 @@ def striplog_legend_to_omf_legend(legend):
     # we must add colors as a parameter to allow to change colors style
 
     omf_legend = []
-    new_colors = [np.array([0.9, 0.9, 0.9, 1.])]
-    omf_legend.append(legend[0].colour)
+    new_colors = [] # [np.array([0.9, 0.9, 0.9, alpha])] # new_colors in RGBA format
+    #omf_legend.append(legend[0].colour)
+    #n = 0
+
     for i in legend:
-        omf_legend.append(i.colour)
-        new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([1.])]))
+        #n += 1
+        omf_legend.append(i.colour) # i.colour is in RGB format
+        new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([alpha])]))
+        #print(n, omf_legend[n-1], hex_to_rgb(i.colour), '---', new_colors[n-1])
     # new_colors.append(np.array([0.9, 0.9, 0.9, 1.]))
-    omf_legend.append(legend[0].colour)
+    #omf_legend.append(legend[0].colour)
     return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), ListedColormap(new_colors)
 
 
@@ -64,7 +68,8 @@ class Borehole3D(Striplog):
 
     """
 
-    def __init__(self, intervals=None, components=None, name='', legend=None, x_collar=0., y_collar=0., z_collar=0.,
+    def __init__(self, intervals=None, components=None, name='', legend=None,
+                 x_collar=0., y_collar=0., z_collar=0.,
                  diam=0.5, length=0):
 
         """
@@ -112,6 +117,7 @@ class Borehole3D(Striplog):
         self.diameter = 0.5
         self.length = length
         self.omf_legend, self.omf_cmap = striplog_legend_to_omf_legend(self.legend)
+        print(self.omf_legend, '\n', self.omf_cmap)
 
         if intervals is None and length == 0:
             print("Cannot create a borehole without length and interval !")
@@ -119,9 +125,6 @@ class Borehole3D(Striplog):
         if intervals is None and length != 0:
             lexicon = Lexicon.default()
             intervals = [Interval(top=0, base=length, description='white sand', lexicon=lexicon)]
-            # with open(ROOT_DIR + '/data/test.las', 'r') as las3:
-            # default_intv = Striplog.from_las3(las3.read(), lexicon)
-            #    intervals = list(default_intv)
             print("No intervals given, pay attention that default interval is actually used !\n")
 
         self.intervals = intervals
@@ -146,11 +149,11 @@ class Borehole3D(Striplog):
         """
 
         indices = []
-        idx=0
+        idx = 0
         for i in self.intervals:
             if i.primary in self.components:
-                idx+=1
-                indices.append(idx) # not really effective
+                idx += 1
+                indices.append(idx)  # not really effective
                 # indices.append(self.components.index(i.primary)) #old code
             else:
                 indices.append(-1)
@@ -159,7 +162,7 @@ class Borehole3D(Striplog):
     def vtk(self, radius=None):
         """ build a vtk tube of given radius based on the borehole geometry """
         if radius is None:
-            radius = self.diameter/2
+            radius = self.diameter/2 * 5 # multiply for visibility
             vtk_obj = ov.line_set_to_vtk(self.geometry).tube(radius=radius)
             vtk_obj.set_active_scalars('component')
             self._vtk = vtk_obj
@@ -225,7 +228,8 @@ class Borehole3D(Striplog):
         return self._geometry
 
 
-    def plot3d(self, plotter=None, x3d=False, diam=None, update_vtk=False):
+    def plot3d(self, plotter=None, x3d=False, diam=None, update_vtk=False,
+               bg_color=None):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -237,18 +241,19 @@ class Borehole3D(Striplog):
         x3d : bool
             if True, generates a 3xd file of the 3D (default=False)
         """
-        if diam is None and self.diameter == 0:
-            diam = 0.5
-        elif diam is None and self.diameter != 0:
-            diam = self.diameter
-
-        omf_legend, _ = striplog_legend_to_omf_legend(self.legend)
-
         if plotter is None:
             plotter = pv.Plotter()
             show = True
         else:
             show = False
+
+        if diam is None and self.diameter == 0:
+            diam = 0.5
+        elif diam is None and self.diameter != 0:
+            diam = self.diameter
+
+        #omf_legend, _ = striplog_legend_to_omf_legend(self.legend)
+
         if update_vtk or diam is not None:
             seg = self.vtk(radius=diam/2)
         else:
@@ -256,9 +261,23 @@ class Borehole3D(Striplog):
         # seg = ov.line_set_to_vtk(self.geometry)
         seg.set_active_scalars('component')
         # ov.lineset.add_data(seg, self.geometry.data)
-        plotter.add_mesh(seg, cmap=self.omf_cmap, clim=[-0.1, len(self.omf_cmap.colors)-1])
+        # print(seg.active_scalars)
 
-        #print(seg.active_scalars)
+        plotter.add_mesh(seg, cmap=self.omf_cmap) #, clim=[0.1, len(self.omf_cmap.colors)])
+
+        # set background color for the render
+        #example : ["royalblue", "aliceblue"]
+        if bg_color is not None:
+            if len(bg_color) == 2:
+                top_c = bg_color[1]
+                btm_c = bg_color[0]
+            elif len(bg_color) == 1:
+                top_c = None
+                btm_c = bg_color
+            else:
+                print('bg_color must be a color string or a list of 2 colors strings !')
+
+            plotter.set_background(color=btm_c, top=top_c)
 
         if show and not x3d:
             plotter.show()
@@ -285,7 +304,7 @@ class Borehole3D(Striplog):
                                                               '\n</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
 
-    def log_plot(self, figsize=(6, 6), legend=None, text_size=15, width=3):
+    def plot_strat(self, figsize=(6, 6), legend=None, text_size=15, width=3):
         if legend is None:
             legend = self.legend
 

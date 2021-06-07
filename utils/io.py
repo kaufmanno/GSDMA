@@ -121,9 +121,9 @@ def files_read(fdir, crit_col, columns=None, verbose=False):
     """
 
 
-def striplog_from_df(df, bh_name=None, litho_col=None, litho_top=None, litho_base=None,
-                     length_col=None, lexicon=None, use_default=True, verbose=False,
-                     query=True):
+def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
+                     litho_base_col=None, thick_col=None, lexicon=None,
+                     use_default=True, verbose=False, query=True):
     """ 
     creates a Striplog object from a dataframe
     
@@ -136,7 +136,7 @@ def striplog_from_df(df, bh_name=None, litho_col=None, litho_top=None, litho_bas
     litho_col : str
         dataframe column that contains lithology or description text (default:None)
     
-    length_col : str
+    thick_col : str
         dataframe column that contains lithology thickness (default:None)
         
     lexicon : dict
@@ -152,84 +152,82 @@ def striplog_from_df(df, bh_name=None, litho_col=None, litho_top=None, litho_bas
     if lexicon is None:
         lexicon = Lexicon.default()
 
-    if litho_col is None or litho_col in list(df.columns):
-        bh_list = []
+    bh_list = []
 
-        for i in range(0, len(df)):
-            if bh_name is not None and bh_name in df.columns:
-                bh_id = bh_name
+    for i in df.index:
+        if bh_name is not None and bh_name in df.columns:
+            bh_id = bh_name
+        else:
+            bh_id = df.loc[i, 'ID']
+
+        if bh_id not in bh_list:
+            print(f"|__ID:\'{bh_id}\'")
+            bh_list.append(bh_id)
+            if query:
+                sql = df['ID'] == f"{bh_id}"  # f'ID=="{bh_id}"'
+                tmp = df[sql].copy()  # df.query(sql).copy()  # divide to work fast ;)
+                tmp.reset_index(drop=True, inplace=True)
             else:
-                bh_id = df.loc[i, 'ID']
+                tmp = df
 
-            if bh_id not in bh_list:
-                bh_list.append(bh_id)
-                if query:
-                    sql = df['ID'] == f"{bh_id}"  # f'ID=="{bh_id}"'
-                    tmp = df[sql].copy()  # df.query(sql).copy()  # divide and work fast ;)
-                    tmp.reset_index(drop=True, inplace=True)
+            intervals = []
+
+            for j in tmp.index:
+                # lithology processing -------------------------------------------
+                if litho_col in list(tmp.columns):
+                    litho = tmp.loc[j, litho_col]
                 else:
-                    tmp = df
+                    raise(KeyError(f"Error : '{litho_col}' not in the dataframe's columns !"))
 
-                intervals = []
-
-                for j in range(0, len(tmp)):
-                    # lithology processing
-                    litho = ''
-                    if litho_col is None:
+                # create components from lithological description
+                if Component.from_text(litho, lexicon).summary() == '_': # empty component !
+                    print(f"Error : No lithology correspondance with '{litho}' in given lexicon")
+                    if use_default:
+                        print(f"Warning : ++ interval's component replaced by default ('{DEFAULT_LITHOLOGY}')")
                         litho = DEFAULT_LITHOLOGY
-                    elif litho_col in list(tmp.columns):
-                        litho = tmp.loc[j, litho_col]
-
-                    # create components from lithological description
-                    component = [Component.from_text(litho, lexicon)]
-                    # print(component)
-
-                    # length processing
-                    if length_col is not None and length_col in list(tmp.columns) \
-                            and not pd.isnull(tmp.loc[j, length_col]):
-                        length = tmp.loc[j, length_col]
-                        if verbose:
-                            print(f'length={length:.2f}')
-                    else:
-                        if use_default:
-                            if verbose:
-                                print(f'|__ID:\'{bh_id}\' -- No length provided, treated with default '
-                                      f'(length={DEFAULT_BOREHOLE_LENGTH})')
-                            length = DEFAULT_BOREHOLE_LENGTH
-                        else:
-                            length = 0.
-
-                    # intervals processing
-                    if litho_top is not None and litho_top in list(tmp.columns):
-                        top = tmp.loc[j, litho_top]
-                    else:
-                        top = 0.
-
-                    if litho_base is not None and litho_base in list(tmp.columns):
-                        base = tmp.loc[j, litho_base]
-                    else:
-                        base = length
-
-                    if base != 0.:
-                        intervals = intervals + [
-                            Interval(top=top, base=base, description=litho, components=component, lexicon=lexicon)]
-
-                    # print(intervals)
-
-                if len(intervals) != 0:
-                    if verbose:
-                        print(f'|__ID:\'{bh_id}\' -- No lithology data, treated with default (\'{DEFAULT_LITHOLOGY}\')')
-                    strip.update({bh_id: Striplog(list_of_Intervals=intervals)})
-                    # print(strip[bh_id])
-
+                        component = Component.from_text(litho, lexicon)
                 else:
-                    print(f"|__ID:\'{bh_id}\' -- Cannot create a striplog, no interval (length or base = 0)")
+                    component = Component.from_text(litho, lexicon)
 
-        print(strip)
+                # length processing -----------------------------------------------
+                if thick_col is not None and thick_col in list(tmp.columns) \
+                        and not pd.isnull(tmp.loc[j, thick_col]):
+                    thick = tmp.loc[j, thick_col]
+                else:
+                    if use_default:
+                        print(f'Warning : ++ No length provided, treated with default '
+                                  f'(length={DEFAULT_BOREHOLE_LENGTH})')
+                        thick = DEFAULT_BOREHOLE_LENGTH
+                    else:
+                        raise(ValueError('Cannot create interval with null thickness !'))
+                        #thick = 0.
 
-    elif litho_col is not None and litho_col not in list(df.columns):
-        print("Error! The dataframe's columns don't match for striplog creation !")
-        strip = {}
+                # intervals processing ----------------------------------------------
+                if litho_top_col is not None and litho_top_col in list(tmp.columns):
+                    top = tmp.loc[j, litho_top_col]
+                elif thick_col is not None:
+                    if j == tmp.index[0]:
+                        top = 0
+                    else:
+                        top += tmp.loc[j-1, thick_col]
+                else:
+                    raise(ValueError('Cannot retrieve or compute top values. provide thickness values! '))
+
+                if litho_base_col is not None and litho_base_col in list(tmp.columns):
+                    base = tmp.loc[j, litho_base_col]
+                else:
+                    base = top + thick
+
+                if base != 0.:
+                    intervals = intervals + [
+                        Interval(top=top, base=base, description=litho, components=[component], lexicon=lexicon)]
+
+            if len(intervals) != 0:
+                strip.update({bh_id: Striplog(list_of_Intervals=intervals)})
+            else:
+                print(f"Error : -- Cannot create a striplog, no interval (length or base = 0)")
+
+    print(f"Summary : {list(strip.values())}")
 
     return strip
 
@@ -278,8 +276,8 @@ def striplog_from_text(filename, lexicon=None):
 
 
 def boreholes_from_files(boreholes_dict=None, x=None, y=None,
-                         diam_field='Diameter', length_field='Length',
-                         litho_field=None, litho_top=None, litho_base=None,
+                         diam_field='Diameter', thick_field='Length',
+                         litho_field=None, litho_top_field=None, litho_base_field=None,
                          lexicon=None, verbose=False, use_default=True):
     """Creates a list of BoreholeORM objects from a list of dataframes 
         or dict of boreholes files (flat text or las files)
@@ -333,6 +331,7 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
     if boreholes_dict is None:
         print("Error! Borehole dictionary not given.")
 
+    # ------------------ argument is a dict of files ---------------------------------------
     if isinstance(boreholes_dict, dict):
         while (boreholes_dict is not None) and bh_id < len(boreholes_dict):
             print(f'\nFile {bh_id} processing...\n================================')
@@ -380,7 +379,6 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
             components = {v: k for k, v in component_dict.items()}
 
         else:
-            # pos = bh_id
             for pos in np.arange(bh_id, len(x)):
                 bh = f'F{bh_id + 1}'
                 print(f'bh: {bh}, pos: {pos}')
@@ -431,7 +429,7 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                 bh_id += 1
             components = {v: k for k, v in component_dict.items()}
 
-    # ----------------------------dfs------------------------------------#
+    # ----------------------------argument is a list of dataframes------------------------------------
 
     elif isinstance(boreholes_dict, list):
         if len(boreholes_dict) == 0:
@@ -448,16 +446,14 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
             if diam_field in boreholes_dict[df].columns:
                 diam = boreholes_dict[df][diam_field]
             else:
-                if verbose:
-                    print(f'|__ID:\'{bh_id}\' -- No borehole diameter provided,'
-                          f' treated with default (diameter={DEFAULT_BOREHOLE_DIAMETER})')
                 diam = pd.Series([DEFAULT_BOREHOLE_DIAMETER] * len(boreholes_dict[df]))
+                if verbose:
+                    print(f'Warning : -- No borehole diameter, default is used (diameter={DEFAULT_BOREHOLE_DIAMETER})')
 
-            if length_field in boreholes_dict[df].columns:
-                length = boreholes_dict[df][length_field]
+            if thick_field in boreholes_dict[df].columns:
+                thick = boreholes_dict[df][thick_field]
             else:
-                length = pd.Series([DEFAULT_BOREHOLE_LENGTH] * len(boreholes_dict[df]))
-
+                thick = pd.Series([DEFAULT_BOREHOLE_LENGTH] * len(boreholes_dict[df]))
 
             for i, j in boreholes_dict[df].iterrows():
                 id_ = j['ID']
@@ -469,12 +465,12 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
 
                     sql = boreholes_dict[df]['ID'] == f"{id_}"
                     tmp = boreholes_dict[df][sql].copy()
-                    #sql = f'ID=="{id_}"'
-                    #tmp = boreholes_dict[df].query(sql).copy()
+                    # sql = f'ID=="{id_}"'
+                    # tmp = boreholes_dict[df].query(sql).copy()
                     tmp.reset_index(drop=True, inplace=True)
-                    strip = striplog_from_df(df=tmp, bh_name=id_,litho_col=litho_field,
-                                             litho_top=litho_top, litho_base=litho_base,
-                                             length_col=length_field,
+                    strip = striplog_from_df(df=tmp, bh_name=id_, litho_col=litho_field,
+                                             litho_top_col=litho_top_field, litho_base_col=litho_base_field,
+                                             thick_col=thick_field,
                                              use_default=use_default,
                                              verbose=verbose, lexicon=lexicon,
                                              query=False)
@@ -489,7 +485,6 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
 
                         # ORM processing
                         for interval in v:
-                            # print(interval)
                             top = PositionOrm(id=pos_id, upper=interval.top.upper,
                                               middle=interval.top.middle,
                                               lower=interval.top.lower,
@@ -519,17 +514,16 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                             print(f'{d}\n')
                         if dict_bh < len(boreholes):
                             boreholes[dict_bh].intervals_values = d
-                            boreholes[dict_bh].length = length[dict_bh]
+                            boreholes[dict_bh].length = tmp[thick_field].cumsum().max() #thick[dict_bh]
                             if diam[dict_bh] is not None and not pd.isnull(diam[dict_bh]):
-                                boreholes[dict_bh].diameter = diam[dict_bh]
+                                boreholes[dict_bh].diameter = tmp[diam_field][0] # diam[dict_bh]
                             else:
                                 boreholes[dict_bh].diameter = DEFAULT_BOREHOLE_DIAMETER
 
                         dict_bh += 1
 
                 else:
-                    if verbose:
-                        print(f"|__ID '{id_}' already treated, skip")
+                    pass
 
                 components = {v: k for k, v in component_dict.items()}
 
@@ -537,7 +531,7 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
             df += 1
 
     elif not isinstance(boreholes_dict, dict) or isinstance(boreholes_dict, list):
-        print('Error! Only take a dict or a dataframe to work !')
+        raise(TypeError('Error! use a dict or a dataframe !'))
 
     return boreholes, components, link_dict
 
@@ -1065,8 +1059,8 @@ def col_ren(data, line_to_col=1, mode=0, name=[]):
     return data
 
 
-def gdf_filter(data, position=True, id_col='ID', expression=None, bypass_col=[], dist_crit=1, rapp_val=2, drop=False,
-               verbose=False):
+def gdf_filter(data, position=True, id_col='ID', expression=None, bypass_col=[],
+               dist_crit=1, rapp_val=2, drop=False, verbose=False):
     """
     filter a dataframe of duplicate values (considering ID and/or position)
     """

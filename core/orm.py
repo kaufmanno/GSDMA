@@ -39,7 +39,7 @@ class BoreholeOrm(Base):
     
     def __repr__(self):
         obj_class=str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}>(id={self.id}, length={self.length}, diameter={self.diameter}, intervals={len(self.intervals)})"
+        return f"<{obj_class}>(Name={self.id}, Length={self.length}, Diameter={self.diameter}, Intervals={len(self.intervals)})"
 
 
 class PositionOrm(Base):
