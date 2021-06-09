@@ -5,7 +5,7 @@ import geopandas as gpd
 import pandas as pd
 from shapely import wkt
 from striplog import Striplog, Lexicon, Interval, Component, Position
-from lexicon.Lexicon_FR_updated import LEXICON
+from utils.lexicon import Lexicon_FR_updated as lexicon_fr
 from core.orm import BoreholeOrm, PositionOrm
 from ipywidgets import interact, IntSlider
 from IPython.display import display
@@ -119,7 +119,7 @@ def read_files(fdir, crit_col, columns=None, verbose=False):
     return df_all
 
 
-def get_interval_list(bh, lexicon=None):
+def get_interval_list(bh, lexicon='en'):
     """create a list of interval from a list of boreholeORM ojects
 
     Parameters
@@ -135,23 +135,29 @@ def get_interval_list(bh, lexicon=None):
                    list of Interval objects
 
     """
-    if lexicon is None:
-        lexic = Lexicon.default()  # Lexicon(LEXICON)
+
+    if lexicon == 'en':
+        lexicon = Lexicon.default()
+    elif lexicon == 'fr':
+        lexicon = Lexicon(lexicon_fr.LEXICON)
+    elif isinstance(lexicon, Lexicon):
+        lexicon = lexicon
     else:
-        lexic = Lexicon(lexicon)
+        raise (TypeError(f"Must provide a lexicon, not '{type(lexicon)}', excepted 'en' or 'fr'"))
 
     interval_list, depth = [], []
     for i in bh.intervals.values():
         top = Position(upper=i.top.upper, middle=i.top.middle, lower=i.top.lower, x=i.top.x, y=i.top.y)
         base = Position(upper=i.base.upper, middle=i.base.middle, lower=i.base.lower, x=i.top.x, y=i.top.y)
-        comp = Component.from_text(i.description, lexicon=lexic)
+        comp = Component.from_text(i.description, lexicon=lexicon)
         interval_list.append(Interval(top=top, base=base, description=i.description, components=[comp]))
         depth.append(i.base.middle)
     return interval_list, max(depth)
 
+
 def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
                      litho_base_col=None, thick_col=None, color_col=None,
-                     lexicon=None, use_default=True, verbose=False, query=True):
+                     lexicon='en', use_default=True, verbose=False, query=True):
     """ 
     creates a Striplog object from a dataframe
     
@@ -176,6 +182,9 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
     strip : dict of striplog objects
     
     """
+    litho_cdt, litho_top_cdt, litho_base_cdt = False, False, False
+    thick_cdt, color_cdt = False, False
+
     if litho_col is not None and litho_col in list(df.columns):
         litho_cdt = True
     if thick_col is not None and thick_col in list(df.columns):
@@ -185,14 +194,18 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
     if litho_base_col is not None and litho_base_col in list(df.columns):
         litho_base_cdt = True
     if color_col is not None and color_col in list(df.columns):
-        litho_cdt = True
+        color_cdt = True
 
-
+    if lexicon == 'en':
+        lexicon = Lexicon.default()
+    elif lexicon == 'fr':
+        lexicon = Lexicon(lexicon_fr.LEXICON)
+    elif isinstance(lexicon, Lexicon):
+        lexicon = lexicon
+    else:
+        raise (TypeError(f"Must provide a lexicon, not '{type(lexicon)}', excepted 'en' or 'fr'"))
 
     strip = {}
-    if lexicon is None:
-        lexicon = Lexicon.default()
-
     bh_list = []
 
     for i in df.index:
@@ -215,26 +228,25 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
 
             for j in tmp.index:
                 # lithology processing -------------------------------------------
-                if litho_col and color_col :
-                    pass
-                if litho_col :
+                if litho_cdt and color_cdt :
+                    litho = f"{tmp.loc[j, litho_col]} {tmp.loc[j, color_col]}"
+                elif litho_cdt :
                     litho = tmp.loc[j, litho_col]
                 else:
                     raise(KeyError(f"Error : '{litho_col}' not in the dataframe's columns !"))
 
                 # create components from lithological description
-                if Component.from_text(litho, lexicon).summary() == '_': # empty component !
+                if Component.from_text(litho, lexicon) == Component({}):  # empty component !
                     print(f"Error : No lithology matching with '{litho}' in given lexicon")
                     if use_default:
                         print(f"Warning : ++ interval's component replaced by default ('{DEFAULT_LITHOLOGY}')")
                         litho = DEFAULT_LITHOLOGY
-                        component = Component.from_text(litho, lexicon)
+                        component = Component.from_text(litho, Lexicon.default())
                 else:
                     component = Component.from_text(litho, lexicon)
 
                 # length processing -----------------------------------------------
-                if thick_col is not None and thick_col in list(tmp.columns) \
-                        and not pd.isnull(tmp.loc[j, thick_col]):
+                if thick_cdt and not pd.isnull(tmp.loc[j, thick_col]):
                     thick = tmp.loc[j, thick_col]
                 else:
                     if use_default:
@@ -245,9 +257,9 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
                         raise(ValueError('Cannot create interval with null thickness !'))
 
                 # intervals processing ----------------------------------------------
-                if litho_top_col is not None and litho_top_col in list(tmp.columns):
+                if litho_top_cdt:
                     top = tmp.loc[j, litho_top_col]
-                elif thick_col is not None:
+                elif thick_cdt:
                     if j == tmp.index[0]:
                         top = 0
                     else:
@@ -255,7 +267,7 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
                 else:
                     raise(ValueError('Cannot retrieve or compute top values. provide thickness values! '))
 
-                if litho_base_col is not None and litho_base_col in list(tmp.columns):
+                if litho_base_cdt:
                     base = tmp.loc[j, litho_base_col]
                 else:
                     base = top + thick
@@ -274,7 +286,7 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
     return strip
 
 
-def striplog_from_text(filename, lexicon=None):
+def striplog_from_text(filename, lexicon='en'):
     """ 
     creates a Striplog object from a las or flat text file
     
@@ -291,8 +303,14 @@ def striplog_from_text(filename, lexicon=None):
     
     """
 
-    if lexicon is None:
+    if lexicon == 'en':
         lexicon = Lexicon.default()
+    elif lexicon == 'fr':
+        lexicon = Lexicon(lexicon_fr.LEXICON)
+    elif isinstance(lexicon, Lexicon):
+        lexicon = lexicon
+    else:
+        raise(TypeError(f"Must provide a lexicon, not '{type(lexicon)}', excepted 'en' or 'fr'"))
 
     if re.compile(r".+\.las").match(filename):
         # print(f"File {filename:s} OK! Creation of the striplog ...")
@@ -318,9 +336,9 @@ def striplog_from_text(filename, lexicon=None):
 
 
 def boreholes_from_files(boreholes_dict=None, x=None, y=None,
-                         diam_field='Diameter', thick_field='Length',
+                         diam_field='Diameter', thick_field='Length', color_field='Color',
                          litho_field=None, litho_top_field=None, litho_base_field=None,
-                         lexicon=None, verbose=False, use_default=True):
+                         lexicon='en', verbose=False, use_default=True):
     """Creates a list of BoreholeORM objects from a list of dataframes 
         or dict of boreholes files (flat text or las files)
     
@@ -492,11 +510,6 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                 if verbose:
                     print(f'Warning : -- No borehole diameter, default is used (diameter={DEFAULT_BOREHOLE_DIAMETER})')
 
-            # if thick_field in boreholes_dict[df].columns:
-            #     thick = boreholes_dict[df][thick_field]
-            # else:
-            #     thick = pd.Series([DEFAULT_BOREHOLE_LENGTH] * len(boreholes_dict[df]))
-
             for i, j in boreholes_dict[df].iterrows():
                 id_ = j['ID']
 
@@ -514,6 +527,7 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                                              litho_top_col=litho_top_field,
                                              litho_base_col=litho_base_field,
                                              thick_col=thick_field,
+                                             color_col=color_field,
                                              use_default=use_default,
                                              verbose=verbose, lexicon=lexicon,
                                              query=False)
@@ -763,14 +777,6 @@ def gen_id_dated(gdf, ref_col='Ref', date_col=None, date_ref='No_date'):
         print("Using 'Date' column in the (geo)dataframe !")
         gdf[ref_col] = gdf['Date'].apply(lambda x: str(x.year) + '-' if not pd.isnull(x) else '') + gdf[ref_col].apply(
             lambda x: str(x) if not pd.isnull(x) else '')
-        # Id=[]
-        # for Idx, row in gdf.iterrows():
-        # if not pd.isnull(row['Date'].year):
-        #     Id.append(str(row['Date'].year)+'-'+str(row[refcol]))
-        #  else:
-        #       Id.append(row[refcol])
-
-        # gdf[refcol]=Id
 
         gdf['ID_date'] = gdf[date_col].apply(lambda x: str(x.year) + '-' if not pd.isnull(x) else '') + gdf[
             ref_col].apply(lambda x: str(x) if not pd.isnull(x) else '')
@@ -1095,7 +1101,8 @@ def col_ren(data, line_to_col=1, mode=0, name=[]):
                         new_name.update({old: name[k]})
 
         elif isinstance(name, list) and len(name) != len(data.columns):
-            print('Error! names list length and columns length are not the same.')
+            #print('Error! names list length and columns length are not the same.')
+            raise(TypeError('Error! names list length and columns length are not the same.'))
 
     data.rename(columns=new_name, inplace=True)
 

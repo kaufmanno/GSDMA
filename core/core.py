@@ -57,12 +57,12 @@ class Project:
         """
         
         self.boreholes = self.session.query(BoreholeOrm).all()
-        
+        print(self.legend)
         if update_3d:
             self.boreholes_3d = []
             for bh in self.boreholes:
                 list_of_intervals, bh.length = get_interval_list(bh)
-                print()
+                print(list_of_intervals[0].components[0].lithology)
                 if verbose:
                     print(bh.id, " added")
                 self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals, legend=self.legend, length=bh.length))
@@ -131,7 +131,7 @@ class Project:
         self.commit()
         self.refresh()
 
-    def plot3d(self, plotter=None, x3d=False):
+    def plot3d(self, plotter=None, x3d=False, bg_color=["royalblue", "aliceblue"]):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -146,7 +146,7 @@ class Project:
             pl = pv.Plotter()
 
         for bh in self.boreholes_3d:
-            bh.plot3d(plotter=pl)
+            bh.plot3d(plotter=pl, bg_color=bg_color)
             
         if not x3d:
             pl.show()

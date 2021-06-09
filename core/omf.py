@@ -1,13 +1,15 @@
-from striplog import Lexicon, Striplog, Legend, Interval
+from striplog import Lexicon, Striplog, Legend, Interval, Decor
 from striplog.utils import hex_to_rgb
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
+import matplotlib.colors as mcolors
+import random
 import numpy as np
 import omfvista as ov
 import pyvista as pv
 import omf
 from vtk import vtkX3DExporter
 from IPython.display import HTML
+import warnings
 
 
 def striplog_legend_to_omf_legend(legend, alpha=1.):
@@ -29,19 +31,19 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
     # we must add colors as a parameter to allow to change colors style
 
     omf_legend = []
-    new_colors = [] # new_colors in RGBA format
-    #new_colors = [np.array([0.9, 0.9, 0.9, alpha])]
-    #omf_legend.append(legend[0].colour)
-    #n = 0
+    new_colors = []  # new_colors in RGBA format
+    # new_colors = [np.array([0.9, 0.9, 0.9, alpha])]
+    # omf_legend.append(legend[0].colour)
+    # n = 0
 
     for i in legend:
-        #n += 1
+        # n += 1
         omf_legend.append(i.colour) # i.colour is in RGB format
         new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([alpha])]))
-        #print(n, omf_legend[n-1], hex_to_rgb(i.colour), '---', new_colors[n-1])
+        # print(n, omf_legend[n-1], hex_to_rgb(i.colour), '---', new_colors[n-1])
     # new_colors.append(np.array([0.9, 0.9, 0.9, 1.]))
-    #omf_legend.append(legend[0].colour)
-    return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), ListedColormap(new_colors)
+    # omf_legend.append(legend[0].colour)
+    return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), mcolors.ListedColormap(new_colors)
 
 
 class Borehole3D(Striplog):
@@ -69,9 +71,9 @@ class Borehole3D(Striplog):
 
     """
 
-    def __init__(self, intervals=None, components=None, name='', legend=None,
-                 x_collar=0., y_collar=0., z_collar=0.,
-                 diam=0.5, length=0):
+    def __init__(self, intervals=None, components=None, name='', diam=0.5, length=0,
+                 x_collar=0., y_collar=0.,z_collar=0., legend=None,
+                 legend_colors=None, legend_hatches='random'):
 
         """
         build a Borehole3D object from Striplog.Intervals list
@@ -105,28 +107,19 @@ class Borehole3D(Striplog):
         """
 
         self.name = name
-
-        if legend is None or not isinstance(legend, Legend):
-            print("No given legend or incorrect format ! A default legend will be used")
-            self.legend = Legend.default()
-        else:
-            self.legend = legend
-
         self.x_collar = x_collar
         self.y_collar = y_collar
         self.z_collar = z_collar
-        self.diameter = 0.5
+        self.diameter = diam
         self.length = length
-        self.omf_legend, self.omf_cmap = striplog_legend_to_omf_legend(self.legend)
-        print(self.omf_legend, '\n', self.omf_cmap)
 
         if intervals is None and length == 0:
-            print("Cannot create a borehole without length and interval !")
+            raise(ValueError("Cannot create a borehole without length and interval !"))
 
         if intervals is None and length != 0:
             lexicon = Lexicon.default()
             intervals = [Interval(top=0, base=length, description='white sand', lexicon=lexicon)]
-            print("No intervals given, pay attention that default interval is actually used !\n")
+            print("No intervals given, default interval ('white sand') is used !\n")
 
         self.intervals = intervals
         self._geometry = []
@@ -135,10 +128,104 @@ class Borehole3D(Striplog):
         # instantiation with supers properties
         Striplog.__init__(self, list_of_Intervals=self.intervals)
 
-        # self.uid=uuid #get a unique for identification of borehole in the project
+        # other object building processes
+        if legend is None or not isinstance(legend, Legend):
+            print("No given legend or incorrect format ! A default one is used")
+            self._legend = Legend.default()
+        else:
+            self._legend = legend  # given legend
+
+        # create object legend
+        self.legend = self.build_legend(legend=self._legend,
+                                        hatches=legend_hatches,
+                                        colors=legend_colors)
+        self.omf_legend, self.omf_cmap = striplog_legend_to_omf_legend(self.legend)
 
         self.geometry
         self.vtk()
+
+    def build_legend(self, legend=None, hatches=None, colors=None, width=3):
+        """
+        Build a legend based on lithologies in the borehole
+
+        Returns
+        --------
+        striplog.Legend
+        """
+
+        # given values test
+        if legend is not None and not isinstance(legend, Legend):
+            raise(TypeError('legend must be a Striplog.Legend'))
+
+        if (colors is not None and colors not in ['random', 'default']) \
+                and not isinstance(colors, list):
+            raise(TypeError('colors must be a list of colors in str, html or RGB(A) codes'))
+
+        if (hatches is not None and hatches not in ['random', 'default']) \
+                and not isinstance(hatches, list):
+            raise(TypeError('hatches must be a list of hatches in str'))
+
+        # default values
+        if legend is None:
+            legend = self._legend
+
+        if hatches == 'random' or hatches is None:
+            def_hatches = ['+', 'x', '.', 's', '*', 'b', 'c', 'v', '/', 't']
+
+        if colors == 'random' or colors is None:
+            def_colors = [i.colour for i in Legend.default()] + list(mcolors.CSS4_COLORS.values())
+
+        list_of_decors, hatches_used = [], []
+        components = self.components
+        i = 0
+
+        for comp in components:
+            if hasattr(comp, 'lithology'):
+                for leg in legend:
+                    if comp.lithology == leg.component.lithology:
+                        # ------------ color processing --------------------
+                        if hasattr(comp, 'colour') and colors is None:
+                            c = comp.colour
+                        elif colors == 'default':
+                            c = leg.colour
+                        elif colors == 'random':
+                            c = random.sample(def_colors, 1)[0]
+                        elif colors is not None:
+                            c = colors[i]
+                        else:  # value is None
+                            c = random.sample(def_colors, 1)[0]
+
+                        # ------------ hatch processing ------------------------
+                        if hasattr(comp, 'hatch') and hatches is None:
+                            h = comp.hatch
+                        elif hatches == 'default':
+                            h = leg.hatch
+                        elif hatches == 'random':
+                            h = random.sample(def_hatches, 1)[0]
+                            while h in hatches_used:
+                                if len(hatches_used) >= len(def_hatches):
+                                    h = ''.join(random.sample(hatches_used, 2))
+                                elif len(hatches_used) >= 2 * len(def_hatches):
+                                    h = ''.join(random.sample(hatches_used, 3))
+                                else:
+                                    h = random.sample(hatches, 1)[0]
+
+                            hatches_used.append(h)
+                        elif hatches is not None:
+                            h = hatches[i]
+                        else:
+                            h = random.sample(hatches, 1)[0]
+
+            else:
+                raise (TypeError('Cannot create a legend for empty component'))
+                # TODO : allow empty component (lacking lithology data) with a low alpha color
+
+            i += 1  # increment to retrieve given colors or hatches
+
+            decor = Decor({'color': c, 'hatch': h, 'component': comp, 'width': width})
+            list_of_decors.append(decor)
+
+        return Legend(list_of_decors)
 
     def get_components_indices(self):
         """
@@ -211,8 +298,6 @@ class Borehole3D(Striplog):
 
         vertices = np.array(vertices)
 
-        # print(f'Vertices: {vertices} -- Segments: {segments}')
-
         self._geometry = omf.LineSetElement(name=self.name,
                                            geometry=omf.LineSetGeometry(
                                                vertices=vertices,
@@ -230,7 +315,7 @@ class Borehole3D(Striplog):
 
 
     def plot3d(self, plotter=None, x3d=False, diam=None, update_vtk=False,
-               bg_color=None):
+               bg_color=["royalblue", "aliceblue"]):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -267,7 +352,7 @@ class Borehole3D(Striplog):
         plotter.add_mesh(seg, cmap=self.omf_cmap) #, clim=[0.1, len(self.omf_cmap.colors)])
 
         # set background color for the render
-        #example : ["royalblue", "aliceblue"]
+        # None : pyvista default background color
         if bg_color is not None:
             if len(bg_color) == 2:
                 top_c = bg_color[1]
@@ -305,7 +390,10 @@ class Borehole3D(Striplog):
                                                               '\n</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
 
-    def plot_strat(self, figsize=(6, 6), legend=None, text_size=15, width=3):
+    def plot2d(self, figsize=(6, 6), legend=None, text_size=15, width=3):
+        """
+        Plot a 2D lithological log
+        """
         if legend is None:
             legend = self.legend
 
@@ -315,8 +403,9 @@ class Borehole3D(Striplog):
         for i in self.intervals:
             bh_litho.append(i.primary.lithology)
 
-        for i in range((len(legend)-1),-1,-1):
-            if legend[i].component.lithology in bh_litho:
+        for i in range((len(legend)-1), -1, -1):
+            litho = legend[i].component.lithology
+            if litho in bh_litho:
                 plot_decors.append(legend[i])
                 legend[i].width = width
         plot_legend = Legend(plot_decors)
