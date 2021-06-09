@@ -72,8 +72,8 @@ class Borehole3D(Striplog):
     """
 
     def __init__(self, intervals=None, components=None, name='', diam=0.5, length=0,
-                 x_collar=0., y_collar=0.,z_collar=0., legend=None,
-                 legend_colors=None, legend_hatches='random'):
+                 x_collar=0., y_collar=0., z_collar=0., legend=None,
+                 legend_colors=None, legend_hatches=None):
 
         """
         build a Borehole3D object from Striplog.Intervals list
@@ -135,6 +135,7 @@ class Borehole3D(Striplog):
         else:
             self._legend = legend  # given legend
 
+        print(isinstance(self._legend, Legend))
         # create object legend
         self.legend = self.build_legend(legend=self._legend,
                                         hatches=legend_hatches,
@@ -144,7 +145,7 @@ class Borehole3D(Striplog):
         self.geometry
         self.vtk()
 
-    def build_legend(self, legend=None, hatches=None, colors=None, width=3):
+    def build_legend(self, legend, hatches=None, colors=None, width=3):
         """
         Build a legend based on lithologies in the borehole
 
@@ -154,7 +155,7 @@ class Borehole3D(Striplog):
         """
 
         # given values test
-        if legend is not None and not isinstance(legend, Legend):
+        if not isinstance(legend, Legend):
             raise(TypeError('legend must be a Striplog.Legend'))
 
         if (colors is not None and colors not in ['random', 'default']) \
@@ -166,17 +167,14 @@ class Borehole3D(Striplog):
             raise(TypeError('hatches must be a list of hatches in str'))
 
         # default values
-        if legend is None:
-            legend = self._legend
-
         if hatches == 'random' or hatches is None:
             def_hatches = ['+', 'x', '.', 's', '*', 'b', 'c', 'v', '/', 't']
 
-        if colors == 'random' or colors is None:
+        if colors == 'random':
             def_colors = [i.colour for i in Legend.default()] + list(mcolors.CSS4_COLORS.values())
 
         list_of_decors, hatches_used = [], []
-        components = self.components
+        components = [i.components[0] for i in self.intervals]  # don't use self.components !
         i = 0
 
         for comp in components:
@@ -184,20 +182,25 @@ class Borehole3D(Striplog):
                 for leg in legend:
                     if comp.lithology == leg.component.lithology:
                         # ------------ color processing --------------------
-                        if hasattr(comp, 'colour') and colors is None:
-                            c = comp.colour
+                        if colors is None:
+                            if hasattr(comp, 'colour'):
+                                c = comp.colour
+                            else:
+                                c = leg.colour
                         elif colors == 'default':
                             c = leg.colour
                         elif colors == 'random':
                             c = random.sample(def_colors, 1)[0]
                         elif colors is not None:
                             c = colors[i]
-                        else:  # value is None
-                            c = random.sample(def_colors, 1)[0]
 
                         # ------------ hatch processing ------------------------
-                        if hasattr(comp, 'hatch') and hatches is None:
-                            h = comp.hatch
+                        if hatches is None:
+                            if hasattr(comp, 'hatch'):
+                                h = comp.hatch
+                            else:
+                                h = random.sample(def_hatches, 1)[0]
+                                # h = leg.hatch  # no hatches in default !
                         elif hatches == 'default':
                             h = leg.hatch
                         elif hatches == 'random':
@@ -214,7 +217,8 @@ class Borehole3D(Striplog):
                         elif hatches is not None:
                             h = hatches[i]
                         else:
-                            h = random.sample(hatches, 1)[0]
+                            h = None
+
 
             else:
                 raise (TypeError('Cannot create a legend for empty component'))
@@ -247,11 +251,11 @@ class Borehole3D(Striplog):
                 indices.append(-1)
         return np.array(indices)
 
-    def vtk(self, radius=None):
+    def vtk(self, radius=None, res=50):
         """ build a vtk tube of given radius based on the borehole geometry """
         if radius is None:
             radius = self.diameter/2 * 5 # multiply for visibility
-            vtk_obj = ov.line_set_to_vtk(self.geometry).tube(radius=radius)
+            vtk_obj = ov.line_set_to_vtk(self.geometry).tube(radius=radius, n_sides=res)
             vtk_obj.set_active_scalars('component')
             self._vtk = vtk_obj
         return self._vtk
@@ -370,7 +374,7 @@ class Borehole3D(Striplog):
         else:
             writer = vtkX3DExporter()
             writer.SetInput(plotter.renderer.GetRenderWindow())
-            filename = 'tmp_files/' + f'BH_{self.name:s}.x3d'
+            filename = f'tmp_files/BH_{self.name:s}.x3d'
             writer.SetFileName(filename)
             writer.Update()
             writer.Write()
@@ -413,5 +417,5 @@ class Borehole3D(Striplog):
         fig, ax = plt.subplots(ncols=2, figsize=figsize)
         ax[0].set_title(self.name, size=text_size, color='b')
         self.plot(legend=plot_legend, ax=ax[0])
-        ax[1].set_title('Legend', size=15, color='r')
+        ax[1].set_title('Legend', size=text_size, color='r')
         plot_legend.plot(ax=ax[1])

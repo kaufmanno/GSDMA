@@ -3,6 +3,7 @@ from core.omf import Borehole3D
 from utils.io import get_interval_list
 from vtk import vtkX3DExporter
 from IPython.display import HTML
+import numpy as np
 import pyvista as pv
 
 class Project:
@@ -125,13 +126,13 @@ class Project:
         """
 
         for link in link_component_interval.keys():
-             new_link = LinkIntervalComponentOrm(int_id=link[0], comp_id=link[1], **link_component_interval[link])
-             self.session.add(new_link)
+            new_link = LinkIntervalComponentOrm(int_id=link[0], comp_id=link[1], **link_component_interval[link])
+            self.session.add(new_link)
 
         self.commit()
         self.refresh()
 
-    def plot3d(self, plotter=None, x3d=False, bg_color=["royalblue", "aliceblue"]):
+    def plot3d(self, plotter=None, x3d=False, labels_size=None, labels_color=None, bg_color=("royalblue", "aliceblue"), window_size=None):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -140,20 +141,37 @@ class Project:
         x3d : bool
             if True, generates a 3xd file of the 3D (default=False)
         """
+        pts = {}
+        if window_size is not None:
+            notebook = False
+        else:
+            notebook = True
+            window_size = (600, 400)
+
         if plotter is not None:
             pl=plotter
         else:
-            pl = pv.Plotter()
+            pl = pv.Plotter(notebook=notebook, window_size=window_size)
 
         for bh in self.boreholes_3d:
             bh.plot3d(plotter=pl, bg_color=bg_color)
+            pts.update({bh.name: bh._vtk.center[:2]+[0]})
+
+        if labels_color is None:
+            labels_color = 'black'
+
+        if labels_size is not None:
+            pv_pts = pv.PolyData(np.array(list(pts.values())))
+            pv_pts['bh_name'] = list(pts.keys())
+            pl.add_point_labels(pv_pts, 'bh_name', point_size=1, font_size=labels_size,
+                                text_color=labels_color, show_points=False)
             
         if not x3d:
             pl.show()
         else:
             writer = vtkX3DExporter()
             writer.SetInput(pl.renderer.GetRenderWindow())
-            filename = 'tmp_files/' + f'project_{self.name:s}.x3d'
+            filename = f'tmp_files/project_{self.name:s}.x3d'
             writer.SetFileName(filename)
             writer.Update()
             writer.Write()
