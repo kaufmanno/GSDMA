@@ -155,7 +155,7 @@ class Project:
 
         for bh in self.boreholes_3d:
             bh.plot3d(plotter=pl, bg_color=bg_color)
-            pts.update({bh.name: bh._vtk.center[:2]+[0]})
+            pts.update({bh.name: bh._vtk.center[:2]+[0]})  # TODO : retrieve correct top (Z)
 
         if labels_color is None:
             labels_color = 'black'
@@ -163,6 +163,7 @@ class Project:
         if labels_size is not None:
             pv_pts = pv.PolyData(np.array(list(pts.values())))
             pv_pts['bh_name'] = list(pts.keys())
+            print(len(list(pts.keys())))
             pl.add_point_labels(pv_pts, 'bh_name', point_size=1, font_size=labels_size,
                                 text_color=labels_color, show_points=False)
             

@@ -219,10 +219,9 @@ class Borehole3D(Striplog):
                         else:
                             h = None
 
-
             else:
                 raise (TypeError('Cannot create a legend for empty component'))
-                # TODO : allow empty component (lacking lithology data) with a low alpha color
+                # TODO : allow empty component (define a lacking lithology type)
 
             i += 1  # increment to retrieve given colors or hatches
 
@@ -353,7 +352,7 @@ class Borehole3D(Striplog):
         # ov.lineset.add_data(seg, self.geometry.data)
         # print(seg.active_scalars)
 
-        plotter.add_mesh(seg, cmap=self.omf_cmap) #, clim=[0.1, len(self.omf_cmap.colors)])
+        plotter.add_mesh(seg, cmap=self.omf_cmap)
 
         # set background color for the render
         # None : pyvista default background color
