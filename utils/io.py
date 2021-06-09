@@ -812,7 +812,7 @@ def gdf_geom(gdf):
     return gdf
 
 
-def gdf_merger(gdf1, gdf2, how='outer', on=None, left_on=None, right_on=None, dist_max=None, verbose=False):
+def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, verbose=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
 
     Parameters
@@ -821,8 +821,6 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, left_on=None, right_on=None, di
 
     how: str
     on: str
-    left_on: str
-    right_on: str
     dist_max:
     verbose:
     Returns
@@ -832,19 +830,16 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, left_on=None, right_on=None, di
 
     """
 
-    if on is None and left_on is not None and right_on is not None:
-        left = left_on
-        right = right_on
-    elif on is not None:
-        left = on
-        right = on
-
     distinct_objects_to_add = {}
     idx_distinct_obj = 0
 
-    mdf = gdf1.merge(gdf2, how=how, left_on=left, right_on=right)
+    mdf = gdf1.merge(gdf2, how=how, on=on)
     mdf.reset_index(drop=True, inplace=True)
     mdf.replace('nan', np.nan, inplace=True)
+    k = 0
+    for idx in mdf.query(f'{on}!={on}').index:
+        mdf.loc[idx, 'ID'] = f'?{k}'
+        k += 1
 
     gdf = mdf.copy()
     gdf_conflict = pd.DataFrame()
@@ -954,6 +949,7 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, left_on=None, right_on=None, di
         else:
             if verbose: print('2A')
             distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
+            distinct_objects_to_add[idx_distinct_obj][on] = '_' + str(distinct_objects_to_add[idx_distinct_obj][on]) + '_'
             update_dict(distinct_objects_to_add, {idx_distinct_obj: {i: mdf.loc[idx, i+'_x'] for i in dble_cols}})
             idx_distinct_obj += 1
             distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
