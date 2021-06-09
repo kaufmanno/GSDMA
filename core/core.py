@@ -6,6 +6,7 @@ from IPython.display import HTML
 import numpy as np
 import pyvista as pv
 
+
 class Project:
     """
     Create a project that will contain Borehole object

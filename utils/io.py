@@ -368,25 +368,25 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
 
     """
 
-    int_id = 0
-    bh_id = 0
-    pos_id = 0
+    int_id = 0  # interval id
+    bh_id = 0  # borehole id
+    pos_id = 0  # position id
     boreholes = []
     components = []
-    comp_id = 0
+    comp_id = 0  # component id
     component_dict = {}
-    link_dict = {}
-    df = 0
+    link_dict = {}  # link between intervals and components (<-> junction table)
+    df_id = 0  # dataframe id
 
-    if x is None:
-        x = [0., 20., 5, 10]
-    else:
-        x = x
-
-    if y is None:
-        y = [0., 40., 50, 2]
-    else:
-        y = y
+    # if x is None:
+    #     x = [0., 20., 5, 10]
+    # else:
+    #     x = x
+    #
+    # if y is None:
+    #     y = [0., 40., 50, 2]
+    # else:
+    #     y = y
 
     if boreholes_dict is None:
         print("Error! Borehole dictionary not given.")
@@ -423,9 +423,9 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                                        'top': top, 'base': base
                                        }})
 
-                    for i in interval.components:
-                        if i != Component({}):
-                            link_dict.update({(int_id, component_dict[i]): {'extra_data': ''}})
+                    for idx in interval.components:
+                        if idx != Component({}):
+                            link_dict.update({(int_id, component_dict[idx]): {'extra_data': ''}})
 
                     interval_number += 1
                     int_id += 1
@@ -474,9 +474,9 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                                        'top': top, 'base': base}
                               })
 
-                    for i in interval.components:
-                        if i != Component({}):
-                            link_dict.update({(int_id, component_dict[i]): {'extra_data': ''}})
+                    for idx in interval.components:
+                        if idx != Component({}):
+                            link_dict.update({(int_id, component_dict[idx]): {'extra_data': ''}})
 
                     interval_number += 1
                     int_id += 1
@@ -495,35 +495,33 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
         if len(boreholes_dict) == 0:
             print("Error ! Cannot create boreholes with empty list or dict")
 
-        while (boreholes_dict is not None) and df < len(boreholes_dict):
-            print(f'\nDataframe {df} processing...\n================================')
-            id_list = []
-            dict_bh = 0
+        while (boreholes_dict is not None) and df_id < len(boreholes_dict):
+            print(f'\nDataframe {df_id} processing...\n================================')
+            bh_id_list = []  #
+            bh_idx = 0  # borehole index in the current dataframe
 
-            x = boreholes_dict[df].X
-            y = boreholes_dict[df].Y
+            #x = boreholes_dict[df_id].X
+            #y = boreholes_dict[df_id].Y
 
-            if diam_field in boreholes_dict[df].columns:
-                diam = boreholes_dict[df][diam_field]
+            if diam_field in boreholes_dict[df_id].columns:
+                diam = boreholes_dict[df_id][diam_field]
             else:
-                diam = pd.Series([DEFAULT_BOREHOLE_DIAMETER] * len(boreholes_dict[df]))
+                diam = pd.Series([DEFAULT_BOREHOLE_DIAMETER] * len(boreholes_dict[df_id]))
                 if verbose:
                     print(f'Warning : -- No borehole diameter, default is used (diameter={DEFAULT_BOREHOLE_DIAMETER})')
 
-            for i, j in boreholes_dict[df].iterrows():
-                id_ = j['ID']
+            for idx, row in boreholes_dict[df_id].iterrows():
+                bh_name = row['ID']
 
-                if id_ not in id_list:
-                    id_list.append(id_)
-                    boreholes.append(BoreholeOrm(id=id_))
+                if bh_name not in bh_id_list:
+                    bh_id_list.append(bh_name)
+                    boreholes.append(BoreholeOrm(id=bh_name))
                     interval_number = 0
 
-                    sql = boreholes_dict[df]['ID'] == f"{id_}"
-                    tmp = boreholes_dict[df][sql].copy()
-                    # sql = f'ID=="{id_}"'
-                    # tmp = boreholes_dict[df].query(sql).copy()
+                    bh_selection = boreholes_dict[df_id]['ID'] == f"{bh_name}"
+                    tmp = boreholes_dict[df_id][bh_selection].copy()
                     tmp.reset_index(drop=True, inplace=True)
-                    strip = striplog_from_df(df=tmp, bh_name=id_, litho_col=litho_field,
+                    strip = striplog_from_df(df=tmp, bh_name=bh_name, litho_col=litho_field,
                                              litho_top_col=litho_top_field,
                                              litho_base_col=litho_base_field,
                                              thick_col=thick_field,
@@ -545,13 +543,13 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                             top = PositionOrm(id=pos_id, upper=interval.top.upper,
                                               middle=interval.top.middle,
                                               lower=interval.top.lower,
-                                              x=x[dict_bh], y=y[dict_bh]
+                                              x=row['X'], y=row['Y']
                                               )
 
                             base = PositionOrm(id=pos_id + 1, upper=interval.base.upper,
                                                middle=interval.base.middle,
                                                lower=interval.base.lower,
-                                               x=x[dict_bh], y=y[dict_bh]
+                                               x=row['X'], y=row['Y']
                                                )
 
                             d.update({int_id: {'description': interval.description,
@@ -559,9 +557,9 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                                                'top': top, 'base': base}
                                       })
 
-                            for i in interval.components:
-                                if i != Component({}):
-                                    link_dict.update({(int_id, component_dict[i]): {'extra_data': ''}})
+                            for idx in interval.components:
+                                if idx != Component({}):
+                                    link_dict.update({(int_id, component_dict[idx]): {'extra_data': ''}})
 
                             interval_number += 1
                             int_id += 1
@@ -569,23 +567,23 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
 
                         if verbose:
                             print(f'{d}\n')
-                        if dict_bh < len(boreholes):
-                            boreholes[dict_bh].intervals_values = d
-                            boreholes[dict_bh].length = tmp[thick_field].cumsum().max()
-                            if diam[dict_bh] is not None and not pd.isnull(diam[dict_bh]):
-                                boreholes[dict_bh].diameter = tmp[diam_field][0]
+                        if bh_idx < len(boreholes):
+                            boreholes[bh_idx].intervals_values = d
+                            boreholes[bh_idx].length = tmp[thick_field].cumsum().max()
+                            if diam[bh_idx] is not None and not pd.isnull(diam[bh_idx]):
+                                boreholes[bh_idx].diameter = tmp[diam_field][0]
                             else:
-                                boreholes[dict_bh].diameter = DEFAULT_BOREHOLE_DIAMETER
+                                boreholes[bh_idx].diameter = DEFAULT_BOREHOLE_DIAMETER
 
-                        dict_bh += 1
+                        bh_idx += 1
 
                 else:
                     pass
 
                 components = {v: k for k, v in component_dict.items()}
 
-            print(f"\nEnd of the process : {len(id_list)} unique ID found")
-            df += 1
+            print(f"\nEnd of the process : {len(bh_id_list)} unique ID found")
+            df_id += 1
 
     elif not isinstance(boreholes_dict, dict) or isinstance(boreholes_dict, list):
         raise(TypeError('Error! use a dict or a dataframe !'))
