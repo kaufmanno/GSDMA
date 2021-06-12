@@ -821,8 +821,9 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, verbose=False):
 
     how: str
     on: str
-    dist_max:
+    dist_max: float
     verbose:
+
     Returns
     --------
     gdf: merged dataframe
@@ -846,6 +847,7 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, verbose=False):
 
     conflict_row = []
     conflict_col = []
+    conflict_idx_col = {} # to specify what columns are conflictual for each row in gdf_conflict
     conflict = False
 
     single_cols = list(set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns)) if not
@@ -864,6 +866,7 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, verbose=False):
 
     for idx in mdf.index:
         distinct_objects = True
+        row_conf_cols = []  # conflictual columns for each row
 
         if dist_max is None:
             distinct_objects = False
@@ -937,6 +940,9 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, verbose=False):
                             if idx not in conflict_row:
                                 conflict_row = conflict_row + [idx]
                             conflict = True
+                            row_conf_cols.append(col_i)
+                            update_dict(conflict_idx_col, {idx: row_conf_cols})
+
                     # if the values are not considered as the same -> stage to put in gdf_conflict
                     else:
                         if verbose: print('1H')
@@ -946,6 +952,8 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, verbose=False):
                         if idx not in conflict_row:
                             conflict_row = conflict_row + [idx]
                         conflict = True
+                        row_conf_cols.append(col_i)
+                        update_dict(conflict_idx_col, {idx: row_conf_cols})
         else:
             if verbose: print('2A')
             distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
@@ -955,7 +963,7 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, verbose=False):
             distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
             update_dict(distinct_objects_to_add, {idx_distinct_obj: {i: mdf.loc[idx, i + '_y'] for i in dble_cols}})
             idx_distinct_obj += 1
-            gdf.drop(idx, axis='index', inplace=True)
+            gdf.drop(idx, axis='index', inplace=True)  # drop the line used to create these 2 objects
 
     distinct_objects_df = pd.DataFrame.from_dict(distinct_objects_to_add, orient='index')
     gdf['split_distinct'] = False
@@ -963,17 +971,51 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, verbose=False):
     gdf = pd.concat([gdf, distinct_objects_df], ignore_index=False)
     gdf = gdf[single_cols + dble_cols + ['split_distinct']]
     gdf.reset_index(drop=False, inplace=True)
-    print(gdf)
-    gdf.loc[gdf['split_distinct']==True, 'index'] = np.nan
+
+    gdf.loc[gdf['split_distinct'] == True, 'index'] = np.nan
+    # gdf.drop('split_distinct', axis='columns', inplace=True)
+    gdf.insert(0, on, gdf.pop(on))
 
     if conflict:
-        gdf_conflict = mdf.loc[conflict_row, [left] + conflict_col]
-        gdf_conflict['Source_index'] = conflict_row
-        print('Ambiguous values present. Please resolve this manually !')
+        gdf_conflict = mdf.loc[conflict_row, [on] + conflict_col]
+        for r, c in conflict_idx_col.items():
+            gdf_conflict.loc[r, 'Check_col'] = str(c).strip('"[]').replace("'", "")
+        gdf_conflict.insert(0, 'Check_col', gdf_conflict.pop('Check_col'))
+        print('Conflict values present. Please resolve this manually !')
     else:
-        gdf.drop(['index', 'split_distinct'], axis='columns', inplace=True)
+        # gdf.drop(['index', 'split_distinct'], axis='columns', inplace=True)
+        gdf.drop(['index'], axis='columns', inplace=True)
 
     return gdf, gdf_conflict
+
+
+def data_validation(overall_data, conflict_data, valid_dict):
+    """
+    Validate correct data in a conflictual dataframe after merging
+
+    Parameters:
+    -------------
+    overall_data : Pandas.DataFrame
+        Dataframe where the conflict must be fixed
+    conflict_data : Pandas.DataFrame
+        Dataframe that contains the conflictual values
+    valid_dict : dict
+        Dictionary of columns and (list of) index(es) that specify which values are correct in the conflict_data
+
+    """
+
+    for valid_col, idx in valid_dict.items():
+        col = re.sub("_x|_y", "", valid_col)
+        q = overall_data.query(f'index=={idx}').index
+        #print(q, idx, '---', overall_data.loc[q, col], conflict_data.loc[idx, valid_col])
+        overall_data.loc[q, col] = conflict_data.loc[idx, valid_col]
+        conflict_data.drop(index=idx, inplace=True)
+
+    if len(conflict_data) == 0:
+        overall_data.drop(columns='index', inplace=True)
+        print("all conflicts fixed!")
+    else:
+        print(f"Validation done, but conflicts remain!")
 
 
 def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
