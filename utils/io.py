@@ -822,6 +822,7 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, v
     how: str
     on: str
     dist_max: float
+    date_col: str
     verbose:
 
     Returns
@@ -847,7 +848,7 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, v
 
     conflict_row = []
     conflict_col = []
-    conflict_idx_col = {} # to specify what columns are conflictual for each row in gdf_conflict
+    conflict_idx_col = {}  # to specify the type of the conflict (column) for each row in gdf_conflict
     conflict = False
 
     single_cols = list(set([re.sub("_x|_y", "", gdf.columns.to_list()[x]) for x in range(len(gdf.columns)) if not
@@ -861,12 +862,21 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, v
 
     for col_i in dble_cols:
         gdf[col_i] = np.nan  # creation of the definitive column
-        if verbose:
-            print('\nColumn :', col_i)
+        if verbose: print('\nColumn :', col_i)
 
     for idx in mdf.index:
         distinct_objects = True
         row_conf_cols = []  # conflictual columns for each row
+        dist = 0
+
+        # put this here to avoid to duplicate many lines below
+        if 'X' in dble_cols:  # coordinates in both dataframes
+            # compute distance between the points coming from each dataframe
+            if not pd.isnull(mdf.loc[idx, 'X_x']) and not pd.isnull(mdf.loc[idx, 'X_y']):
+                dist = (mdf.loc[idx, 'X_x'] - mdf.loc[idx, 'X_y']) ** 2 + (
+                        mdf.loc[idx, 'Y_x'] - mdf.loc[idx, 'Y_y']) ** 2
+            else:
+                distinct_objects = False
 
         if dist_max is None or date_col is None:
             distinct_objects = False
@@ -875,22 +885,14 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, v
             if not pd.isnull(mdf.loc[idx, date_col+'_x']) and not pd.isnull(mdf.loc[idx, date_col+'_y']):
                 if mdf.loc[idx, date_col+'_x'] == mdf.loc[idx, date_col+'_y']:
                     distinct_objects = False
-                elif 'X' in dble_cols:  # coordinates in both dataframes
-                    # compute distance between the points coming from each dataframe
-                    if not pd.isnull(mdf.loc[idx, 'X_x']) and not pd.isnull(mdf.loc[idx, 'X_y']):
-                        dist = (mdf.loc[idx, 'X_x'] - mdf.loc[idx, 'X_y']) ** 2 + (
-                                mdf.loc[idx, 'Y_x'] - mdf.loc[idx, 'Y_y']) ** 2
-                        if dist <= dist_max ** 2:  # consider as same object
-                            distinct_objects = False
-
-        elif dist_max is not None and 'X' in dble_cols:  # coordinates in both dataframes
-            # compute distance between the points coming from each dataframe
-            if not pd.isnull(mdf.loc[idx, 'X_x']) and not pd.isnull(mdf.loc[idx, 'X_y']):
-                dist = (mdf.loc[idx, 'X_x'] - mdf.loc[idx, 'X_y']) ** 2 + (
-                        mdf.loc[idx, 'Y_x'] - mdf.loc[idx, 'Y_y']) ** 2
-                if dist <= dist_max ** 2:  # consider as same object
-                    distinct_objects = False
+                    # if dates are the same, but coordinates are different
+                    if dist <= dist_max ** 2:  # considered as same object
+                        distinct_objects = False
             else:
+                distinct_objects = False
+
+        elif dist_max is not None and 'X' in dble_cols:
+            if dist <= dist_max ** 2:  # considered as same object
                 distinct_objects = False
 
         if verbose: print(idx, 'distinct: ', distinct_objects)
@@ -926,7 +928,8 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, v
                         gdf.loc[idx, col_i + '_x'] = np.nan
                         gdf.loc[idx, col_i + '_y'] = np.nan
 
-                    # if the values are not numeric -> cast to string and compare lowercase; if same -> Capitalize and put in gdf
+                    # if the values are not numeric -> cast to string and compare lowercase;
+                    # if same -> Capitalize and put in gdf
                     elif pd.api.types.infer_dtype(mdf[col_i + '_x']) != 'floating' or \
                             pd.api.types.infer_dtype(mdf[col_i + '_y']) != 'floating':
                         if str(mdf.loc[idx, col_i + '_x']).lower() == str(mdf.loc[idx, col_i + '_y']).lower():
@@ -975,7 +978,7 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, v
             distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
             update_dict(distinct_objects_to_add, {idx_distinct_obj: {i: mdf.loc[idx, i + '_y'] for i in dble_cols}})
             idx_distinct_obj += 1
-            gdf.drop(idx, axis='index', inplace=True)  # drop the line used to create these 2 objects
+            gdf.drop(idx, axis='index', inplace=True)  # drop original line used to create 2 distinct objects
 
     distinct_objects_df = pd.DataFrame.from_dict(distinct_objects_to_add, orient='index')
     gdf['split_distinct'] = False
@@ -1034,7 +1037,7 @@ def data_validation(overall_data, conflict_data, valid_dict, verbose=False):
 
     if len(conflict_data) == 0:
         overall_data.drop(columns='index', inplace=True)
-        print("all conflicts fixed!")
+        print("all conflicts have been fixed!")
     else:
         print(f"Validation done, but conflicts remain!")
 
