@@ -812,7 +812,7 @@ def gdf_geom(gdf):
     return gdf
 
 
-def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, verbose=False):
+def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, verbose=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
 
     Parameters
@@ -868,20 +868,32 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, verbose=False):
         distinct_objects = True
         row_conf_cols = []  # conflictual columns for each row
 
-        if dist_max is None:
+        if dist_max is None or date_col is None:
             distinct_objects = False
 
-        elif 'X' in dble_cols:  # coordinates in both dataframes
+        elif date_col is not None and date_col in dble_cols:  # compare temporal data
+            if not pd.isnull(mdf.loc[idx, date_col+'_x']) and not pd.isnull(mdf.loc[idx, date_col+'_y']):
+                if mdf.loc[idx, date_col+'_x'] == mdf.loc[idx, date_col+'_y']:
+                    distinct_objects = False
+                elif 'X' in dble_cols:  # coordinates in both dataframes
+                    # compute distance between the points coming from each dataframe
+                    if not pd.isnull(mdf.loc[idx, 'X_x']) and not pd.isnull(mdf.loc[idx, 'X_y']):
+                        dist = (mdf.loc[idx, 'X_x'] - mdf.loc[idx, 'X_y']) ** 2 + (
+                                mdf.loc[idx, 'Y_x'] - mdf.loc[idx, 'Y_y']) ** 2
+                        if dist <= dist_max ** 2:  # consider as same object
+                            distinct_objects = False
+
+        elif dist_max is not None and 'X' in dble_cols:  # coordinates in both dataframes
             # compute distance between the points coming from each dataframe
             if not pd.isnull(mdf.loc[idx, 'X_x']) and not pd.isnull(mdf.loc[idx, 'X_y']):
                 dist = (mdf.loc[idx, 'X_x'] - mdf.loc[idx, 'X_y']) ** 2 + (
                         mdf.loc[idx, 'Y_x'] - mdf.loc[idx, 'Y_y']) ** 2
                 if dist <= dist_max ** 2:  # consider as same object
                     distinct_objects = False
-
             else:
                 distinct_objects = False
 
+        if verbose: print(idx, 'distinct: ', distinct_objects)
         # If objects are not distinct -> compare them and merge values or generate conflict
         # else add a new row in gdf to store two distinct object
         if not distinct_objects:  # comparison and merging
@@ -972,9 +984,14 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, verbose=False):
     gdf = gdf[single_cols + dble_cols + ['split_distinct']]
     gdf.reset_index(drop=False, inplace=True)
 
+    gdf['index'] = gdf['index'].astype('int')
     gdf.loc[gdf['split_distinct'] == True, 'index'] = np.nan
-    # gdf.drop('split_distinct', axis='columns', inplace=True)
+    gdf.drop('split_distinct', axis='columns', inplace=True)
+
     gdf.insert(0, on, gdf.pop(on))
+    if 'X' in gdf.columns: gdf.insert(1, 'X', gdf.pop('X'))
+    if 'Y' in gdf.columns: gdf.insert(2, 'Y', gdf.pop('Y'))
+    if 'Z' in gdf.columns: gdf.insert(3, 'Z', gdf.pop('Z'))
 
     if conflict:
         gdf_conflict = mdf.loc[conflict_row, [on] + conflict_col]
@@ -983,13 +1000,12 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, verbose=False):
         gdf_conflict.insert(0, 'Check_col', gdf_conflict.pop('Check_col'))
         print('Conflict values present. Please resolve this manually !')
     else:
-        # gdf.drop(['index', 'split_distinct'], axis='columns', inplace=True)
         gdf.drop(['index'], axis='columns', inplace=True)
 
     return gdf, gdf_conflict
 
 
-def data_validation(overall_data, conflict_data, valid_dict):
+def data_validation(overall_data, conflict_data, valid_dict, verbose=False):
     """
     Validate correct data in a conflictual dataframe after merging
 
@@ -1003,13 +1019,18 @@ def data_validation(overall_data, conflict_data, valid_dict):
         Dictionary of columns and (list of) index(es) that specify which values are correct in the conflict_data
 
     """
-
+    # TODO : possibility to add a new line when suppose no real conflict (confirm with yes or no)
     for valid_col, idx in valid_dict.items():
         col = re.sub("_x|_y", "", valid_col)
-        q = overall_data.query(f'index=={idx}').index
-        #print(q, idx, '---', overall_data.loc[q, col], conflict_data.loc[idx, valid_col])
+        q = list(overall_data.query(f'index=={idx}').index)
+        if verbose:
+            print(q, idx, '---', overall_data.loc[q, col], conflict_data.loc[idx, valid_col])
         overall_data.loc[q, col] = conflict_data.loc[idx, valid_col]
-        conflict_data.drop(index=idx, inplace=True)
+        conflict_data.loc[idx, [col+'_x', col+'_y']] = 'Done'
+
+    for i, r in conflict_data.iterrows():
+        if sum(x == 'Done' for x in r) == 2 * len(conflict_data.loc[i, 'Check_col'].split(',')):
+            conflict_data.drop(index=i, inplace=True)
 
     if len(conflict_data) == 0:
         overall_data.drop(columns='index', inplace=True)
