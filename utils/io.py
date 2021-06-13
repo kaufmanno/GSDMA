@@ -900,6 +900,7 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, v
         # else add a new row in gdf to store two distinct object
         if not distinct_objects:  # comparison and merging
             for col_i in dble_cols:
+                # print(idx, col_i)
                 # if repeated column i contains nan in gdf1 and a value in gdf2 -> keep value in gdf2
                 if pd.isnull(mdf.loc[idx, col_i + '_x']) and not pd.isnull(mdf.loc[idx, col_i + '_y']):
                     gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_y']
@@ -986,8 +987,6 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, v
     gdf = pd.concat([gdf, distinct_objects_df], ignore_index=False)
     gdf = gdf[single_cols + dble_cols + ['split_distinct']]
     gdf.reset_index(drop=False, inplace=True)
-
-    gdf['index'] = gdf['index'].astype('int')
     gdf.loc[gdf['split_distinct'] == True, 'index'] = np.nan
     gdf.drop('split_distinct', axis='columns', inplace=True)
 
@@ -1008,7 +1007,7 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, v
     return gdf, gdf_conflict
 
 
-def data_validation(overall_data, conflict_data, valid_dict, verbose=False):
+def data_validation(overall_data, conflict_data, valid_dict, index_col='index', verbose=False):
     """
     Validate correct data in a conflictual dataframe after merging
 
@@ -1025,7 +1024,7 @@ def data_validation(overall_data, conflict_data, valid_dict, verbose=False):
     # TODO : possibility to add a new line when suppose no real conflict (confirm with yes or no)
     for valid_col, idx in valid_dict.items():
         col = re.sub("_x|_y", "", valid_col)
-        q = list(overall_data.query(f'index=={idx}').index)
+        q = list(overall_data.query(f'{index_col}=={idx}').index)
         if verbose:
             print(q, idx, '---', overall_data.loc[q, col], conflict_data.loc[idx, valid_col])
         overall_data.loc[q, col] = conflict_data.loc[idx, valid_col]
@@ -1036,7 +1035,7 @@ def data_validation(overall_data, conflict_data, valid_dict, verbose=False):
             conflict_data.drop(index=i, inplace=True)
 
     if len(conflict_data) == 0:
-        overall_data.drop(columns='index', inplace=True)
+        overall_data.drop(columns=index_col, inplace=True)
         print("all conflicts have been fixed!")
     else:
         print(f"Validation done, but conflicts remain!")
@@ -1060,6 +1059,180 @@ def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
         data.drop(drop_cols, axis=1, inplace=True)
 
     return data
+
+
+def fix_duplicates(df1, df2, x_gap=.8, y_gap=.8, drop_old_id=True):
+    """ find nearest object by position and set same ID (to treat same position but different names cases)
+    x_gap : float
+        gap between X coordinates of an object in df1 and df2
+    y_gap : float
+        gap between Y coordinates of an object in df1 and df2
+    """
+
+    if len(df1) < len(df2):  # loop on the smallest dataframe to avoid over-looping
+        data1 = df1
+        data2 = df2
+    else:
+        data1 = df2
+        data2 = df1
+
+    # retrieve IDs before changing them
+    data1['new_ID'] = data1['ID']
+    data2['new_ID'] = data2['ID']
+
+    if 'X' not in data1.columns or 'X' not in data2.columns:
+        raise (KeyError('No coordinates found in one of the dataframes !'))
+
+    cnt = 0  # counter
+    for idx in data1.index:
+        x, y = data1.loc[idx, 'X'], data1.loc[idx, 'Y']
+        q = list(data2.query(f"X <= {x + x_gap} and X >= {x} and Y <= {y + y_gap} and Y >= {y}").index)
+
+        cnt += len(q)
+        if len(q) != 0:
+            # same object, keep one ID
+            data1.loc[idx, 'new_ID'] = data1.loc[idx, 'ID']
+            data2.loc[q, 'new_ID'] = data1.loc[idx, 'ID']
+        else:
+            # distinct object, keep original ID
+            data1.loc[idx, 'new_ID'] = data1.loc[idx, 'ID']
+            data2.loc[q, 'new_ID'] = data2.loc[idx, 'ID']
+
+    print(f"{cnt} duplicate objects fixed!")
+    data1.rename(columns={'ID': 'Old_ID', 'new_ID': 'ID'}, inplace=True)
+    data2.rename(columns={'ID': 'Old_ID', 'new_ID': 'ID'}, inplace=True)
+    data1.insert(0, 'ID', data1.pop('ID'))
+    data2.insert(0, 'ID', data2.pop('ID'))
+
+    if drop_old_id:
+        data1.drop(columns='Old_ID', inplace=True)
+        data2.drop(columns='Old_ID', inplace=True)
+
+
+def gdf_filter(data, position=True, id_col='ID', expression=None, bypass_col=[],
+               dist_crit=1, val_max=1.5, drop=False, drop_old_id=True, verbose=False):
+    """
+    filter duplicates from a dataframe, considering ID, position, and/or an expression)
+    """
+
+    drop_idx = []
+    check_idx = []
+    id_list = []
+    cols = data.columns.to_list()
+    e1, e2 = '', ''
+
+    if expression is not None:
+        if len(expression.split('|')) > 2:
+            raise(ValueError("Expression can contains only one '|' (2 different words)"))  # can be improve after
+        e1, e2 = expression.split('|')[0], expression.split('|')[1]
+        keep = []
+        query = data.query(f"{id_col}.str.contains('{expression}')", engine='python')[id_col]
+        reg = r".+\d+(?P<A>\s?" + f'{e1}' + ".*)|.+\d+(?P<B>\s?" + f'{e2}' + ".*)"
+        query = query.apply(lambda x: x.strip(re.search(reg, x, re.I).group('A')) if re.search(reg, x, re.I).group('A') is not None else x.strip(re.search(reg, x, re.I).group('B')))
+
+        dble_obj = [(p, q.strip(expression)) for p, q in zip(query.index, query)]
+
+        for obj in dble_obj:
+            if obj[1] not in keep:
+                keep.append(obj[1])
+            else:
+                drop_idx.append(obj[0])
+
+    for i in range(len(data)):
+        uid = data.loc[i, id_col]
+        tmp = data[data[id_col] == f"{uid}"]
+
+        if position:  # use position XY
+            pos_1 = [data.loc[i, 'X'], data.loc[i, 'Y']]
+
+            if uid not in id_list and len(tmp) >= 2:
+                id_list.append(uid)
+
+                for j in tmp.index:  # retrieve duplicates ID index
+                    if j != i:
+                        pos_2 = [data.loc[j, 'X'], data.loc[j, 'Y']]
+                        distinct = not ((pos_1[0] - pos_2[0]) ** 2 + (pos_1[1] - pos_2[1]) ** 2 <= dist_crit ** 2)
+
+                        if not distinct:
+                            start = data.columns.to_list().index('Y') + 1
+                            if j not in drop_idx:
+                                for c in range(start, len(data.columns)):
+                                    if cols[c] not in bypass_col:
+                                        # print('1-', cols[c])
+                                        if data.iloc[i, c] == data.iloc[j, c]:  # all values (str, numeric)
+                                            same = True
+
+                                        elif data.iloc[i, c] != data.iloc[j, c] and \
+                                                re.search('int|float', data[cols[c]].dtype.name):
+
+                                            #rapp = max(data.iloc[i, c], data.iloc[j, c]) - min(data.iloc[i, c], data.iloc[j, c])
+                                            val = abs(data.iloc[i, c] - data.iloc[j, c]) / abs(np.nanmedian(data.iloc[:, c]))
+                                            if val <= val_max:
+                                                same = True
+
+                                            else:
+                                                same = False
+                                                if j not in check_idx: check_idx.append(j)
+                                                if verbose: print(f"check [{j},{cols[c]}]")
+
+                                        else:  # str values
+                                            same = False
+                                            if j not in check_idx: check_idx.append(j)
+                                            if verbose: print(f"check [{j},{cols[c]}]")
+
+                                if same: drop_idx.append(j)  # same objet -> most be dropped
+
+        else:  # without position XY, use ID
+            if uid not in id_list and len(tmp) >= 2:
+                id_list.append(uid)
+
+                for j in tmp.index:
+                    if j != i:
+                        start = data.columns.to_list().index('Y') + 1
+                        if j not in drop_idx:
+                            for c in range(start, len(data.columns)):
+                                if cols[c] not in bypass_col:
+                                    # print('2-',cols[c])
+                                    if data.iloc[i, c] == data.iloc[j, c]:
+                                        same = True
+
+                                    elif data.iloc[i, c] != data.iloc[j, c] and re.search('int|float',
+                                                                                          data[cols[c]].dtype.name):
+                                        val = max(data.iloc[i, c], data.iloc[j, c]) / min(data.iloc[i, c],
+                                                                                           data.iloc[j, c])
+                                        if val <= val_max:
+                                            same = True
+                                        else:
+                                            same = False
+                                            if j not in check_idx: check_idx.append(j)
+                                            if verbose: print(f"check [{j},{cols[c]}]")
+                                    else:
+                                        same = False
+                                        if j not in check_idx: check_idx.append(j)
+                                        if verbose: print(f"check [{j},{cols[c]}]")
+
+                            if same:
+                                drop_idx.append(j)  # same objet -> most be dropped
+
+    check_data = data.loc[check_idx, :]
+    if len(check_data) > 0:
+        print(f"some data must be checked , look at indices : {check_idx}")
+
+    if len(drop_idx) > 0:
+        print(f"same objects at indices:{drop_idx}, will be dropped if drop is set True!")
+
+    data.rename(columns={'ID': 'Old_ID'}, inplace=True)
+    data.insert(0, 'ID', data['Old_ID'].apply(lambda x: re.sub(f"{expression}|' '", "", str(x))))
+
+    if drop:
+        data.drop(index=drop_idx, inplace=True)
+        data.reset_index(drop=True, inplace=True)
+    if drop_old_id:
+        data.drop(columns='Old_ID', inplace=True)
+
+    print(f"Rows : {data.shape[0]} ; Columns : {data.shape[1]} ; Unique on '{id_col}' : {len(set(data[id_col]))} ; ")
+
+    return data, check_data
 
 
 def na_line_drop(data, col_n=3, line_non_na=0, drop_by_position=False, old_idx=False, verbose=False):
@@ -1167,120 +1340,6 @@ def col_ren(data, line_to_col=1, mode=0, name=[]):
     data.rename(columns=new_name, inplace=True)
 
     return data
-
-
-def gdf_filter(data, position=True, id_col='ID', expression=None, bypass_col=[],
-               dist_crit=1, rapp_val=2, drop=False, verbose=False):
-    """
-    filter a dataframe of duplicate values (considering ID and/or position)
-    """
-
-    drop_idx = []
-    check_idx = []
-    id_list = []
-    cols = data.columns.to_list()
-
-    if expression is not None:
-        keep = []
-        query = data.query(f"{id_col}.str.contains('{expression}')", engine='python')[id_col]
-        dble_obj = [(p, q.strip(expression)) for p, q in zip(query.index, query)]
-
-        for obj in dble_obj:
-            if obj[1] not in keep:
-                keep.append(obj[1])
-            else:
-                drop_idx.append(obj[0])
-
-    for i in range(len(data)):
-        uid = data.loc[i, id_col]
-        tmp = data[data[id_col] == f"{uid}"]
-
-        if position:  # use position XY
-            pos_1 = [data.loc[i, 'X'], data.loc[i, 'Y']]
-
-            if uid not in id_list and len(tmp) >= 2:
-                id_list.append(uid)
-
-                for j in tmp.index:  # retrieve duplicates ID index
-                    if j != i:
-                        pos_2 = [data.loc[j, 'X'], data.loc[j, 'Y']]
-                        distinct = not ((pos_1[0] - pos_2[0]) ** 2 + (pos_1[1] - pos_2[1]) ** 2 <= dist_crit ** 2)
-
-                        if not distinct:
-                            start = data.columns.to_list().index('Y') + 1
-                            if j not in drop_idx:
-                                for c in range(start, len(data.columns)):
-                                    if cols[c] not in bypass_col:
-                                        # print('1-', cols[c])
-                                        if data.iloc[i, c] == data.iloc[j, c]:  # all values (str, numeric)
-                                            same = True
-
-                                        elif data.iloc[i, c] != data.iloc[j, c] and \
-                                                re.search('int|float', data[cols[c]].dtype.name):
-
-                                            rapp = max(data.iloc[i, c], data.iloc[j, c]) - min(data.iloc[i, c],
-                                                                                               data.iloc[j, c])
-                                            if rapp <= rapp_val:
-                                                same = True
-
-                                            else:
-                                                same = False
-                                                if j not in check_idx: check_idx.append(j)
-                                                if verbose: print(f"check [{j},{cols[c]}]")
-
-                                        else:  # str values
-                                            same = False
-                                            if j not in check_idx: check_idx.append(j)
-                                            if verbose: print(f"check [{j},{cols[c]}]")
-
-                                if same: drop_idx.append(j)  # same objet -> most be dropped
-
-        else:  # without position XY, use ID
-            if uid not in id_list and len(tmp) >= 2:
-                id_list.append(uid)
-
-                for j in tmp.index:
-                    if j != i:
-                        start = data.columns.to_list().index('Y') + 1
-                        if j not in drop_idx:
-                            for c in range(start, len(data.columns)):
-                                if cols[c] not in bypass_col:
-                                    # print('2-',cols[c])
-                                    if data.iloc[i, c] == data.iloc[j, c]:
-                                        same = True
-
-                                    elif data.iloc[i, c] != data.iloc[j, c] and re.search('int|float',
-                                                                                          data[cols[c]].dtype.name):
-                                        rapp = max(data.iloc[i, c], data.iloc[j, c]) / min(data.iloc[i, c],
-                                                                                           data.iloc[j, c])
-                                        if rapp <= rapp_val:
-                                            same = True
-                                        else:
-                                            same = False
-                                            if j not in check_idx: check_idx.append(j)
-                                            if verbose: print(f"check [{j},{cols[c]}]")
-                                    else:
-                                        same = False
-                                        if j not in check_idx: check_idx.append(j)
-                                        if verbose: print(f"check [{j},{cols[c]}]")
-
-                            if same:
-                                drop_idx.append(j)  # same objet -> most be dropped
-
-    check_data = data.loc[check_idx, :]
-    if len(check_data) > 0:
-        print(f"some data must be checked , look at indices : {check_idx}")
-
-    if len(drop_idx) > 0:
-        print(f"same objects at indices:{drop_idx}, will be dropped if drop is set True!")
-
-    if drop:
-        data.drop(index=drop_idx, inplace=True)
-        data.reset_index(drop=True, inplace=True)
-
-    print(f"Rows : {data.shape[0]} ; Columns : {data.shape[1]} ; Unique on '{id_col}' : {len(set(data[id_col]))} ; ")
-
-    return data, check_data
 
 
 def compute_BH_length(df, length_col_name='Profondeur', top_col='Litho_top', base_col='Litho_base', verbose=False):
