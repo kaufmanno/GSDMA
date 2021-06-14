@@ -991,9 +991,14 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, v
     gdf.drop('split_distinct', axis='columns', inplace=True)
 
     gdf.insert(0, on, gdf.pop(on))
-    if 'X' in gdf.columns: gdf.insert(1, 'X', gdf.pop('X'))
-    if 'Y' in gdf.columns: gdf.insert(2, 'Y', gdf.pop('Y'))
-    if 'Z' in gdf.columns: gdf.insert(3, 'Z', gdf.pop('Z'))
+    if date_col is not None and date_col in gdf.columns:
+        col_pos = 1
+        gdf.insert(col_pos, date_col, gdf.pop(date_col))
+    else:
+        col_pos = 0
+    if 'X' in gdf.columns: gdf.insert(col_pos+1, 'X', gdf.pop('X'))
+    if 'Y' in gdf.columns: gdf.insert(col_pos+2, 'Y', gdf.pop('Y'))
+    if 'Z' in gdf.columns: gdf.insert(col_pos+3, 'Z', gdf.pop('Z'))
 
     if conflict:
         gdf_conflict = mdf.loc[conflict_row, [on] + conflict_col]
@@ -1061,7 +1066,7 @@ def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
     return data
 
 
-def fix_duplicates(df1, df2, x_gap=.8, y_gap=.8, drop_old_id=True):
+def fix_duplicates(df1, df2, id_col='ID', x_gap=.8, y_gap=.8, drop_old_id=True):
     """ find nearest object by position and set same ID (to treat same position but different names cases)
     x_gap : float
         gap between X coordinates of an object in df1 and df2
@@ -1077,11 +1082,11 @@ def fix_duplicates(df1, df2, x_gap=.8, y_gap=.8, drop_old_id=True):
         data2 = df1
 
     # retrieve IDs before changing them
-    data1['new_ID'] = data1['ID']
-    data2['new_ID'] = data2['ID']
+    data1[f'new_{id_col}'] = data1[id_col]
+    data2[f'new_{id_col}'] = data2[id_col]
 
     if 'X' not in data1.columns or 'X' not in data2.columns:
-        raise (KeyError('No coordinates found in one of the dataframes !'))
+        raise (KeyError('No coordinates (X,Y) found in one of the dataframes !'))
 
     cnt = 0  # counter
     for idx in data1.index:
@@ -1091,132 +1096,145 @@ def fix_duplicates(df1, df2, x_gap=.8, y_gap=.8, drop_old_id=True):
         cnt += len(q)
         if len(q) != 0:
             # same object, keep one ID
-            data1.loc[idx, 'new_ID'] = data1.loc[idx, 'ID']
-            data2.loc[q, 'new_ID'] = data1.loc[idx, 'ID']
+            data1.loc[idx, f'new_{id_col}'] = data1.loc[idx, id_col]
+            data2.loc[q, f'new_{id_col}'] = data1.loc[idx, id_col]
         else:
             # distinct object, keep original ID
-            data1.loc[idx, 'new_ID'] = data1.loc[idx, 'ID']
-            data2.loc[q, 'new_ID'] = data2.loc[idx, 'ID']
+            data1.loc[idx, f'new_{id_col}'] = data1.loc[idx, id_col]
+            data2.loc[q, f'new_{id_col}'] = data2.loc[idx, id_col]
 
     print(f"{cnt} duplicate objects fixed!")
-    data1.rename(columns={'ID': 'Old_ID', 'new_ID': 'ID'}, inplace=True)
-    data2.rename(columns={'ID': 'Old_ID', 'new_ID': 'ID'}, inplace=True)
-    data1.insert(0, 'ID', data1.pop('ID'))
-    data2.insert(0, 'ID', data2.pop('ID'))
+    data1.rename(columns={id_col: f'Old_{id_col}', f'new_{id_col}': id_col}, inplace=True)
+    data2.rename(columns={id_col: f'Old_{id_col}', f'new_{id_col}': id_col}, inplace=True)
+    data1.insert(0, id_col, data1.pop(id_col))
+    data2.insert(0, id_col, data2.pop(id_col))
 
     if drop_old_id:
-        data1.drop(columns='Old_ID', inplace=True)
-        data2.drop(columns='Old_ID', inplace=True)
+        data1.drop(columns=f'Old_{id_col}', inplace=True)
+        data2.drop(columns=f'Old_{id_col}', inplace=True)
 
 
-def gdf_filter(data, position=True, id_col='ID', expression=None, bypass_col=[],
-               dist_crit=1, val_max=1.5, drop=False, drop_old_id=True, verbose=False):
+def gdf_filter(data, position=True, id_col='ID', expression=None, regex=None, bypass_col=['Old_ID', 'exp_ID'],
+               dist_max=1, val_max=1.5, drop=False, drop_old_id=True, verbose=False):
     """
     filter duplicates from a dataframe, considering ID, position, and/or an expression)
+    expression: str
+        expression (words) to strip from a string and regularize it
     """
 
     drop_idx = []
     check_idx = []
+    check_dict = {}
     id_list = []
     cols = data.columns.to_list()
-    e1, e2 = '', ''
+    reg = None
 
+    # remove some words in expression or based on regex from each id_col values
     if expression is not None:
         if len(expression.split('|')) > 2:
             raise(ValueError("Expression can contains only one '|' (2 different words)"))  # can be improve after
-        e1, e2 = expression.split('|')[0], expression.split('|')[1]
-        keep = []
-        query = data.query(f"{id_col}.str.contains('{expression}')", engine='python')[id_col]
-        reg = r".+\d+(?P<A>\s?" + f'{e1}' + ".*)|.+\d+(?P<B>\s?" + f'{e2}' + ".*)"
-        query = query.apply(lambda x: x.strip(re.search(reg, x, re.I).group('A')) if re.search(reg, x, re.I).group('A') is not None else x.strip(re.search(reg, x, re.I).group('B')))
+        e = expression.split('|')
+        reg = ".*\d+(?P<A>.*" + f'{e[0]}' + ".*)|.*\d+(?P<B>.*" + f'{e[1]}' + ".*)"
+    elif regex is not None:
+        reg = regex
 
-        dble_obj = [(p, q.strip(expression)) for p, q in zip(query.index, query)]
+    if reg is not None:
+        data[f'new_{id_col}'] = data[id_col]  # copy all values before modifying
+        for idx, row in data.iterrows():
+            r = re.search(reg, row[id_col], re.I)
+            if r:
+                groupA = r.group('A')
+                groupB = r.group('B')
+                if groupA is not None:
+                    sub = f"{groupA.lower()}"
+                elif groupB is not None:
+                    sub = f"{groupB.lower()}"
+                else:
+                    sub = ''
+                data.loc[idx, f'new_{id_col}'] = re.sub(sub, '', row[id_col].lower(), re.I).upper().replace(' ', '')
+        data.rename(columns={f'{id_col}': 'exp_ID', f'new_{id_col}': 'ID'}, inplace=True)
 
-        for obj in dble_obj:
-            if obj[1] not in keep:
-                keep.append(obj[1])
-            else:
-                drop_idx.append(obj[0])
-
-    for i in range(len(data)):
+    # filtering
+    for i in data.index:
         uid = data.loc[i, id_col]
         tmp = data[data[id_col] == f"{uid}"]
 
         if position:  # use position XY
             pos_1 = [data.loc[i, 'X'], data.loc[i, 'Y']]
-
             if uid not in id_list and len(tmp) >= 2:
                 id_list.append(uid)
-
                 for j in tmp.index:  # retrieve duplicates ID index
                     if j != i:
                         pos_2 = [data.loc[j, 'X'], data.loc[j, 'Y']]
-                        distinct = not ((pos_1[0] - pos_2[0]) ** 2 + (pos_1[1] - pos_2[1]) ** 2 <= dist_crit ** 2)
-
+                        distinct = not ((pos_1[0] - pos_2[0]) ** 2 + (pos_1[1] - pos_2[1]) ** 2 <= dist_max ** 2)
                         if not distinct:
-                            start = data.columns.to_list().index('Y') + 1
+                            bypass_col += ['X', 'Y', 'ID']
                             if j not in drop_idx:
-                                for c in range(start, len(data.columns)):
+                                for c in range(len(data.columns)-1):
                                     if cols[c] not in bypass_col:
-                                        # print('1-', cols[c])
-                                        if data.iloc[i, c] == data.iloc[j, c]:  # all values (str, numeric)
+                                        if data.iloc[i, c] == data.iloc[j, c]:  # all values (str, numeric) are equals
                                             same = True
-
                                         elif data.iloc[i, c] != data.iloc[j, c] and \
                                                 re.search('int|float', data[cols[c]].dtype.name):
-
-                                            #rapp = max(data.iloc[i, c], data.iloc[j, c]) - min(data.iloc[i, c], data.iloc[j, c])
                                             val = abs(data.iloc[i, c] - data.iloc[j, c]) / abs(np.nanmedian(data.iloc[:, c]))
                                             if val <= val_max:
                                                 same = True
-
                                             else:
                                                 same = False
+                                                if cols[c] in check_dict.keys():
+                                                    idxs = check_dict[cols[c]] + [j]
+                                                else:
+                                                    idxs = [j]
+                                                update_dict(check_dict, {cols[c]: idxs})
                                                 if j not in check_idx: check_idx.append(j)
-                                                if verbose: print(f"check [{j},{cols[c]}]")
-
                                         else:  # str values
                                             same = False
+                                            if cols[c] in check_dict.keys():
+                                                idxs = check_dict[cols[c]] + [j]
+                                            else:
+                                                idxs = [j]
+                                            update_dict(check_dict, {cols[c]: idxs})
                                             if j not in check_idx: check_idx.append(j)
-                                            if verbose: print(f"check [{j},{cols[c]}]")
-
                                 if same: drop_idx.append(j)  # same objet -> most be dropped
 
         else:  # without position XY, use ID
             if uid not in id_list and len(tmp) >= 2:
                 id_list.append(uid)
-
                 for j in tmp.index:
                     if j != i:
-                        start = data.columns.to_list().index('Y') + 1
+                        bypass_col += ['X', 'Y', 'ID']
                         if j not in drop_idx:
-                            for c in range(start, len(data.columns)):
+                            for c in range(len(data.columns)-1):
                                 if cols[c] not in bypass_col:
-                                    # print('2-',cols[c])
                                     if data.iloc[i, c] == data.iloc[j, c]:
                                         same = True
-
-                                    elif data.iloc[i, c] != data.iloc[j, c] and re.search('int|float',
-                                                                                          data[cols[c]].dtype.name):
-                                        val = max(data.iloc[i, c], data.iloc[j, c]) / min(data.iloc[i, c],
-                                                                                           data.iloc[j, c])
+                                    elif data.iloc[i, c] != data.iloc[j, c] and re.search('int|float', data[cols[c]].dtype.name):
+                                        #val = max(data.iloc[i, c], data.iloc[j, c]) / min(data.iloc[i, c], data.iloc[j, c])
+                                        val = abs(data.iloc[i, c] - data.iloc[j, c]) / abs(np.nanmedian(data.iloc[:, c]))
                                         if val <= val_max:
                                             same = True
                                         else:
                                             same = False
+                                            if cols[c] in check_dict.keys():
+                                                idxs = check_dict[cols[c]] + [j]
+                                            else:
+                                                idxs = [j]
+                                            update_dict(check_dict, {cols[c]: idxs})
                                             if j not in check_idx: check_idx.append(j)
-                                            if verbose: print(f"check [{j},{cols[c]}]")
                                     else:
                                         same = False
+                                        if cols[c] in check_dict.keys():
+                                            idxs = check_dict[cols[c]] + [j]
+                                        else:
+                                            idxs = [j]
+                                        update_dict(check_dict, {cols[c]: idxs})
                                         if j not in check_idx: check_idx.append(j)
-                                        if verbose: print(f"check [{j},{cols[c]}]")
-
                             if same:
                                 drop_idx.append(j)  # same objet -> most be dropped
 
-    check_data = data.loc[check_idx, :]
+    check_data = data.loc[check_idx, list(check_dict.keys())]
     if len(check_data) > 0:
-        print(f"some data must be checked , look at indices : {check_idx}")
+        print(f"some data must be checked , look at indices : {check_dict.values()}\n")
 
     if len(drop_idx) > 0:
         print(f"same objects at indices:{drop_idx}, will be dropped if drop is set True!")
