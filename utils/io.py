@@ -1375,45 +1375,58 @@ def col_ren(data, line_to_col=1, mode=0, name=[]):
     return data
 
 
-def compute_BH_length(df, length_col_name='Profondeur', top_col='Litho_top', base_col='Litho_base', verbose=False):
+def compute_BH_length(df, mode='length', length_col=None, top_col='Litho_top', base_col='Litho_base', reset_drop=True):
     """
 
     """
-    for i in df.index:
-        try:
-            float(df.loc[i, top_col])
-        except ValueError:
-            df.loc[i, top_col] = np.nan
-
-        try:
-            float(df.loc[i, base_col])
-        except ValueError:
-            df.loc[i, base_col] = np.nan
-
     df[top_col] = df[top_col].astype('float64')
     df[base_col] = df[base_col].astype('float64')
 
-    # compute length based on litho_top and litho_base
+
+    # try:
+    #     float(df.loc[i, top_col])
+    # except ValueError:
+    #     df.loc[i, top_col] = np.nan
+    #
+    # try:
+    #     float(df.loc[i, base_col])
+    # except ValueError:
+    #     df.loc[i, base_col] = np.nan
+
+    # compute length or thickness based on litho_top and litho_base
     id_list = []
 
-    for i in df.index:
-        id_ = df.loc[i, 'ID']
+    if mode == 'length':
+        if length_col is None:
+            length_col = 'Long_for'
+        for i in df.index:
+            try:
+                float(df.loc[i, top_col])
+            except ValueError:
+                df.loc[i, top_col] = np.nan
+            try:
+                float(df.loc[i, base_col])
+            except ValueError:
+                df.loc[i, base_col] = np.nan
 
-        if verbose: print(i, id_, df.loc[i, top_col], df.loc[i, base_col])
-        if id_ not in id_list:
-            id_list.append(id_)
-            if isinstance(id_, str):
-                sql_id = f"{id_}"
-            elif isinstance(id_, float) or isinstance(id_, int):
-                sql_id = id_
+            id_ = df.loc[i, 'ID']
+            if id_ not in id_list:
+                id_list.append(id_)
+                if isinstance(id_, str):
+                    sql_id = f"{id_}"
+                elif isinstance(id_, float) or isinstance(id_, int):
+                    sql_id = id_
 
-            tmp = df[df['ID'] == sql_id]
-
-            if verbose: print(len(tmp))
-            # if len(tmp) > 0:
-            df.loc[tmp.index, length_col_name] = float(max(tmp[base_col])) - float(min(tmp[top_col]))
+                tmp = df[df['ID'] == sql_id]
+                df.loc[tmp.index, length_col] = float(max(tmp[base_col])) - float(min(tmp[top_col]))
+    elif mode == 'thickness':
+        if length_col is None:
+            length_col = 'Ep_litho'
+        df[length_col] = df[[top_col, base_col]].apply(lambda x: float(x[1])-float(x[0]), axis=1)
+    else:
+        raise(ValueError("Only 'length' or 'thickness' are allowed!"))
 
     df.drop(index=df.query(f'{base_col}.isnull() and {top_col}.isnull()').index, inplace=True)
-    df.insert(df.columns.to_list().index('ID') + 1, length_col_name, df.pop(length_col_name))
-    # df.reset_index(drop=True, inplace=True)
+    df.insert(df.columns.to_list().index('ID') + 1, length_col, df.pop(length_col))
+    df.reset_index(drop=reset_drop, inplace=True)
 
