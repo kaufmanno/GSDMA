@@ -812,7 +812,7 @@ def gdf_geom(gdf):
     return gdf
 
 
-def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, drop_duplicates=False, verbose=False):
+def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, drop_skip_col=None, verbose=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
 
     Parameters
@@ -823,7 +823,8 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, d
     on: str
     dist_max: float
     date_col: str
-    drop_duplicates: bool
+    drop_skip_col: list
+        list of columns to ignore when drop duplicates
     verbose: bool
 
     Returns
@@ -879,7 +880,7 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, d
             else:
                 distinct_objects = False
 
-        if dist_max is None or date_col is None:
+        if dist_max is None and date_col is None:
             distinct_objects = False
 
         elif date_col is not None and date_col in dble_cols:  # compare temporal data
@@ -887,8 +888,10 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, d
                 if mdf.loc[idx, date_col+'_x'] == mdf.loc[idx, date_col+'_y']:
                     distinct_objects = False
                     # if dates are the same, but coordinates are different
-                    if dist <= dist_max ** 2:  # considered as same object
+                    if dist_max is not None and dist <= dist_max ** 2:  # considered as same object
                         distinct_objects = False
+                    elif dist_max is not None and dist >= dist_max ** 2:
+                        distinct_objects = True
             else:
                 distinct_objects = False
 
@@ -1010,9 +1013,9 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, d
     else:
         gdf.drop(['index'], axis='columns', inplace=True)
 
-    if drop_duplicates:
+    if drop_skip_col is not None:
         idx_to_drop = []
-        gdf.drop_duplicates(subset=[c for c in gdf.columns if c != 'index'], inplace=True)
+        gdf.drop_duplicates(subset=[c for c in gdf.columns if c not in drop_skip_col], inplace=True)
         if 'index' in gdf.columns and conflict:
             old_idx = gdf['index']
             idx_to_drop = [i for i in gdf_conflict.index if i not in old_idx]
