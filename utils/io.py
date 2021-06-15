@@ -812,7 +812,7 @@ def gdf_geom(gdf):
     return gdf
 
 
-def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, verbose=False):
+def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, drop_duplicates=False, verbose=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
 
     Parameters
@@ -823,7 +823,8 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, v
     on: str
     dist_max: float
     date_col: str
-    verbose:
+    drop_duplicates: bool
+    verbose: bool
 
     Returns
     --------
@@ -1008,6 +1009,16 @@ def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, v
         print('Conflict values present. Please resolve this manually !')
     else:
         gdf.drop(['index'], axis='columns', inplace=True)
+
+    if drop_duplicates:
+        idx_to_drop = []
+        gdf.drop_duplicates(subset=[c for c in gdf.columns if c != 'index'], inplace=True)
+        if 'index' in gdf.columns and conflict:
+            old_idx = gdf['index']
+            idx_to_drop = [i for i in gdf_conflict.index if i not in old_idx]
+        if len(idx_to_drop) > 0:
+            gdf_conflict.drop(index=idx_to_drop, inplace=True)
+        gdf.reset_index(drop=True, inplace=True)
 
     return gdf, gdf_conflict
 
@@ -1234,7 +1245,8 @@ def gdf_filter(data, position=True, id_col='ID', expression=None, regex=None, by
 
     check_data = data.loc[check_idx, list(check_dict.keys())]
     if len(check_data) > 0:
-        print(f"some data must be checked , look at indices : {check_dict.values()}\n")
+        pass
+        #print(f"some data must be checked , look at indices : {check_dict.values()}\n")
 
     if len(drop_idx) > 0:
         print(f"same objects at indices:{drop_idx}, will be dropped if drop is set True!")
