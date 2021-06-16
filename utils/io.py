@@ -5,13 +5,12 @@ import geopandas as gpd
 import pandas as pd
 from shapely import wkt
 from striplog import Striplog, Lexicon, Interval, Component, Position
-from utils.lexicon import Lexicon_FR_updated as lexicon_fr
 from core.orm import BoreholeOrm, PositionOrm
 from ipywidgets import interact, IntSlider
 from IPython.display import display
 from utils.config import DEFAULT_BOREHOLE_LENGTH, DEFAULT_BOREHOLE_DIAMETER, DEFAULT_LITHOLOGY
 from utils.utils import update_dict
-
+from utils.orm import get_interval_list
 
 def df_from_sources(search_dir, filename, columns=None, verbose=False):
     """
@@ -120,45 +119,9 @@ def read_files(fdir, crit_col, columns=None, verbose=False):
     return df_all
 
 
-def get_interval_list(bh, lexicon='en'):
-    """create a list of interval from a list of boreholeORM ojects
-
-    Parameters
-    ----------
-    bh: list
-        list of boreholeORM
-    lexicon : dict
-        lexicon to retrieve lithological information from descriptions
-
-    Returns
-    -------
-    interval_list: list
-                   list of Interval objects
-
-    """
-
-    if lexicon == 'en':
-        lexicon = Lexicon.default()
-    elif lexicon == 'fr':
-        lexicon = Lexicon(lexicon_fr.LEXICON)
-    elif isinstance(lexicon, Lexicon):
-        lexicon = lexicon
-    else:
-        raise (TypeError(f"Must provide a lexicon, not '{type(lexicon)}', excepted 'en' or 'fr'"))
-
-    interval_list, depth = [], []
-    for i in bh.intervals.values():
-        top = Position(upper=i.top.upper, middle=i.top.middle, lower=i.top.lower, x=i.top.x, y=i.top.y)
-        base = Position(upper=i.base.upper, middle=i.base.middle, lower=i.base.lower, x=i.top.x, y=i.top.y)
-        comp = Component.from_text(i.description, lexicon=lexicon)
-        interval_list.append(Interval(top=top, base=base, description=i.description, components=[comp]))
-        depth.append(i.base.middle)
-    return interval_list, max(depth)
-
-
 def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
                      litho_base_col=None, thick_col=None, color_col=None,
-                     lexicon='en', use_default=True, verbose=False, query=True):
+                     lexicon=None, use_default=True, verbose=False, query=True):
     """ 
     creates a Striplog object from a dataframe
     
@@ -174,7 +137,7 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
     thick_col : str
         dataframe column that contains lithology thickness (default:None)
         
-    lexicon : dict
+    lexicon : striplog.Lexicon
         A vocabulary for parsing lithological or stratigraphic descriptions
         (set to Lexicon.default() if lexicon is None)
               
@@ -197,14 +160,10 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
     if color_col is not None and color_col in list(df.columns):
         color_cdt = True
 
-    if lexicon == 'en':
+    if lexicon is None:
         lexicon = Lexicon.default()
-    elif lexicon == 'fr':
-        lexicon = Lexicon(lexicon_fr.LEXICON)
-    elif isinstance(lexicon, Lexicon):
-        lexicon = lexicon
-    else:
-        raise (TypeError(f"Must provide a lexicon, not '{type(lexicon)}', excepted 'en' or 'fr'"))
+    elif not isinstance(lexicon, Lexicon):
+        raise (TypeError(f"Must provide a lexicon, not '{type(lexicon)}'"))
 
     strip = {}
     bh_list = []

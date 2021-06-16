@@ -3,6 +3,7 @@ from core.omf import Borehole3D
 from utils.io import get_interval_list
 from vtk import vtkX3DExporter
 from IPython.display import HTML
+from striplog import Lexicon
 import numpy as np
 import pyvista as pv
 
@@ -29,7 +30,7 @@ class Project:
         
     """
     
-    def __init__(self, session, legend=None, name='new_project'):
+    def __init__(self, session, legend=None, lexicon=None, name='new_project'):
         """
         Project class
         
@@ -46,6 +47,9 @@ class Project:
         self.boreholes = None
         self.boreholes_3d = None
         self.legend = legend
+        if lexicon is None:
+            lexicon = Lexicon.default()
+        self.lexicon = lexicon
         self.refresh(update_3d=True)
 
     def refresh(self, update_3d=False, verbose=False):
@@ -64,7 +68,7 @@ class Project:
         if update_3d:
             self.boreholes_3d = []
             for bh in self.boreholes:
-                list_of_intervals, bh.length = get_interval_list(bh)
+                list_of_intervals, bh.length = get_interval_list(bh, lexicon=self.lexicon)
                 print(list_of_intervals[0].components[0].lithology)
                 if verbose:
                     print(bh.id, " added")
@@ -92,7 +96,7 @@ class Project:
         self.session.add(bh)
         self.commit()
         self.refresh()
-        list_of_intervals, bh.length = get_interval_list(bh)
+        list_of_intervals, bh.length = get_interval_list(bh, lexicon=self.lexicon)
         self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals,
                                             legend=self.legend, length=bh.length))
             
