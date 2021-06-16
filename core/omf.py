@@ -9,7 +9,7 @@ import pyvista as pv
 import omf
 from vtk import vtkX3DExporter
 from IPython.display import HTML
-import warnings
+from utils.config import DEFAULT_LITHOLOGY
 
 
 def striplog_legend_to_omf_legend(legend, alpha=1.):
@@ -112,14 +112,15 @@ class Borehole3D(Striplog):
         self.z_collar = z_collar
         self.diameter = diam
         self.length = length
+        self._components = components  # given components
 
         if intervals is None and length == 0:
             raise(ValueError("Cannot create a borehole without length and interval !"))
 
         if intervals is None and length != 0:
             lexicon = Lexicon.default()
-            intervals = [Interval(top=0, base=length, description='white sand', lexicon=lexicon)]
-            print("No intervals given, default interval ('white sand') is used !\n")
+            intervals = [Interval(top=0, base=length, description=DEFAULT_LITHOLOGY, lexicon=lexicon)]
+            print(f"No intervals given, default interval is used, with lithology ({DEFAULT_LITHOLOGY})!\n")
 
         self.intervals = intervals
         self._geometry = []
@@ -135,7 +136,7 @@ class Borehole3D(Striplog):
         else:
             self._legend = legend  # given legend
 
-        print(isinstance(self._legend, Legend))
+        # print(isinstance(self._legend, Legend))
         # create object legend
         self.legend = self.build_legend(legend=self._legend,
                                         hatches=legend_hatches,
@@ -174,8 +175,12 @@ class Borehole3D(Striplog):
             def_colors = [i.colour for i in Legend.default()] + list(mcolors.CSS4_COLORS.values())
 
         list_of_decors, hatches_used = [], []
-        components = [i.components[0] for i in self.intervals]  # don't use self.components !
-        i = 0
+
+        if self._components is None:
+            components = [i.components[0] for i in self.intervals]  # don't use self.components !
+        else:
+            components = self._components
+        i = 0  # increment to retrieve given colors or hatches
 
         for comp in components:
             if hasattr(comp, 'lithology'):
@@ -220,10 +225,12 @@ class Borehole3D(Striplog):
                             h = None
 
             else:
+                print(f"All components : {components}")
+                # print(f"Empty component: {i}-{comp}")
                 raise (TypeError('Cannot create a legend for empty component'))
                 # TODO : allow empty component (define a lacking lithology type)
 
-            i += 1  # increment to retrieve given colors or hatches
+            i += 1
 
             decor = Decor({'color': c, 'hatch': h, 'component': comp, 'width': width})
             list_of_decors.append(decor)

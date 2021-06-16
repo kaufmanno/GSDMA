@@ -62,6 +62,7 @@ def df_from_sources(search_dir, filename, columns=None, verbose=False):
     print(f'\nThe overall dataframe contains {len(df_all)} lines. {a} files used')
     return df_all
 
+
 def read_files(fdir, crit_col, columns=None, verbose=False):
 
     flist, files_interest = [] , []
@@ -230,7 +231,7 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
                 # lithology processing -------------------------------------------
                 if litho_cdt and color_cdt :
                     litho = f"{tmp.loc[j, litho_col]} {tmp.loc[j, color_col]}"
-                elif litho_cdt :
+                elif litho_cdt:
                     litho = tmp.loc[j, litho_col]
                 else:
                     raise(KeyError(f"Error : '{litho_col}' not in the dataframe's columns !"))
@@ -251,7 +252,7 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
                 else:
                     if use_default:
                         print(f'Warning : ++ No thickness provided, default is used '
-                                  f'(length={DEFAULT_BOREHOLE_LENGTH})')
+                              f'(length={DEFAULT_BOREHOLE_LENGTH})')
                         thick = DEFAULT_BOREHOLE_LENGTH
                     else:
                         raise(ValueError('Cannot create interval with null thickness !'))
@@ -1382,17 +1383,6 @@ def compute_BH_length(df, mode='length', length_col=None, top_col='Litho_top', b
     df[top_col] = df[top_col].astype('float64')
     df[base_col] = df[base_col].astype('float64')
 
-
-    # try:
-    #     float(df.loc[i, top_col])
-    # except ValueError:
-    #     df.loc[i, top_col] = np.nan
-    #
-    # try:
-    #     float(df.loc[i, base_col])
-    # except ValueError:
-    #     df.loc[i, base_col] = np.nan
-
     # compute length or thickness based on litho_top and litho_base
     id_list = []
 
@@ -1418,11 +1408,11 @@ def compute_BH_length(df, mode='length', length_col=None, top_col='Litho_top', b
                     sql_id = id_
 
                 tmp = df[df['ID'] == sql_id]
-                df.loc[tmp.index, length_col] = float(max(tmp[base_col])) - float(min(tmp[top_col]))
+                df.loc[tmp.index, length_col] = max(tmp[base_col]) - min(tmp[top_col])
     elif mode == 'thickness':
         if length_col is None:
             length_col = 'Ep_litho'
-        df[length_col] = df[[top_col, base_col]].apply(lambda x: float(x[1])-float(x[0]), axis=1)
+        df[length_col] = df[[top_col, base_col]].apply(lambda x: round(x[1]-x[0],3), axis=1)
     else:
         raise(ValueError("Only 'length' or 'thickness' are allowed!"))
 

@@ -59,7 +59,8 @@ class Project:
         """
         
         self.boreholes = self.session.query(BoreholeOrm).all()
-        print(self.legend)
+        if verbose:
+            print(self.legend)
         if update_3d:
             self.boreholes_3d = []
             for bh in self.boreholes:
@@ -70,7 +71,7 @@ class Project:
                 self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals, legend=self.legend, length=bh.length))
 
     def commit(self):
-        'Validate all modifications done in the project'
+        """Validate all modifications done in the project"""
         self.session.commit()
         
     def add_borehole(self, bh):
@@ -92,7 +93,8 @@ class Project:
         self.commit()
         self.refresh()
         list_of_intervals, bh.length = get_interval_list(bh)
-        self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals, legend=self.legend, length=bh.length))
+        self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals,
+                                            legend=self.legend, length=bh.length))
             
     def add_components(self, components):
         """
