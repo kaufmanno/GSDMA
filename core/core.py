@@ -1,6 +1,6 @@
 from core.orm import BoreholeOrm, ComponentOrm, LinkIntervalComponentOrm
 from core.omf import Borehole3D
-from utils.io import get_interval_list
+from utils.orm import get_interval_list
 from vtk import vtkX3DExporter
 from IPython.display import HTML
 from striplog import Lexicon

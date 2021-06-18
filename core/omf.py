@@ -3,6 +3,7 @@ from striplog.utils import hex_to_rgb
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import random
+import re
 import numpy as np
 import omfvista as ov
 import pyvista as pv
@@ -138,25 +139,29 @@ class Borehole3D(Striplog):
 
         # print(isinstance(self._legend, Legend))
         # create object legend
-        self.legend = self.build_legend(legend=self._legend,
-                                        hatches=legend_hatches,
-                                        colors=legend_colors)
+        self.legend = self.build_bh3d_legend(default_legend=self._legend,
+                                             hatches=legend_hatches,
+                                             colors=legend_colors)
         self.omf_legend, self.omf_cmap = striplog_legend_to_omf_legend(self.legend)
 
         self.geometry
         self.vtk()
 
-    def build_legend(self, legend, hatches=None, colors=None, width=3):
+    def build_bh3d_legend(self, default_legend, hatches=None, colors=None, width=3):
         """
         Build a legend based on lithologies in the borehole
 
+        Parameters
+        -------------
+        default_legend: striplog.Legend
+            A legend that contains default lithologies and their associated colors / hatches
         Returns
         --------
         striplog.Legend
         """
 
         # given values test
-        if not isinstance(legend, Legend):
+        if not isinstance(default_legend, Legend):
             raise(TypeError('legend must be a Striplog.Legend'))
 
         if (colors is not None and colors not in ['random', 'default']) \
@@ -183,9 +188,16 @@ class Borehole3D(Striplog):
         i = 0  # increment to retrieve given colors or hatches
 
         for comp in components:
+            print('---------------\n', components)
             if hasattr(comp, 'lithology'):
-                for leg in legend:
-                    if comp.lithology == leg.component.lithology:
+                print(f'{i}, {comp}')
+                comp_litho = comp.lithology
+                for leg in default_legend:
+                    leg_litho = leg.component.lithology
+                    reg = re.compile("^{:s}$".format(leg_litho), flags=re.I).match(comp_litho)
+                    print(reg)
+                    if reg:  # lithology found
+                        print('found')
                         # ------------ color processing --------------------
                         if colors is None:
                             if hasattr(comp, 'colour'):
@@ -223,9 +235,8 @@ class Borehole3D(Striplog):
                             h = hatches[i]
                         else:
                             h = None
-
             else:
-                print(f"All components : {components}")
+                # print(f"All components : {components}")
                 # print(f"Empty component: {i}-{comp}")
                 raise (TypeError('Cannot create a legend for empty component'))
                 # TODO : allow empty component (define a lacking lithology type)

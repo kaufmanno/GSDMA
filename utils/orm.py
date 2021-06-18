@@ -17,7 +17,7 @@ def get_interval_list(bh, lexicon=None):
                    list of Interval objects
                    
     """
-    if lexicon is None :
+    if lexicon is None:
         lexicon = Lexicon.default()
     elif not isinstance(lexicon, Lexicon):
         raise (TypeError(f"Must provide a lexicon, not '{type(lexicon)}'"))

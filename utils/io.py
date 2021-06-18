@@ -10,7 +10,7 @@ from ipywidgets import interact, IntSlider
 from IPython.display import display
 from utils.config import DEFAULT_BOREHOLE_LENGTH, DEFAULT_BOREHOLE_DIAMETER, DEFAULT_LITHOLOGY
 from utils.utils import update_dict
-from utils.orm import get_interval_list
+from utils.lexicon.lexicon_fr import lexicon_fr
 
 def df_from_sources(search_dir, filename, columns=None, verbose=False):
     """
