@@ -39,7 +39,7 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
 
     for i in legend:
         # n += 1
-        omf_legend.append(i.colour) # i.colour is in RGB format
+        omf_legend.append(i.colour)  # i.colour is in RGB format
         new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([alpha])]))
         # print(n, omf_legend[n-1], hex_to_rgb(i.colour), '---', new_colors[n-1])
     # new_colors.append(np.array([0.9, 0.9, 0.9, 1.]))
@@ -139,9 +139,7 @@ class Borehole3D(Striplog):
 
         # print(isinstance(self._legend, Legend))
         # create object legend
-        self.legend = self.build_bh3d_legend(default_legend=self._legend,
-                                             hatches=legend_hatches,
-                                             colors=legend_colors)
+        self.legend = self._legend  # self.build_bh3d_legend(default_legend=self._legend, hatches=legend_hatches, colors=legend_colors)
         self.omf_legend, self.omf_cmap = striplog_legend_to_omf_legend(self.legend)
 
         self.geometry
@@ -195,7 +193,7 @@ class Borehole3D(Striplog):
                 for leg in default_legend:
                     leg_litho = leg.component.lithology
                     reg = re.compile("^{:s}$".format(leg_litho), flags=re.I).match(comp_litho)
-                    print(reg)
+                    #print(reg)
                     if reg:  # lithology found
                         print('found')
                         # ------------ color processing --------------------
@@ -362,7 +360,7 @@ class Borehole3D(Striplog):
         #omf_legend, _ = striplog_legend_to_omf_legend(self.legend)
 
         if update_vtk or diam is not None:
-            seg = self.vtk(radius=diam/2)
+            seg = self.vtk(radius=(diam/2)*10)
         else:
             seg = self._vtk
         # seg = ov.line_set_to_vtk(self.geometry)
