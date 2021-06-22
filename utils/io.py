@@ -10,7 +10,7 @@ from ipywidgets import interact, IntSlider
 from IPython.display import display
 from utils.config import DEFAULT_BOREHOLE_LENGTH, DEFAULT_BOREHOLE_DIAMETER, DEFAULT_LITHOLOGY
 from utils.utils import update_dict
-from utils.lexicon.lexicon_fr import lexicon_fr
+from utils.lexicon.lexicon_fr import lexicon_memoris
 
 def df_from_sources(search_dir, filename, columns=None, verbose=False):
     """
@@ -266,7 +266,7 @@ def striplog_from_text(filename, lexicon='en'):
     if lexicon == 'en':
         lexicon = Lexicon.default()
     elif lexicon == 'fr':
-        lexicon = Lexicon(lexicon_fr.LEXICON)
+        lexicon = Lexicon(lexicon_memoris.LEXICON)
     elif isinstance(lexicon, Lexicon):
         lexicon = lexicon
     else:
@@ -1300,12 +1300,12 @@ def col_ren(data, line_to_col=1, mode=0, name=[]):
         print("Error! Parameter \'Mode\' must be 0 or 1 (if 1, colums length must be equal to name length)")
 
     elif mode == 0:
-        for i in data.columns:
+        for i in range(len(data.columns)):
             col = str(data.iloc[line_to_col, i])
             if re.search('nan', col, flags=re.IGNORECASE):
-                new_name.update({i: f'col_{i}'})
+                new_name.update({data.columns[i]: f'col_{i}'})
             else:
-                new_name.update({i: col})
+                new_name.update({data.columns[i]: col})
 
         data.drop([line_to_col], axis=0, inplace=True)
         data.reset_index(drop=True, inplace=True)
