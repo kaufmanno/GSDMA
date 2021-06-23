@@ -8,7 +8,7 @@ Base = declarative_base()
 
 
 class BoreholeOrm(Base):
-    """The Boreholes Info table
+    """The Borehole table
     
     Attributes
     -----------
@@ -82,15 +82,15 @@ class IntervalOrm(Base):
     id : int
         The id of the interval, different for each borehole interval.
     borehole : str
-              The name of the borehole from which the interval originated.
+        The name of the borehole from which the interval originated.
     interval_number : integer 
-                     The number the interval in the borehole, starts at 0 for the upper interval of each different borehole.
+        The number the interval in the borehole, starts at 0 for the upper interval of each different borehole.
     description : str
-                 The name of the main component in the interval.
+        The name of the main component in the interval.
     top_id : int
-            The id of the top position of the interval, link to the position id in the PositionOrm table.
+        The id of the top position of the interval, link to the position id in the PositionOrm table.
     base_id : int
-             The id of the base position of the interval, link to the position id in the PositionOrm table.
+        The id of the base position of the interval, link to the position id in the PositionOrm table.
              
     See Also
     --------
@@ -119,7 +119,7 @@ class ComponentOrm(Base):
     id : str
         The id of the component.
     description : str
-                 The name of the component.
+        The name of the component.
         
     See Also
     --------
@@ -155,3 +155,81 @@ class LinkIntervalComponentOrm(Base):
     extra_data = Column(String(256))
     component = relationship(ComponentOrm, backref=backref("component_assoc"))
     interval = relationship(IntervalOrm, backref=backref("interval_assoc"))
+
+
+class SampleOrm(Base):
+    """The Sample table
+
+    Attributes
+    ----------
+    id : str
+        The id of the sample.
+    description : str
+        The name of the sample.
+
+    See Also
+    --------
+    IntervalOrm : Relationship one to many with the IntervalOrm table.
+
+    """
+    __tablename__ = 'Samples'
+
+    id = Column(Integer, primary_key=True)
+    type = Column(String(10))
+    intervals = relationship(IntervalOrm, secondary='Linkintervalcomponent')
+    description = Column(String(32))
+
+    def __repr__(self):
+        obj_class = str(self.__class__).strip('"<class>"').strip("' ")
+        return f"<{obj_class}>(Id={self.id}, Description={self.description}, Intervals={len(self.intervals)})"
+
+
+class PollutantOrm(Base):
+    """The Pollutant table
+
+    Attributes
+    ----------
+    id : str
+        The id of the pollutant.
+    description : str
+        The name of the pollutant.
+
+    See Also
+    --------
+    IntervalOrm : Relationship one to many with the IntervalOrm table.
+
+    """
+    __tablename__ = 'Pollutants'
+
+    id = Column(String(32), primary_key=True)
+    Family = Column(String(32))
+    Concentration = Column(Float(64), default=0.)
+    samples = relationship(SampleOrm, collection_class=attribute_mapped_collection('id'), cascade='all, delete-orphan')
+
+    intervals = relationship(IntervalOrm, secondary='Linksamplepollutant')
+    description = Column(String(32))
+
+    def __repr__(self):
+        obj_class = str(self.__class__).strip('"<class>"').strip("' ")
+        return f"<{obj_class}>(Id={self.id}, Description={self.description}, Intervals={len(self.intervals)})"
+
+
+class LinkSamplePollutantOrm(Base):
+    """The junction table between component and interval
+
+    Attributes
+    ----------
+    id : int
+        The id of the interval, different for each borehole interval.
+    description : str
+        The name of the component.
+
+    """
+
+    __tablename__ = 'Linksamplepollutant'
+
+    int_id = Column(Integer, ForeignKey('Samples.id'), primary_key=True)
+    pol_id = Column(Integer, ForeignKey('Pollutants.id'), primary_key=True)
+    extra_data = Column(String(256))
+    pollutant = relationship(PollutantOrm, backref=backref("pollutant_assoc"))
+    sample = relationship(SampleOrm, backref=backref("sample_assoc"))
