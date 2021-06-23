@@ -147,7 +147,16 @@ lexicon_fr = Lexicon(LEXICON_FR)
 lexicon_memoris = Lexicon(LEXICON_MEMORIS)
 
 #======================= LEGENDES ============================
-LEGEND_MEMORIS = """colour,width,component lithology
+POLLUTANT_MEMORIS = """colour,width,component pollutant
+#00FF00, None, vr,
+#FFA500, None, vs,
+#FF0000, None, vi,
+#888888, None, None,
+"""
+
+pollutant_legend = Legend.from_csv(text=POLLUTANT_MEMORIS, )
+
+LITHOLOGY_MEMORIS = """colour,width,component lithology
 #FFFFE9, None, Matériau(?:x)? meuble(?:s)?,
 #FFFFD5, None, Alluvion(?:s)?,
 #331100, None, Boue(?:s)?,
@@ -177,6 +186,8 @@ LEGEND_MEMORIS = """colour,width,component lithology
 #6E4900, None, Charbon(?:s)?,
 #D9C2A3, None, Marne(?:s)?,
 """
+legend_memoris = Legend.from_csv(text=LITHOLOGY_MEMORIS)
+
 
 LEGEND_FR = """colour,width,component lithology
 #FFFFE9, None, Matériau(?:x)? meuble(?:s)?,
@@ -355,7 +366,6 @@ LEGEND_FR = """colour,width,component lithology
 """
 
 legend_fr = Legend.from_csv(text=LEGEND_FR)
-legend_memoris = Legend.from_csv(text=LEGEND_MEMORIS)
 
 #======================= COULEURS ============================ 
 

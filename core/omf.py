@@ -375,7 +375,7 @@ class Borehole3D(Striplog):
                                                               '\n</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
 
-    def plot2d(self, figsize=(6, 6), legend=None, text_size=15, width=3):
+    def plot2d(self, figsize=(6, 6), legend=None, text_size=15, width=3, attribute='lithology'):
         """
         Plot a 2D lithological log
         """
@@ -383,20 +383,28 @@ class Borehole3D(Striplog):
             legend = self.legend
 
         plot_decors = []  # list of decors to build a own legend for the borehole
-        bh_litho = []  # list of lithologies in the borehole
+        bh_values = []  # list of lithologies in the borehole
 
         for i in self.intervals:
-            bh_litho.append(i.primary.lithology)
+            intv_value = i.primary[attribute]
+            if isinstance(intv_value, str):
+                intv_value = intv_value.lower()
+            bh_values.append(intv_value)
 
+        print(bh_values)
         for i in range((len(legend)-1), -1, -1):
-            litho = legend[i].component.lithology
-            if litho in bh_litho:
+            leg_value = legend[i].component[attribute]
+            print(leg_value, leg_value in bh_values)
+            if leg_value in bh_values:
                 plot_decors.append(legend[i])
                 legend[i].width = width
+        print(plot_decors)
         plot_legend = Legend(plot_decors)
-
+        print('plot_legend', plot_legend)
+        print('legend', legend)
+        print('self_legend', self.legend)
         fig, ax = plt.subplots(ncols=2, figsize=figsize)
         ax[0].set_title(self.name, size=text_size, color='b')
-        self.plot(legend=plot_legend, ax=ax[0])
+        self.plot(legend=plot_legend, match_only=[attribute], ax=ax[0])
         ax[1].set_title('Legend', size=text_size, color='r')
         plot_legend.plot(ax=ax[1])

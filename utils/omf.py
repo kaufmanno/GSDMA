@@ -1,4 +1,7 @@
 from striplog.utils import hex_to_rgb
+import numpy as np
+import omf
+import matplotlib.colors as mcolors
 
 
 def striplog_legend_to_omf_legend(legend, alpha=1.):
@@ -8,6 +11,7 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
     Parameters
     -----------
     legend : striplog.Legend object
+    alpha : float
 
     Returns
     --------
@@ -32,7 +36,5 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
         # print(n, omf_legend[n-1], hex_to_rgb(i.colour), '---', new_colors[n-1])
     # new_colors.append(np.array([0.9, 0.9, 0.9, 1.]))
     # omf_legend.append(legend[0].colour)
-    return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), mcolors.ListedColormap(
-        new_colors)
-
-
+    return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), \
+        mcolors.ListedColormap(new_colors)
