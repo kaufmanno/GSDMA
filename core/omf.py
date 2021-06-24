@@ -2,6 +2,8 @@ from striplog import Lexicon, Striplog, Legend, Interval, Decor
 from utils.omf import striplog_legend_to_omf_legend
 import matplotlib.pyplot as plt
 import numpy as np
+from copy import deepcopy
+import re
 import omfvista as ov
 import pyvista as pv
 import omf
@@ -276,9 +278,11 @@ class Borehole3D(Striplog):
         """
         Plot a 2D lithological log
         """
+
         if legend is None:
             legend = self.legend
 
+        legend_copy = deepcopy(legend)  # work with a copy to keep initial legend state
         plot_decors = []  # list of decors to build a own legend for the borehole
         attrib_values = []  # list of lithologies in the borehole
 
@@ -288,18 +292,15 @@ class Borehole3D(Striplog):
                 intv_value = intv_value.lower()
             attrib_values.append(intv_value)
 
-        # print(attrib_values)
-        for i in range((len(legend)-1), -1, -1):
-            leg_value = legend[i].component[attribute]
-            # print(leg_value, leg_value in attrib_values)
-            if leg_value in attrib_values:
-                plot_decors.append(legend[i])
-                legend[i].width = width
-        # print(plot_decors)
+        for i in range((len(legend_copy) - 1), -1, -1):
+            leg_value = legend_copy[i].component[attribute]
+            reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
+            reg_value = list(filter(reg.match, attrib_values))  # find value that matches
+            if len(reg_value) > 0:
+                legend_copy[i].component[attribute] = reg_value[0]  # force matching to plot
+                plot_decors.append(legend_copy[i])
+                legend_copy[i].width = width
         plot_legend = Legend(plot_decors)
-        # print('plot_legend', plot_legend)
-        # print('legend', legend)
-        # print('self_legend', self.legend)
         fig, ax = plt.subplots(ncols=2, figsize=figsize)
         ax[0].set_title(self.name, size=text_size, color='b')
         self.plot(legend=plot_legend, match_only=[attribute], ax=ax[0])
