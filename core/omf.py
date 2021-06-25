@@ -39,8 +39,7 @@ class Borehole3D(Striplog):
     """
 
     def __init__(self, intervals=None, components=None, repr_attribute='lithology', name='', diam=0.5, length=0,
-                 x_collar=0., y_collar=0., z_collar=0., legend=None,
-                 legend_colors=None, legend_hatches=None):
+                 x_collar=0., y_collar=0., z_collar=0., legend=None):
 
         """
         build a Borehole3D object from Striplog.Intervals list
@@ -98,8 +97,7 @@ class Borehole3D(Striplog):
 
         # create object legend
         # self.legend = self._legend
-        self.legend = build_bh3d_legend(borehole3d=self, default_legend=self._legend,
-                                        hatches=legend_hatches, colors=legend_colors)
+        self.legend = build_bh3d_legend(borehole3d=self, default_legend=self._legend)
         self.omf_legend, self.omf_cmap = striplog_legend_to_omf_legend(self.legend)
         self.geometry
         self.vtk()

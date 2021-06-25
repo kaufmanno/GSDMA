@@ -30,7 +30,7 @@ class Project:
         
     """
     
-    def __init__(self, session, legend=None, lexicon=None, name='new_project'):
+    def __init__(self, session, legend_dict=None, lexicon=None, repr_attribute='lithology', name='new_project'):
         """
         Project class
         
@@ -47,12 +47,12 @@ class Project:
         self.boreholes = None
         self.boreholes_3d = None
 
-        if legend is None:
-            lexicon = Legend.default()
+        if legend_dict is None:
+            legend_dict = {'lithology': Legend.default()}
         if lexicon is None:
             lexicon = Lexicon.default()
 
-        self.legend = legend
+        self.legend = legend_dict[repr_attribute]
         self.lexicon = lexicon
         self.refresh(update_3d=True)
 
