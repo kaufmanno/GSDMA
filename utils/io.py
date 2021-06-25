@@ -120,9 +120,8 @@ def read_files(fdir, crit_col, columns=None, verbose=False):
     return df_all
 
 
-def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
-                     litho_base_col=None, thick_col=None, color_col=None,
-                     lexicon=None, use_default=True, verbose=False, query=True):
+def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,litho_base_col=None, thick_col=None,
+                     color_col=None, lexicon=None, use_default=True, verbose=False, query=True):
     """ 
     creates a Striplog object from a dataframe
     
@@ -234,8 +233,8 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,
                     base = top + thick
 
                 if base != 0.:
-                    intervals = intervals + [
-                        Interval(top=top, base=base, description=litho, components=[component], lexicon=lexicon)]
+                    intervals = intervals + [Interval(top=top, base=base, description=litho,
+                                                      components=[component], lexicon=lexicon)]
 
             if len(intervals) != 0:
                 strip.update({bh_id: Striplog(list_of_Intervals=intervals)})
@@ -290,7 +289,7 @@ def striplog_from_text(filename, lexicon='en'):
             strip = Striplog.from_descriptions(text, dlm=';', lexicon=lexicon)
 
     else:
-        print("Error! Please check the file extension !")
+        print("Error! Check the file extension !")
         # raise
 
     return strip
@@ -398,7 +397,6 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                 boreholes[bh_id].intervals_values = d
                 bh_id += 1
             components = {v: k for k, v in component_dict.items()}
-
         else:
             for pos in np.arange(bh_id, len(x)):
                 bh = f'F{bh_id + 1}'
@@ -461,9 +459,6 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
             bh_id_list = []  #
             bh_idx = 0  # borehole index in the current dataframe
 
-            #x = boreholes_dict[df_id].X
-            #y = boreholes_dict[df_id].Y
-
             if diam_field in boreholes_dict[df_id].columns:
                 diam = boreholes_dict[df_id][diam_field]
             else:
@@ -493,6 +488,7 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
 
                     for v in strip.values():
                         for c in v.components:
+                            print('color:', c.colour)
                             if c not in component_dict.keys():
                                 component_dict.update({c: comp_id})
                                 comp_id += 1

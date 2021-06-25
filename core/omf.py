@@ -2,6 +2,7 @@ from striplog import Lexicon, Striplog, Legend, Interval, Decor
 from utils.omf import striplog_legend_to_omf_legend
 import matplotlib.pyplot as plt
 import numpy as np
+from utils.omf import build_bh3d_legend
 from copy import deepcopy
 import re
 import omfvista as ov
@@ -37,7 +38,7 @@ class Borehole3D(Striplog):
 
     """
 
-    def __init__(self, intervals=None, components=None, name='', diam=0.5, length=0,
+    def __init__(self, intervals=None, components=None, repr_attribute='lithology', name='', diam=0.5, length=0,
                  x_collar=0., y_collar=0., z_collar=0., legend=None,
                  legend_colors=None, legend_hatches=None):
 
@@ -47,27 +48,19 @@ class Borehole3D(Striplog):
         Parameters
         -----------
         intervals : list
-            list of Striplog.Interval object (default = None)
-            
-        components : 
-            (default = None)
-        
-        name : str 
-        
+            list of Striplog.Interval objects (default = None)
+        components : list
+            list of Striplog.Component objects (default = None)
+        name : str
         legend : Striplog Legend object (default = None)
-        
         x_collar : float
             X coordinate of the borehole (default = 0)
-            
         y_collar : float
             Y coordinate of the borehole (default = 0)
-        
         z_collar : float
             Z coordinate of the borehole (default = 0)
-        
         diam : float
             diameter of the borehole (default = 0.5)
-            
         length : float
             length of the borehole (default = 0)
         """
@@ -78,6 +71,7 @@ class Borehole3D(Striplog):
         self.z_collar = z_collar
         self.diameter = diam
         self.length = length
+        self._repr_attribute = None
         self._components = components  # given components
 
         if intervals is None and length == 0:
@@ -102,12 +96,11 @@ class Borehole3D(Striplog):
         else:
             self._legend = legend  # given legend
 
-        # print(isinstance(self._legend, Legend))
         # create object legend
-        self.legend = self._legend
-        # self.build_bh3d_legend(default_legend=self._legend, hatches=legend_hatches, colors=legend_colors)
+        # self.legend = self._legend
+        self.legend = build_bh3d_legend(borehole3d=self, default_legend=self._legend,
+                                        hatches=legend_hatches, colors=legend_colors)
         self.omf_legend, self.omf_cmap = striplog_legend_to_omf_legend(self.legend)
-
         self.geometry
         self.vtk()
 
@@ -126,7 +119,7 @@ class Borehole3D(Striplog):
             if i.primary in self.components:
                 idx += 1
                 indices.append(idx)  # not really effective
-                # indices.append(self.components.index(i.primary)) #old code
+                # indices.append(self.components.index(i.primary))  # old code
             else:
                 indices.append(-1)
         return np.array(indices)
@@ -134,11 +127,20 @@ class Borehole3D(Striplog):
     def vtk(self, radius=None, res=50):
         """ build a vtk tube of given radius based on the borehole geometry """
         if radius is None:
-            radius = self.diameter/2 * 5 # multiply for visibility
+            radius = self.diameter/2 * 5  # multiply for visibility
             vtk_obj = ov.line_set_to_vtk(self.geometry).tube(radius=radius, n_sides=res)
             vtk_obj.set_active_scalars('component')
             self._vtk = vtk_obj
         return self._vtk
+
+    @property
+    def repr_attribute(self):
+        return self._repr_attribute
+
+    @repr_attribute.setter
+    def repr_attribute(self, value):
+        assert(isinstance(value, str))
+
 
     @property
     def geometry(self):
@@ -198,7 +200,7 @@ class Borehole3D(Striplog):
         return self._geometry
 
 
-    def plot3d(self, plotter=None, x3d=False, diam=None, update_vtk=False,
+    def plot3d(self, plotter=None, attribute='lithology', x3d=False, diam=None, update_vtk=False,
                bg_color=["royalblue", "aliceblue"]):
         """
         Returns an interactive 3D representation of all boreholes in the project
@@ -228,15 +230,14 @@ class Borehole3D(Striplog):
             seg = self.vtk(radius=(diam/2)*10)
         else:
             seg = self._vtk
-        # seg = ov.line_set_to_vtk(self.geometry)
         seg.set_active_scalars('component')
-        # ov.lineset.add_data(seg, self.geometry.data)
-        # print(seg.active_scalars)
 
-        plotter.add_mesh(seg, cmap=self.omf_cmap)
+        legend3d = build_bh3d_legend(borehole3d=self, default_legend=self.legend, attribute=attribute)
+        omf_cmap3d = striplog_legend_to_omf_legend(legend3d)[1]
 
-        # set background color for the render
-        # None : pyvista default background color
+        plotter.add_mesh(seg, cmap=omf_cmap3d)
+
+        # set background color for the render (None : pyvista default background color)
         if bg_color is not None:
             if len(bg_color) == 2:
                 top_c = bg_color[1]

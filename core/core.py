@@ -3,7 +3,7 @@ from core.omf import Borehole3D
 from utils.orm import get_interval_list
 from vtk import vtkX3DExporter
 from IPython.display import HTML
-from striplog import Lexicon
+from striplog import Lexicon, Legend
 import numpy as np
 import pyvista as pv
 
@@ -46,9 +46,13 @@ class Project:
         self.name = name
         self.boreholes = None
         self.boreholes_3d = None
-        self.legend = legend
+
+        if legend is None:
+            lexicon = Legend.default()
         if lexicon is None:
             lexicon = Lexicon.default()
+
+        self.legend = legend
         self.lexicon = lexicon
         self.refresh(update_3d=True)
 
@@ -72,7 +76,8 @@ class Project:
                 print(list_of_intervals[0].components[0].lithology)
                 if verbose:
                     print(bh.id, " added")
-                self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals, legend=self.legend, length=bh.length))
+                self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals,
+                                                    legend=self.legend, length=bh.length))
 
     def commit(self):
         """Validate all modifications done in the project"""

@@ -5,7 +5,6 @@ import omf
 import random
 import re
 import matplotlib.colors as mcolors
-
 import core.omf
 
 
@@ -22,30 +21,26 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
     --------
     omf.data.Legend
         Legends to be used with DataMap indices
-
     ListedColormap(new_colors)
         matplotlib colormap
     """
-    # we must add colors as a parameter to allow to change colors style
+    # TODO: we must add colors as a parameter to allow to change colors style
 
     omf_legend = []
     new_colors = []  # new_colors in RGBA format
     # new_colors = [np.array([0.9, 0.9, 0.9, alpha])]
     # omf_legend.append(legend[0].colour)
-    # n = 0
 
     for i in legend:
-        # n += 1
         omf_legend.append(i.colour)  # i.colour is in RGB format
         new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([alpha])]))
-        # print(n, omf_legend[n-1], hex_to_rgb(i.colour), '---', new_colors[n-1])
     # new_colors.append(np.array([0.9, 0.9, 0.9, 1.]))
     # omf_legend.append(legend[0].colour)
     return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), \
         mcolors.ListedColormap(new_colors)
 
 
-def build_bh3d_legend(borehole3d, default_legend, hatches=None, colors=None, width=3):
+def build_bh3d_legend(borehole3d, default_legend, attribute='lithology', hatches=None, colors=None, width=3):
     """
     Build a legend based on lithologies in the borehole
 
@@ -91,15 +86,13 @@ def build_bh3d_legend(borehole3d, default_legend, hatches=None, colors=None, wid
 
     for comp in components:
         # print('---------------\n', components)
-        if hasattr(comp, 'lithology'):
-            # print(f'{i}, {comp}')
-            comp_litho = comp.lithology
+        if hasattr(comp, attribute):
+            comp_attr_val = comp[attribute]
             for leg in default_legend:
-                leg_litho = leg.component.lithology
-                reg = re.compile("^{:s}$".format(leg_litho), flags=re.I).match(comp_litho)
-                #print(reg)
-                if reg:  # lithology found
-                    # print('found')
+                leg_attr_val = leg.component[attribute]
+                reg = re.compile("^{:s}$".format(leg_attr_val), flags=re.I).match(comp_attr_val)
+
+                if reg:  # attribute value found
                     # ------------ color processing --------------------
                     if colors is None:
                         if hasattr(comp, 'colour'):
@@ -117,9 +110,8 @@ def build_bh3d_legend(borehole3d, default_legend, hatches=None, colors=None, wid
                     if hatches is None:
                         if hasattr(comp, 'hatch'):
                             h = comp.hatch
-                        else:
-                            h = random.sample(def_hatches, 1)[0]
-                            # h = leg.hatch  # no hatches in default !
+                        elif leg.hatch is not None:
+                            h = leg.hatch
                     elif hatches == 'default':
                         h = leg.hatch
                     elif hatches == 'random':
