@@ -73,7 +73,6 @@ class Project:
             self.boreholes_3d = []
             for bh in self.boreholes:
                 list_of_intervals, bh.length = get_interval_list(bh, lexicon=self.lexicon)
-                print(list_of_intervals[0].components[0].lithology)
                 if verbose:
                     print(bh.id, " added")
                 self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals,
@@ -161,7 +160,7 @@ class Project:
             window_size = (600, 400)
 
         if plotter is not None:
-            pl=plotter
+            pl = plotter
         else:
             pl = pv.Plotter(notebook=notebook, window_size=window_size)
 

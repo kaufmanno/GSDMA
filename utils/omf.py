@@ -78,12 +78,6 @@ def build_bh3d_legend(borehole3d, default_legend, attribute='lithology', width=3
 
                 if reg:  # attribute value found
                     c = leg.colour
-
-                    # try:
-                    #     c = COLOURS[col.lower()].lower()
-                    # except(Exception):
-                    #     c = col.lower()
-
                     h = leg.hatch
         else:
             raise (TypeError('Cannot create a legend for empty component'))

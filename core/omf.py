@@ -295,6 +295,7 @@ class Borehole3D(Striplog):
             leg_value = legend_copy[i].component[attribute]
             reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
             reg_value = list(filter(reg.match, attrib_values))  # find value that matches
+            
             if len(reg_value) > 0:
                 legend_copy[i].component[attribute] = reg_value[0]  # force matching to plot
                 plot_decors.append(legend_copy[i])

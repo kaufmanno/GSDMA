@@ -188,9 +188,9 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,litho_base_
 
             for j in tmp.index:
                 # lithology processing -------------------------------------------
-                if litho_cdt and color_cdt :
-                    litho = f"{tmp.loc[j, litho_col]} {tmp.loc[j, color_col]}"
-                elif litho_cdt:
+                # if litho_cdt and color_cdt :  # to use color in description
+                    # litho = f"{tmp.loc[j, litho_col]} {tmp.loc[j, color_col]}"
+                if litho_cdt:
                     litho = tmp.loc[j, litho_col]
                 else:
                     raise(KeyError(f"Error : '{litho_col}' not in the dataframe's columns !"))
@@ -289,8 +289,7 @@ def striplog_from_text(filename, lexicon='en'):
             strip = Striplog.from_descriptions(text, dlm=';', lexicon=lexicon)
 
     else:
-        print("Error! Check the file extension !")
-        # raise
+        raise(EOFError("Error! Check the file extension !"))
 
     return strip
 
@@ -298,7 +297,7 @@ def striplog_from_text(filename, lexicon='en'):
 def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                          diam_field='Diameter', thick_field='Length', color_field='Color',
                          litho_field=None, litho_top_field=None, litho_base_field=None,
-                         lexicon='en', verbose=False, use_default=True):
+                         lexicon=None, verbose=False, use_default=True):
     """Creates a list of BoreholeORM objects from a list of dataframes 
         or dict of boreholes files (flat text or las files)
     
@@ -462,9 +461,8 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
             if diam_field in boreholes_dict[df_id].columns:
                 diam = boreholes_dict[df_id][diam_field]
             else:
+                print(f'Warning : -- No borehole diameter, default is used (diameter={DEFAULT_BOREHOLE_DIAMETER})')
                 diam = pd.Series([DEFAULT_BOREHOLE_DIAMETER] * len(boreholes_dict[df_id]))
-                if verbose:
-                    print(f'Warning : -- No borehole diameter, default is used (diameter={DEFAULT_BOREHOLE_DIAMETER})')
 
             for idx, row in boreholes_dict[df_id].iterrows():
                 bh_name = row['ID']
@@ -478,17 +476,14 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                     tmp = boreholes_dict[df_id][bh_selection].copy()
                     tmp.reset_index(drop=True, inplace=True)
                     strip = striplog_from_df(df=tmp, bh_name=bh_name, litho_col=litho_field,
-                                             litho_top_col=litho_top_field,
-                                             litho_base_col=litho_base_field,
-                                             thick_col=thick_field,
-                                             color_col=color_field,
-                                             use_default=use_default,
-                                             verbose=verbose, lexicon=lexicon,
+                                             litho_top_col=litho_top_field, litho_base_col=litho_base_field,
+                                             thick_col=thick_field, color_col=color_field,
+                                             use_default=use_default, verbose=verbose, lexicon=lexicon,
                                              query=False)
 
                     for v in strip.values():
                         for c in v.components:
-                            print('color:', c.colour)
+                            #print('color:', c.colour)
                             if c not in component_dict.keys():
                                 component_dict.update({c: comp_id})
                                 comp_id += 1
