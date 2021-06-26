@@ -246,27 +246,25 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,litho_base_
     return strip
 
 
-def striplog_from_text(filename, lexicon='en'):
+def striplog_from_text(filename, lexicon=None):
     """ 
     creates a Striplog object from a las or flat text file
     
     Parameters
-    ----------
+    ------------
     filename : str name of text file
     lexicon : dict
-              A vocabulary for parsing lithologic or stratigraphic descriptions
-              (default set to Lexicon.default() if lexicon is None)
+        A vocabulary for parsing lithologic or stratigraphic descriptions
+        (default set to Lexicon.default() if lexicon is None)
               
     Returns
-    -------
+    ---------
     strip: striplog object
     
     """
 
-    if lexicon == 'en':
-        lexicon = Lexicon.default()
-    elif lexicon == 'fr':
-        lexicon = Lexicon(lexicon_memoris.LEXICON)
+    if lexicon is None:
+        lexicon = Lexicon.default()  # lexicon = Lexicon(lexicon_memoris.LEXICON)
     elif isinstance(lexicon, Lexicon):
         lexicon = lexicon
     else:

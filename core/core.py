@@ -46,6 +46,7 @@ class Project:
         self.name = name
         self.boreholes = None
         self.boreholes_3d = None
+        self.repr_attribute = repr_attribute
 
         if legend_dict is None:
             legend_dict = {'lithology': Legend.default()}
@@ -54,6 +55,7 @@ class Project:
 
         self.legend = legend_dict[repr_attribute]
         self.lexicon = lexicon
+        self.cmap = None
         self.refresh(update_3d=True)
 
     def refresh(self, update_3d=False, verbose=False):
@@ -75,12 +77,22 @@ class Project:
                 list_of_intervals, bh.length = get_interval_list(bh, lexicon=self.lexicon)
                 if verbose:
                     print(bh.id, " added")
-                self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals,
-                                                    legend=self.legend, length=bh.length))
+                self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, legend=self.legend,
+                                                    intervals=list_of_intervals, length=bh.length))
 
     def commit(self):
         """Validate all modifications done in the project"""
         self.session.commit()
+
+    def update_cmap(self, legend=None, cmap=None):
+        """Update the project cmap based on all boreholes in the project"""
+        if cmap is not None:
+            self.cmap = cmap
+        elif legend is not None:
+            for bh in self.boreholes_3d:
+                pass
+            pass
+        return self.cmap
         
     def add_borehole(self, bh):
         """
@@ -143,7 +155,7 @@ class Project:
         self.commit()
         self.refresh()
 
-    def plot3d(self, plotter=None, x3d=False, labels_size=None, labels_color=None, bg_color=("royalblue", "aliceblue"), window_size=None):
+    def plot3d(self, plotter=None, x3d=False, labels_size=None, labels_color=None, repr_attribute=None, bg_color=("royalblue", "aliceblue"), window_size=None):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -152,7 +164,15 @@ class Project:
         x3d : bool
             if True, generates a 3xd file of the 3D (default=False)
         """
-        pts = {}
+
+        if repr_attribute is None:
+            repr_attribute = self.repr_attribute
+        elif repr_attribute is not None and repr_attribute != 'lithology':
+            print('here')
+            #legend3d = build_bh3d_legend(borehole3d=self, default_legend=self.legend, attribute=repr_attribute)
+            #omf_cmap3d = striplog_legend_to_omf_legend(legend3d)[1]
+
+        name_pts = {}
         if window_size is not None:
             notebook = False
         else:
@@ -165,16 +185,16 @@ class Project:
             pl = pv.Plotter(notebook=notebook, window_size=window_size)
 
         for bh in self.boreholes_3d:
-            bh.plot3d(plotter=pl, bg_color=bg_color)
-            pts.update({bh.name: bh._vtk.center[:2]+[0]})  # TODO : retrieve correct top (Z)
+            bh.plot3d(plotter=pl, bg_color=bg_color, repr_attribute=repr_attribute)
+            name_pts.update({bh.name: bh._vtk.center[:2]+[0]})  # TODO : retrieve correct top (Z)
 
         if labels_color is None:
             labels_color = 'black'
 
         if labels_size is not None:
-            pv_pts = pv.PolyData(np.array(list(pts.values())))
-            pv_pts['bh_name'] = list(pts.keys())
-            print(len(list(pts.keys())))
+            pv_pts = pv.PolyData(np.array(list(name_pts.values())))
+            pv_pts['bh_name'] = list(name_pts.keys())
+            # print(len(list(pts.keys())))
             pl.add_point_labels(pv_pts, 'bh_name', point_size=1, font_size=labels_size,
                                 text_color=labels_color, show_points=False)
             

@@ -198,7 +198,7 @@ class Borehole3D(Striplog):
         return self._geometry
 
 
-    def plot3d(self, plotter=None, attribute='lithology', x3d=False, diam=None, update_vtk=False,
+    def plot3d(self, plotter=None, repr_legend=None, repr_attribute='lithology', x3d=False, diam=None, update_vtk=False,
                bg_color=["royalblue", "aliceblue"]):
         """
         Returns an interactive 3D representation of all boreholes in the project
@@ -222,6 +222,9 @@ class Borehole3D(Striplog):
         elif diam is None and self.diameter != 0:
             diam = self.diameter
 
+        if repr_legend is not None:
+            pass
+
         #omf_legend, _ = striplog_legend_to_omf_legend(self.legend)
 
         if update_vtk or diam is not None:
@@ -230,7 +233,7 @@ class Borehole3D(Striplog):
             seg = self._vtk
         seg.set_active_scalars('component')
 
-        legend3d = build_bh3d_legend(borehole3d=self, default_legend=self.legend, attribute=attribute)
+        legend3d = build_bh3d_legend(borehole3d=self, default_legend=self.legend, attribute=repr_attribute)
         omf_cmap3d = striplog_legend_to_omf_legend(legend3d)[1]
 
         plotter.add_mesh(seg, cmap=omf_cmap3d)
@@ -273,7 +276,7 @@ class Borehole3D(Striplog):
                                                               '\n</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
 
-    def plot2d(self, figsize=(6, 6), legend=None, text_size=15, width=3, attribute='lithology'):
+    def plot2d(self, figsize=(6, 6), legend=None, text_size=15, width=3, repr_attribute='lithology'):
         """
         Plot a 2D lithological log
         """
@@ -282,27 +285,32 @@ class Borehole3D(Striplog):
             legend = self.legend
 
         legend_copy = deepcopy(legend)  # work with a copy to keep initial legend state
-        plot_decors = []  # list of decors to build a own legend for the borehole
+        decors = {}  # list of decors to build a own legend for the borehole
         attrib_values = []  # list of lithologies in the borehole
 
         for i in self.intervals:
-            intv_value = i.primary[attribute]
+            intv_value = i.primary[repr_attribute]
             if isinstance(intv_value, str):
                 intv_value = intv_value.lower()
             attrib_values.append(intv_value)
+        # print(attrib_values)
 
-        for i in range((len(legend_copy) - 1), -1, -1):
-            leg_value = legend_copy[i].component[attribute]
+        for i in range((len(legend_copy))):  # - 1), -1, -1):
+            leg_value = legend_copy[i].component[repr_attribute]
             reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
             reg_value = list(filter(reg.match, attrib_values))  # find value that matches
-            
+
             if len(reg_value) > 0:
-                legend_copy[i].component[attribute] = reg_value[0]  # force matching to plot
-                plot_decors.append(legend_copy[i])
+                legend_copy[i].component[repr_attribute] = reg_value[0]  # force matching to plot
                 legend_copy[i].width = width
+                # use interval order to obtain correct plot legend order
+                decors.update({attrib_values.index(reg_value[0]): legend_copy[i]})
+
+        plot_decors = [decors[idx] for idx in range(len(decors.values())-1, -1, -1)]
         plot_legend = Legend(plot_decors)
+
         fig, ax = plt.subplots(ncols=2, figsize=figsize)
         ax[0].set_title(self.name, size=text_size, color='b')
-        self.plot(legend=plot_legend, match_only=[attribute], ax=ax[0])
+        self.plot(legend=plot_legend, match_only=[repr_attribute], ax=ax[0])
         ax[1].set_title('Legend', size=text_size, color='r')
         plot_legend.plot(ax=ax[1])
