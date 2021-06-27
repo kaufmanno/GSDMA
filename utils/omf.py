@@ -1,9 +1,7 @@
 from striplog.utils import hex_to_rgb
 from striplog import Legend, Decor
-from utils.lexicon.lexicon_fr import COLOURS
 import numpy as np
 import omf
-import random
 import re
 import matplotlib.colors as mcolors
 import core.omf
@@ -29,26 +27,23 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
 
     omf_legend = []
     new_colors = []  # new_colors in RGBA format
-    # new_colors = [np.array([0.9, 0.9, 0.9, alpha])]
-    # omf_legend.append(legend[0].colour)
 
     for i in legend:
         omf_legend.append(i.colour)  # i.colour is in RGB format
         new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([alpha])]))
-    # new_colors.append(np.array([0.9, 0.9, 0.9, 1.]))
-    # omf_legend.append(legend[0].colour)
+
     return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), \
         mcolors.ListedColormap(new_colors)
 
 
-def build_bh3d_legend(borehole3d, default_legend, attribute='lithology', width=3):
+def build_bh3d_legend(borehole3d, legend, repr_attrib='lithology', width=3, update_legend=False):
     """
     Build a legend based on lithologies in the borehole
 
     Parameters
     -------------
     borehole3d: Borehole3D object
-    default_legend: striplog.Legend object
+    legend: striplog.Legend object
         A legend that contains default lithologies and their associated colors / hatches
     Returns
     --------
@@ -56,11 +51,11 @@ def build_bh3d_legend(borehole3d, default_legend, attribute='lithology', width=3
     """
 
     # given values test
-    if not isinstance(borehole3d, core.omf.Borehole3D):
-        raise(TypeError('borehole3d must be a Borehole3D object'))
-
-    if not isinstance(default_legend, Legend):
+    if not isinstance(legend, Legend):
         raise(TypeError('legend must be a Striplog.Legend object'))
+
+    if not isinstance(borehole3d, core.omf.Borehole3D):
+        raise(TypeError('Element in borehole3d must be a Borehole3D object'))
 
     list_of_decors, hatches_used = [], []
 
@@ -70,20 +65,31 @@ def build_bh3d_legend(borehole3d, default_legend, attribute='lithology', width=3
         components = borehole3d._components
 
     for comp in components:
-        if hasattr(comp, attribute):
-            comp_attr_val = comp[attribute]
-            for leg in default_legend:
-                leg_attr_val = leg.component[attribute]
+        if hasattr(comp, repr_attrib):
+            comp_attr_val = comp[repr_attrib]
+            for leg in legend:
+                leg_attr_val = leg.component[repr_attrib]
+                if leg_attr_val is None:
+                    # legend_copy[i].component[repr_attribute] = DEFAULT_ATTRIB_VALUE
+                    # leg_value = DEFAULT_ATTRIB_VALUE
+                    pass
                 reg = re.compile("^{:s}$".format(leg_attr_val), flags=re.I).match(comp_attr_val)
 
                 if reg:  # attribute value found
                     c = leg.colour
                     h = leg.hatch
         else:
-            raise (TypeError('Cannot create a legend for empty component'))
-            # TODO : allow empty component (define a lacking lithology type)
+            raise(TypeError('Cannot create a legend for empty component'))
+            pass
 
         decor = Decor({'color': c, 'hatch': h, 'component': comp, 'width': width})
         list_of_decors.append(decor)
 
-    return Legend(list_of_decors)
+    plot_legend = Legend(list_of_decors)
+    plot_cmap = striplog_legend_to_omf_legend(legend)[1]
+
+    if update_legend:
+        borehole3d.cmap = plot_cmap
+        borehole3d.legend = plot_legend
+    else:
+        return plot_legend, plot_cmap

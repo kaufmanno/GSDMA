@@ -20,7 +20,7 @@ LEXICON_MEMORIS = {'lithology': ['Anthracite(?:s)?', 'Porphyre(?:s)?', 'Houille(
               
            'quantity': ['beaucoup', 'peu', 'moins', 'plusieurs', 'fragment(?:s)?', 'impurité(?:es)', 'abondant(?:e|es)', 'mineur','quelques', 'rare', 'flocon(?:s)?', 'trace(?:s)', '[-.\\d]+%', '[-.\\d]+pc', '[-.\\d]+pourcent'],
 
-           'Pollutant': ['naphtalène', 'HAP', 'huile(?:s)?'],
+           'pollutant': ['As','Hg','Pb','naphtalène','HAP','huile(?:s)?','VR','VS','VI'],
 
            'synonyms': {'mort-terrain': ['terre'], 'Anhydrite': ['Gypse'], 'Sel': ['Halite', 'Sylvite']},
 
@@ -38,10 +38,10 @@ lexicon_memoris = Lexicon(LEXICON_MEMORIS)
 
 #======================= LEGENDES ============================
 POLLUTANT_MEMORIS = """colour,width,component pollutant
-#00FF00, None, vr,
-#FFA500, None, vs,
-#FF0000, None, vi,
-#888888, None, None,
+#00FF00, None, VR,
+#FFA500, None, VS,
+#FF0000, None, VI,
+#FFFFFF, None, Inconnu,
 """
 
 pollutant_memoris = Legend.from_csv(text=POLLUTANT_MEMORIS, )
@@ -56,7 +56,7 @@ LITHOLOGY_MEMORIS = """colour,width, hatch, component lithology
 #00151A, None, None, Houille(?:s)?,
 #798732, None, '-.', Limon(?:s)?,
 #FFCB23, None, '..', Sable(?:s)?,
-#ECB400, None, None, Gravier(?:s)?,
+#ADB7CC, None, 'oo, Gravier(?:s)?,
 #ACE4C8, None, None, Silt(?:s)?,
 #D5E6CC, None, '---', Argile(?:s)?,
 #92DCB7, None, None, Bentonite(?:s)?,

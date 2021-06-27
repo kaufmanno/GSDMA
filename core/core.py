@@ -3,7 +3,10 @@ from core.omf import Borehole3D
 from utils.orm import get_interval_list
 from vtk import vtkX3DExporter
 from IPython.display import HTML
-from striplog import Lexicon, Legend
+from striplog import Lexicon, Legend, Component
+from utils.omf import striplog_legend_to_omf_legend
+from copy import deepcopy
+import re
 import numpy as np
 import pyvista as pv
 
@@ -53,7 +56,8 @@ class Project:
         if lexicon is None:
             lexicon = Lexicon.default()
 
-        self.legend = legend_dict[repr_attribute]
+        self.legend_dict = legend_dict
+        self.legend = self.legend_dict[repr_attribute]
         self.lexicon = lexicon
         self.cmap = None
         self.refresh(update_3d=True)
@@ -83,16 +87,6 @@ class Project:
     def commit(self):
         """Validate all modifications done in the project"""
         self.session.commit()
-
-    def update_cmap(self, legend=None, cmap=None):
-        """Update the project cmap based on all boreholes in the project"""
-        if cmap is not None:
-            self.cmap = cmap
-        elif legend is not None:
-            for bh in self.boreholes_3d:
-                pass
-            pass
-        return self.cmap
         
     def add_borehole(self, bh):
         """
@@ -155,6 +149,47 @@ class Project:
         self.commit()
         self.refresh()
 
+    def update_legend_cmap(self, repr_attribute=None, legend=None, width=3, update_legend=False):
+        """Update the project cmap based on all boreholes in the project"""
+
+        if repr_attribute is None:
+            repr_attribute = self.repr_attribute
+
+        if legend is None:
+            legend_copy = deepcopy(self.legend_dict[repr_attribute])
+        elif legend is not None:
+            legend_copy = deepcopy(legend)  # work with a copy to keep initial legend state
+
+        uniq_attrib_values = []  # list of distinct attributes (e.g: lithologies) in project boreholes
+        decors = {}  # dict of decors for building a project legend/cmap
+
+        for bh in self.boreholes_3d:
+            uniq_attrib_values += [i.components[0].lithology for i in bh.intervals if i.components[0].lithology not in uniq_attrib_values]
+            # print(bh.name, ":", uniq_attrib_values)
+
+        for i in range((len(legend_copy))):
+            leg_value = legend_copy[i].component[repr_attribute]
+            # print(leg_value , legend_copy)
+            reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
+            reg_value = list(filter(reg.match, uniq_attrib_values))  # find value that matches
+
+            if len(reg_value) > 0:
+                # force matching to plot
+                legend_copy[i].component = Component({repr_attribute: reg_value[0]})
+                legend_copy[i].width = width
+                # use interval order to obtain correct plot legend order
+                decors.update({uniq_attrib_values.index(reg_value[0]): legend_copy[i]})
+
+        plot_decors = [decors[idx] for idx in range(len(decors.values()))]
+        plot_legend = Legend(plot_decors)
+        plot_cmap = striplog_legend_to_omf_legend(plot_legend)[1]
+        # print('leg:', plot_legend)
+        if update_legend:
+            self.cmap = plot_cmap
+            self.legend = plot_legend
+        else:
+            return plot_legend, plot_cmap
+
     def plot3d(self, plotter=None, x3d=False, labels_size=None, labels_color=None, repr_attribute=None, bg_color=("royalblue", "aliceblue"), window_size=None):
         """
         Returns an interactive 3D representation of all boreholes in the project
@@ -164,13 +199,6 @@ class Project:
         x3d : bool
             if True, generates a 3xd file of the 3D (default=False)
         """
-
-        if repr_attribute is None:
-            repr_attribute = self.repr_attribute
-        elif repr_attribute is not None and repr_attribute != 'lithology':
-            print('here')
-            #legend3d = build_bh3d_legend(borehole3d=self, default_legend=self.legend, attribute=repr_attribute)
-            #omf_cmap3d = striplog_legend_to_omf_legend(legend3d)[1]
 
         name_pts = {}
         if window_size is not None:
@@ -184,8 +212,18 @@ class Project:
         else:
             pl = pv.Plotter(notebook=notebook, window_size=window_size)
 
+        if repr_attribute is None or repr_attribute == 'lithology':
+            repr_attribute = self.repr_attribute
+            plot_cmap = self.cmap
+            plot_legend = self.legend
+        elif repr_attribute is not None and repr_attribute != 'lithology':
+            print('Colormap computing ...')
+            plot_legend, plot_cmap = self.update_legend_cmap(repr_attribute=repr_attribute)
+
+
         for bh in self.boreholes_3d:
-            bh.plot3d(plotter=pl, bg_color=bg_color, repr_attribute=repr_attribute)
+            bh.plot3d(plotter=pl, bg_color=bg_color, repr_legend=plot_legend, repr_cmap=plot_cmap,
+                      repr_attribute=repr_attribute)
             name_pts.update({bh.name: bh._vtk.center[:2]+[0]})  # TODO : retrieve correct top (Z)
 
         if labels_color is None:

@@ -8,7 +8,7 @@ from striplog import Striplog, Lexicon, Interval, Component, Position
 from core.orm import BoreholeOrm, PositionOrm
 from ipywidgets import interact, IntSlider
 from IPython.display import display
-from utils.config import DEFAULT_BOREHOLE_LENGTH, DEFAULT_BOREHOLE_DIAMETER, DEFAULT_LITHOLOGY
+from utils.config import DEFAULT_BOREHOLE_LENGTH, DEFAULT_BOREHOLE_DIAMETER, DEFAULT_ATTRIB_VALUE
 from utils.utils import update_dict
 from utils.lexicon.lexicon_fr import lexicon_memoris
 
@@ -120,8 +120,9 @@ def read_files(fdir, crit_col, columns=None, verbose=False):
     return df_all
 
 
-def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,litho_base_col=None, thick_col=None,
-                     color_col=None, lexicon=None, use_default=True, verbose=False, query=True):
+def striplog_from_df(df, attrib_cols, bh_name=None, attrib_top_col=None, attrib_base_col=None,
+                     thick_col=None,color_col=None, lexicon=None, use_default=True,
+                     verbose=False, query=True):
     """ 
     creates a Striplog object from a dataframe
     
@@ -131,7 +132,7 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,litho_base_
         dataframe that contains boreholes data
     bh_name: str
         Borehole name (or ID)
-    litho_col : str
+    attrib_cols : str
         dataframe column that contains lithology or description text (default:None)
     
     thick_col : str
@@ -146,17 +147,22 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,litho_base_
     strip : dict of striplog objects
     
     """
-    litho_cdt, litho_top_cdt, litho_base_cdt = False, False, False
+    attrib_cdt, attrib_top_cdt, attrib_base_cdt = False, False, False
     thick_cdt, color_cdt = False, False
 
-    if litho_col is not None and litho_col in list(df.columns):
-        litho_cdt = True
+    if attrib_cols is not None:
+        if not isinstance(attrib_cols, list):
+            attrib_cols = [attrib_cols]  # convert to a list
+        for attrib_col in attrib_cols:
+            if attrib_col not in list(df.columns):
+                raise(NameError(f"{attrib_col} is not in the dataframe columns"))
+
     if thick_col is not None and thick_col in list(df.columns):
         thick_cdt = True
-    if litho_top_col is not None and litho_top_col in list(df.columns):
-        litho_top_cdt = True
-    if litho_base_col is not None and litho_base_col in list(df.columns):
-        litho_base_cdt = True
+    if attrib_top_col is not None and attrib_top_col in list(df.columns):
+        attrib_top_cdt = True
+    if attrib_base_col is not None and attrib_base_col in list(df.columns):
+        attrib_base_cdt = True
     if color_col is not None and color_col in list(df.columns):
         color_cdt = True
 
@@ -190,21 +196,21 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,litho_base_
                 # lithology processing -------------------------------------------
                 # if litho_cdt and color_cdt :  # to use color in description
                     # litho = f"{tmp.loc[j, litho_col]} {tmp.loc[j, color_col]}"
-                if litho_cdt:
-                    litho = tmp.loc[j, litho_col]
-                else:
-                    raise(KeyError(f"Error : '{litho_col}' not in the dataframe's columns !"))
+
+                attrib_values = tmp.loc[j, attrib_cols]  # values for each columns of interest
 
                 # create components from lithological description
-                if Component.from_text(litho, lexicon) == Component({}):  # empty component !
-                    print(f"Error : No lithology matching with '{litho}' in given lexicon")
+                val = ' '.join(attrib_values)
+                if Component.from_text(val, lexicon) == Component({}):  # empty component !
+                    print(f"Error : No value matching with '{val}' in given lexicon")
                     if use_default:
-                        print(f"Warning : ++ interval's component replaced by default ('{DEFAULT_LITHOLOGY}')")
-                        litho = DEFAULT_LITHOLOGY
-                        component = Component.from_text(litho, Lexicon.default())
+                        print(f"Warning : ++ interval's component replaced by default ('{DEFAULT_ATTRIB_VALUE}')")
+                        val = DEFAULT_ATTRIB_VALUE
+                        component = Component.from_text(val, Lexicon.default())
                 else:
-                    component = Component.from_text(litho, lexicon)
+                    component = Component.from_text(val, lexicon)
 
+                    print(component)
                 # length processing -----------------------------------------------
                 if thick_cdt and not pd.isnull(tmp.loc[j, thick_col]):
                     thick = tmp.loc[j, thick_col]
@@ -217,8 +223,8 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,litho_base_
                         raise(ValueError('Cannot create interval with null thickness !'))
 
                 # intervals processing ----------------------------------------------
-                if litho_top_cdt:
-                    top = tmp.loc[j, litho_top_col]
+                if attrib_top_cdt:
+                    top = tmp.loc[j, attrib_top_col]
                 elif thick_cdt:
                     if j == tmp.index[0]:
                         top = 0
@@ -227,13 +233,13 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,litho_base_
                 else:
                     raise(ValueError('Cannot retrieve or compute top values. provide thickness values! '))
 
-                if litho_base_cdt:
-                    base = tmp.loc[j, litho_base_col]
+                if attrib_base_cdt:
+                    base = tmp.loc[j, attrib_base_col]
                 else:
                     base = top + thick
 
                 if base != 0.:
-                    intervals = intervals + [Interval(top=top, base=base, description=litho,
+                    intervals = intervals + [Interval(top=top, base=base, description= val,
                                                       components=[component], lexicon=lexicon)]
 
             if len(intervals) != 0:
@@ -246,7 +252,7 @@ def striplog_from_df(df, litho_col, bh_name=None, litho_top_col=None,litho_base_
     return strip
 
 
-def striplog_from_text(filename, lexicon=None):
+def striplog_from_text_file(filename, lexicon=None):
     """ 
     creates a Striplog object from a las or flat text file
     
@@ -355,7 +361,7 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
             for bh, filename in boreholes_dict.items():
                 interval_number = 0
                 boreholes.append(BoreholeOrm(id=bh))
-                strip = striplog_from_text(filename)
+                strip = striplog_from_text_file(filename)
 
                 for c in strip.components:
                     if c not in component_dict.keys():
@@ -405,7 +411,7 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                 boreholes.append(BoreholeOrm(id=bh))
 
                 if filename is not None and filename != '':
-                    strip = striplog_from_text(filename, lexicon)
+                    strip = striplog_from_text_file(filename, lexicon)
                 else:
                     strip = None
 
@@ -473,8 +479,8 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                     bh_selection = boreholes_dict[df_id]['ID'] == f"{bh_name}"
                     tmp = boreholes_dict[df_id][bh_selection].copy()
                     tmp.reset_index(drop=True, inplace=True)
-                    strip = striplog_from_df(df=tmp, bh_name=bh_name, litho_col=litho_field,
-                                             litho_top_col=litho_top_field, litho_base_col=litho_base_field,
+                    strip = striplog_from_df(df=tmp, bh_name=bh_name, attrib_cols=litho_field,
+                                             attrib_top_col=litho_top_field, attrib_base_col=litho_base_field,
                                              thick_col=thick_field, color_col=color_field,
                                              use_default=use_default, verbose=verbose, lexicon=lexicon,
                                              query=False)
