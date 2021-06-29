@@ -9,7 +9,7 @@ from copy import deepcopy
 import re
 import numpy as np
 import pyvista as pv
-
+from utils.config import DEFAULT_ATTRIB_VALUE
 
 class Project:
     """
@@ -164,12 +164,15 @@ class Project:
         decors = {}  # dict of decors for building a project legend/cmap
 
         for bh in self.boreholes_3d:
-            uniq_attrib_values += [i.components[0].lithology for i in bh.intervals if i.components[0].lithology not in uniq_attrib_values]
+            for intv in bh.intervals:
+                if intv.components[0][repr_attribute] is None:
+                    intv.components[0][repr_attribute] = DEFAULT_ATTRIB_VALUE  # set to default value
+                if intv.components[0][repr_attribute] not in uniq_attrib_values:
+                    uniq_attrib_values.append(intv.components[0][repr_attribute])
             # print(bh.name, ":", uniq_attrib_values)
 
         for i in range((len(legend_copy))):
             leg_value = legend_copy[i].component[repr_attribute]
-            # print(leg_value , legend_copy)
             reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
             reg_value = list(filter(reg.match, uniq_attrib_values))  # find value that matches
 
@@ -183,12 +186,12 @@ class Project:
         plot_decors = [decors[idx] for idx in range(len(decors.values()))]
         plot_legend = Legend(plot_decors)
         plot_cmap = striplog_legend_to_omf_legend(plot_legend)[1]
-        # print('leg:', plot_legend)
+
         if update_legend:
             self.cmap = plot_cmap
             self.legend = plot_legend
-        else:
-            return plot_legend, plot_cmap
+
+        return plot_legend, plot_cmap
 
     def plot3d(self, plotter=None, x3d=False, labels_size=None, labels_color=None, repr_attribute=None, bg_color=("royalblue", "aliceblue"), window_size=None):
         """
