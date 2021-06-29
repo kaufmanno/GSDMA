@@ -220,11 +220,11 @@ class Project:
             print('Colormap computing ...')
             plot_legend, plot_cmap = self.update_legend_cmap(repr_attribute=repr_attribute)
 
-
         for bh in self.boreholes_3d:
             bh.plot3d(plotter=pl, bg_color=bg_color, repr_legend=plot_legend, repr_cmap=plot_cmap,
                       repr_attribute=repr_attribute)
-            name_pts.update({bh.name: bh._vtk.center[:2]+[0]})  # TODO : retrieve correct top (Z)
+            name_pts.update({bh.name: bh._vtk.center[:2]+[bh.z_collar]})
+        print(name_pts)
 
         if labels_color is None:
             labels_color = 'black'

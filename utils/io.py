@@ -298,7 +298,7 @@ def striplog_from_text_file(filename, lexicon=None):
     return strip
 
 
-def boreholes_from_files(boreholes_dict=None, x=None, y=None,
+def boreholes_from_files(boreholes_dict=None, x=None, y=None, z=None,
                          diam_field='Diameter', thick_field='Length', color_field='Color',
                          litho_field=None, litho_top_field=None, litho_base_field=None,
                          lexicon=None, verbose=False, use_default=True):
@@ -314,6 +314,9 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
     
     y : list of float
         Y coordinates
+
+    z : list of float
+        Z coordinates
     
     verbose : Bool
         allow verbose option if set = True
@@ -341,16 +344,6 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
     link_dict = {}  # link between intervals and components (<-> junction table)
     df_id = 0  # dataframe id
 
-    # if x is None:
-    #     x = [0., 20., 5, 10]
-    # else:
-    #     x = x
-    #
-    # if y is None:
-    #     y = [0., 40., 50, 2]
-    # else:
-    #     y = y
-
     if boreholes_dict is None:
         print("Error! Borehole dictionary not given.")
 
@@ -371,14 +364,14 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                 d = {}
 
                 for interval in strip:
-                    top = PositionOrm(id=pos_id, upper=interval.top.upper,
-                                      middle=interval.top.middle,
-                                      lower=interval.top.lower,
+                    top = PositionOrm(id=pos_id, upper=z[bh_id] - interval.top.upper,
+                                      middle=z[bh_id] - interval.top.middle,
+                                      lower=z[bh_id] - interval.top.lower,
                                       x=x[bh_id], y=y[bh_id])
 
-                    base = PositionOrm(id=pos_id + 1, upper=interval.base.upper,
-                                       middle=interval.base.middle,
-                                       lower=interval.base.lower,
+                    base = PositionOrm(id=pos_id + 1, upper=z[bh_id] - interval.base.upper,
+                                       middle=z[bh_id] - interval.base.middle,
+                                       lower=z[bh_id] - interval.base.lower,
                                        x=x[bh_id], y=y[bh_id])
 
                     d.update({int_id: {'description': interval.description,
@@ -421,14 +414,14 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
                         comp_id += 1
                 d = {}
                 for interval in strip:
-                    top = PositionOrm(id=pos_id, upper=interval.top.upper,
-                                      middle=interval.top.middle,
-                                      lower=interval.top.lower,
+                    top = PositionOrm(id=pos_id, upper=z[bh_id] - interval.top.upper,
+                                      middle=z[bh_id] - interval.top.middle,
+                                      lower=z[bh_id] - interval.top.lower,
                                       x=x[bh_id], y=y[bh_id])
 
-                    base = PositionOrm(id=pos_id + 1, upper=interval.base.upper,
-                                       middle=interval.base.middle,
-                                       lower=interval.base.lower,
+                    base = PositionOrm(id=pos_id + 1, upper=z[bh_id] - interval.base.upper,
+                                       middle=z[bh_id] - interval.base.middle,
+                                       lower=z[bh_id] - interval.base.lower,
                                        x=x[bh_id], y=y[bh_id])
 
                     d.update({int_id: {'description': interval.description,
@@ -496,15 +489,15 @@ def boreholes_from_files(boreholes_dict=None, x=None, y=None,
 
                         # ORM processing
                         for interval in v:
-                            top = PositionOrm(id=pos_id, upper=interval.top.upper,
-                                              middle=interval.top.middle,
-                                              lower=interval.top.lower,
+                            top = PositionOrm(id=pos_id, upper=row['Z'] - interval.top.upper,
+                                              middle=row['Z'] - interval.top.middle,
+                                              lower=row['Z'] - interval.top.lower,
                                               x=row['X'], y=row['Y']
                                               )
 
-                            base = PositionOrm(id=pos_id + 1, upper=interval.base.upper,
-                                               middle=interval.base.middle,
-                                               lower=interval.base.lower,
+                            base = PositionOrm(id=pos_id + 1, upper=row['Z'] - interval.base.upper,
+                                               middle=row['Z'] - interval.base.middle,
+                                               lower=row['Z'] - interval.base.lower,
                                                x=row['X'], y=row['Y']
                                                )
 

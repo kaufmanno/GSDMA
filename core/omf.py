@@ -28,6 +28,7 @@ class Borehole3D(Striplog):
     omf_cmap : list of matplotlib colormap
     x_collar : float
     y_collar : float
+    z_collar : float
 
     Methods
     --------
@@ -40,7 +41,7 @@ class Borehole3D(Striplog):
     """
 
     def __init__(self, intervals=None, components=None, repr_attribute='lithology', name='', diam=0.5, length=0,
-                 x_collar=0., y_collar=0., z_collar=0., legend=None):
+                 x_collar=0., y_collar=0., z_collar=None, legend=None):
 
         """
         build a Borehole3D object from Striplog.Intervals list
@@ -75,18 +76,19 @@ class Borehole3D(Striplog):
         self._repr_attribute = repr_attribute
         self._components = components  # given components
 
-        if intervals is None and length == 0:
-            raise(ValueError("Cannot create a borehole without length and interval !"))
-
-        if intervals is None and length != 0:
-            lexicon = Lexicon.default()
-            intervals = [Interval(top=0, base=length, description=DEFAULT_ATTRIB_VALUE, lexicon=lexicon)]
-            print(f"No intervals given, default interval is used, with lithology ({DEFAULT_ATTRIB_VALUE})!\n")
+        if intervals is None:
+            if length <= 0.:
+                raise (ValueError("Cannot create a borehole without length and interval !"))
+            else:
+                lexicon = Lexicon.default()
+                intervals = [Interval(top=0, base=length, description=DEFAULT_ATTRIB_VALUE, lexicon=lexicon)]
+                print(f"No intervals given, default interval is used, with lithology ({DEFAULT_ATTRIB_VALUE})!\n")
 
         self.intervals = intervals
         self._geometry = []
         self._vtk = None
-
+        if self.z_collar is None and self.intervals is not None:
+            self.update_z_collar_from_intervals()
         # instantiation with supers properties
         Striplog.__init__(self, list_of_Intervals=self.intervals)
 
@@ -103,6 +105,12 @@ class Borehole3D(Striplog):
         self.omf_legend = striplog_legend_to_omf_legend(self.legend)[0]
         self.geometry
         self.vtk()
+
+    def update_z_collar_from_intervals(self):
+        """
+        updates z_collar assuming that collar is at the top elevation of the highest interval
+        """
+        self.z_collar = max([i.top.z for i in self.intervals])
 
     def get_components_indices(self):
         """
@@ -158,25 +166,29 @@ class Borehole3D(Striplog):
 
         for i in self.intervals:
             if i.top not in vertices:
-                if hasattr(i.top, 'x') and hasattr(i.top, 'y'):
+                if hasattr(i.top, 'x') and hasattr(i.top, 'y') and hasattr(i.top, 'z'):
                     x = i.top.x
                     y = i.top.y
+                    z = i.top.z
                 else:
                     x = self.x_collar
                     y = self.y_collar
-                vertices.append([x, y, -i.top.z])
+                    z = self.z_collar-i.top
+                vertices.append([x, y, z])
                 top = len(vertices) - 1
             else:
                 top = vertices.index(i.top)
 
             if i.base not in vertices:
-                if hasattr(i.base, 'x') and hasattr(i.base, 'y'):
+                if hasattr(i.base, 'x') and hasattr(i.base, 'y') and hasattr(i.top, 'z'):
                     x = i.base.x
                     y = i.base.y
+                    z= i.base.z
                 else:
                     x = self.x_collar
                     y = self.y_collar
-                vertices.append([x, y, -i.base.z])
+                    z = self.z_collar - i.base.z
+                vertices.append([x, y, z])
                 base = len(vertices) - 1
             else:
                 base = vertices.index(i.base)
@@ -200,10 +212,8 @@ class Borehole3D(Striplog):
 
         return self._geometry
 
-
-    def plot3d(self, plotter=None, repr_legend=None, repr_attribute='lithology', repr_cmap=None,
-               x3d=False, diam=None, bg_color=["royalblue", "aliceblue"],
-               update_vtk=False, update_cmap=False,):
+    def plot3d(self, plotter=None, repr_legend=None, repr_attribute='lithology', repr_cmap=None, x3d=False, diam=None,
+               bg_color=["royalblue", "aliceblue"], update_vtk=False, update_cmap=False,):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -213,7 +223,14 @@ class Borehole3D(Striplog):
             Plotting object to display vtk meshes or numpy arrays (default=None)
             
         x3d : bool
-            if True, generates a 3xd file of the 3D (default=False)
+            If True, generates a 3xd file of the 3D (default=False)
+
+        diam: float
+            Borehole representation diameter
+
+        update_vtk : bool
+            If True, updates vtk objects
+
         """
         if plotter is None:
             plotter = pv.Plotter()
