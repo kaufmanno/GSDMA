@@ -1,10 +1,12 @@
 from striplog.utils import hex_to_rgb
-from striplog import Legend, Decor
+from striplog import Legend, Decor, Component
 import numpy as np
 import omf
 import re
 import matplotlib.colors as mcolors
 import core.omf
+from copy import deepcopy
+from utils.config import DEFAULT_ATTRIB_VALUE
 
 
 def striplog_legend_to_omf_legend(legend, alpha=1.):
@@ -31,6 +33,8 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
     for i in legend:
         omf_legend.append(i.colour)  # i.colour is in RGB format
         new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([alpha])]))
+    # print(new_colors)
+    # print(omf_legend)
 
     return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), \
         mcolors.ListedColormap(new_colors)
@@ -64,6 +68,7 @@ def build_bh3d_legend(borehole3d, legend, repr_attrib='lithology', width=3, upda
     else:
         components = borehole3d._components
 
+    # TODO : rewrite below like 'update_legend_cmap()' in project object
     for comp in components:
         if hasattr(comp, repr_attrib):
             comp_attr_val = comp[repr_attrib]
@@ -86,10 +91,10 @@ def build_bh3d_legend(borehole3d, legend, repr_attrib='lithology', width=3, upda
         list_of_decors.append(decor)
 
     plot_legend = Legend(list_of_decors)
-    plot_cmap = striplog_legend_to_omf_legend(legend)[1]
+    plot_cmap = striplog_legend_to_omf_legend(plot_legend)[1]
 
     if update_legend:
         borehole3d.cmap = plot_cmap
         borehole3d.legend = plot_legend
-    else:
-        return plot_legend, plot_cmap
+
+    return plot_legend, plot_cmap

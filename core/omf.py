@@ -40,8 +40,8 @@ class Borehole3D(Striplog):
 
     """
 
-    def __init__(self, intervals=None, components=None, repr_attribute='lithology', name='', diam=0.5, length=0,
-                 x_collar=0., y_collar=0., z_collar=None, legend=None):
+    def __init__(self, intervals=None, components=None, repr_attribute='lithology', name='',
+                 diam=0.5, length=0, x_collar=0., y_collar=0., z_collar=None, legend=None):
 
         """
         build a Borehole3D object from Striplog.Intervals list
@@ -73,7 +73,7 @@ class Borehole3D(Striplog):
         self.diameter = diam
         self.length = length
         self.cmap = None
-        self._repr_attribute = repr_attribute
+        self._repr_attribute = repr_attribute  # given repr_attribute
         self._components = components  # given components
 
         if intervals is None:
@@ -89,6 +89,11 @@ class Borehole3D(Striplog):
         self._vtk = None
         if self.z_collar is None and self.intervals is not None:
             self.update_z_collar_from_intervals()
+
+        # components from striplog are not in the correct intervals order
+        if components is None:
+            self._components = [i.components[0] for i in self.intervals]  # correct components order
+
         # instantiation with supers properties
         Striplog.__init__(self, list_of_Intervals=self.intervals)
 
@@ -100,7 +105,6 @@ class Borehole3D(Striplog):
             self._legend = legend  # given legend
 
         # create object legend
-        # self.legend = self._legend
         build_bh3d_legend(borehole3d=self, legend=self._legend, update_legend=True)
         self.omf_legend = striplog_legend_to_omf_legend(self.legend)[0]
         self.geometry
@@ -150,7 +154,6 @@ class Borehole3D(Striplog):
         assert(isinstance(value, str))
         self.repr_attribute = value
 
-
     @property
     def geometry(self):
         """
@@ -198,22 +201,19 @@ class Borehole3D(Striplog):
         vertices = np.array(vertices)
 
         self._geometry = omf.LineSetElement(name=self.name,
-                                           geometry=omf.LineSetGeometry(
-                                               vertices=vertices,
-                                               segments=segments),
-                                           data=[omf.MappedData(name='component',
-                                                                description='test',
-                                                                array=omf.ScalarArray(self.get_components_indices()),
-                                                                legends=[self.omf_legend],
-                                                                location='segments')]
+            geometry=omf.LineSetGeometry(vertices=vertices, segments=segments),
+            data=[omf.MappedData(name='component', description='test',
+                                 array=omf.ScalarArray(self.get_components_indices()),
+                                 legends=[self.omf_legend],location='segments')]
                                            )
 
         # print("Borehole geometry created successfully !")
 
         return self._geometry
 
-    def plot3d(self, plotter=None, repr_legend=None, repr_attribute='lithology', repr_cmap=None, x3d=False, diam=None,
-               bg_color=["royalblue", "aliceblue"], update_vtk=False, update_cmap=False,):
+    def plot3d(self, plotter=None, repr_legend=None, repr_attribute='lithology', repr_cmap=None,
+               x3d=False, diam=None, bg_color=["royalblue", "aliceblue"], update_vtk=False,
+               update_cmap=False, show_legend=True, scalar_bar_args=None, annotations=None):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -261,7 +261,39 @@ class Borehole3D(Striplog):
         else:
             plot_cmap = repr_cmap
 
-        plotter.add_mesh(seg, cmap=plot_cmap)
+        # display attribute values as a legend
+        if annotations is None:
+            n_col = len(plot_cmap.colors)  # number of elements to plot
+            # scalar_bar properties
+            if scalar_bar_args is None:
+                scalar_bar_args = dict(title=repr_attribute.capitalize(),
+                        title_font_size=30,label_font_size=12, n_labels=0,
+                        fmt="", font_family="arial", color='k', interactive=True,
+                        vertical=True, italic=True, shadow=False,)
+
+            incr = (n_col - 1)/n_col  # increment
+            bounds = [1]  # cmap colors limits
+            next_bound = 0
+            for i in range(1, n_col + 1):
+                if i >= 1 and i < n_col:
+                    next_bound += incr
+                    bounds.append(bounds[0] + next_bound)
+            bounds.append(n_col)  # add cmap last limit value
+            centers = [(bounds[i] + bounds[i + 1])/2 for i in range(n_col)]
+
+            comp_list = []
+            for c in self._components:
+                atv = c[repr_attribute]
+                if atv not in comp_list:
+                    comp_list.append(atv)
+            # comp_list = self._components
+            # TODO : reverse cmap only in the legend
+            annotations = {k: v for k, v in zip(centers, comp_list)}
+            print(annotations)
+        plotter.add_mesh(seg, cmap=plot_cmap, scalar_bar_args=scalar_bar_args,
+                         show_scalar_bar=not show_legend, annotations=annotations)
+        if show_legend:
+            plotter.add_scalar_bar(repr_attribute.capitalize(), interactive=True, vertical=False)
 
         # set background color for the render (None : pyvista default background color)
         if bg_color is not None:
