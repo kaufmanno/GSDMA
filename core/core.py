@@ -11,6 +11,7 @@ import numpy as np
 import pyvista as pv
 from utils.config import DEFAULT_ATTRIB_VALUE
 
+
 class Project:
     """
     Create a project that will contain Borehole object
