@@ -328,7 +328,7 @@ class Borehole3D(Striplog):
                                                               '\n</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
 
-    def plot2d(self, figsize=(6, 6), repr_legend=None, text_size=15, width=3, repr_attribute='lithology'):
+    def log_plot(self, figsize=(6, 6), repr_legend=None, text_size=15, width=3, repr_attribute='lithology'):
         """
         Plot a 2D lithological log
         """

@@ -39,7 +39,8 @@ class BoreholeOrm(Base):
     
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}>(Name={self.id}, Length={self.length}, Diameter={self.diameter}, Intervals={len(self.intervals)})"
+        return f"<{obj_class}>(Name={self.id}, Length={self.length}, Diameter={self.diameter}, " \
+               f"Intervals={len(self.intervals)})"
 
 
 class PositionOrm(Base):
@@ -72,6 +73,24 @@ class PositionOrm(Base):
     x = Column(Float(64), default=0.)
     y = Column(Float(64), default=0.)
     z = synonym('middle')
+
+
+class IntervalDataOrm(Base):
+    """The IntervalData table
+
+    """
+
+    __tablename__ = 'IntervalData'
+
+    id = Column(Integer, primary_key=True)
+    interval = Column(Integer, ForeignKey('Intervals.id'))
+    key = Column(String(32))
+    value = Column(Float(64))
+    units = Column(String(32))
+
+    def __repr__(self):
+        obj_class = str(self.__class__).strip('"<class>"').strip("' ")
+        return f"<{obj_class}>(Id={self.id})"
 
 
 class IntervalOrm(Base):
@@ -109,6 +128,13 @@ class IntervalOrm(Base):
     top = relationship(PositionOrm, foreign_keys=[top_id])
     base_id = Column(Integer, ForeignKey('Positions.id'))
     base = relationship(PositionOrm, foreign_keys=[base_id])
+    data_id = Column(Integer, ForeignKey('IntervalData.id'))
+    data = relationship(IntervalDataOrm, foreign_keys=[data_id])
+    #data = relationship(IntervalDataOrm, collection_class=attribute_mapped_collection('id'),
+    #                    cascade='all, delete-orphan')
+    #data_values = association_proxy('data', 'value',
+    #                                     creator=lambda k, v:
+    #                                     IntervalDataOrm(id=k, key=v['key'], value=v['value'], units=v['units']))
 
 
 class ComponentOrm(Base):
