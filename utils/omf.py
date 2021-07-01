@@ -40,7 +40,69 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
         mcolors.ListedColormap(new_colors)
 
 
-def build_bh3d_legend(borehole3d, legend, repr_attrib='lithology', width=3, update_legend=False):
+def build_bh3d_legend(bh3d_list, repr_attrib_list=['lithology'], legend_dict=None, width=3, update_legend=False):
+    """
+    Build a legend based on lithologies in the borehole
+
+    Parameters
+    -------------
+    bh3d: List of Borehole3D object
+    legend_dict: striplog.Legend object
+        A legend that contains default lithologies and their associated colors / hatches
+    Returns
+    --------
+    striplog.Legend
+    """
+
+    # given values test
+    if not isinstance(repr_attrib_list, list):
+        raise(TypeError('repr_attribute must be a list of attributes present in the component'))
+    if legend_dict is not None and not isinstance(legend_dict, dict):
+        raise(TypeError('legend must be a dict of attributes (key) and Striplog.Legend objects (value)'))
+
+    final_dict = {}
+    uniq_attrib_values = []  # list of distinct attributes (e.g: lithologies) in project boreholes
+    decors = {}  # dict of decors for building a project legend/cmap
+
+    for bh3d in bh3d_list:
+        if not isinstance(bh3d, core.omf.Borehole3D):
+            raise(TypeError('Element in borehole3d must be a Borehole3D object'))
+
+        for attr in repr_attrib_list:
+            if attr == 'lithology':
+                legend_copy = deepcopy(bh3d.legend_dict[attr])
+
+            for intv in bh3d.intervals:
+                if intv.components[0][attr] is None:
+                    intv.components[0][attr] = DEFAULT_ATTRIB_VALUE  # set to default value
+                if intv.components[0][attr] not in uniq_attrib_values:
+                    uniq_attrib_values.append(intv.components[0][attr])
+            # print(bh.name, ":", uniq_attrib_values)
+
+            for i in range((len(legend_copy))):
+                leg_value = legend_copy[i].component[attr]
+                reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
+                reg_value = list(filter(reg.match, uniq_attrib_values))  # find value that matches
+
+                if len(reg_value) > 0:
+                    # force matching to plot
+                    legend_copy[i].component = Component({attr: reg_value[0]})
+                    legend_copy[i].width = width
+                    # use interval order to obtain correct plot legend order
+                    decors.update({uniq_attrib_values.index(reg_value[0]): legend_copy[i]})
+
+            _decors = [decors[idx] for idx in range(len(decors.values()))]
+            _legend = Legend(_decors)
+            _cmap = striplog_legend_to_omf_legend(_legend)[1]
+
+            if update_legend:
+                bh3d.cmap = _cmap
+                bh3d.legend = _legend
+
+    return _legend, _cmap, uniq_attrib_values
+
+
+def old_build_bh3d_legend(borehole3d, legend, repr_attrib='lithology', width=3, update_legend=False):
     """
     Build a legend based on lithologies in the borehole
 
