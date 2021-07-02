@@ -25,7 +25,7 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
     ListedColormap(new_colors)
         matplotlib colormap
     """
-    # TODO: we must add colors as a parameter to allow to change colors style
+    # TODO: we must add colors as a parameter to allow to change colors style 
 
     omf_legend = []
     new_colors = []  # new_colors in RGBA format
