@@ -3,7 +3,7 @@ from utils.omf import striplog_legend_to_omf_legend
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from utils.omf import build_bh3d_legend
+from utils.omf import build_bh3d_legend_cmap
 from copy import deepcopy
 import re
 import omfvista as ov
@@ -88,22 +88,22 @@ class Borehole3D(Striplog):
                 print(f"No intervals given, default interval is used, with lithology ({DEFAULT_ATTRIB_VALUE})!\n")
 
         self.intervals = intervals
+
         if components is None:
             self._components = [i.components[0] for i in self.intervals]  # correct components order
         if self.z_collar is None and self.intervals is not None:
             self.update_z_collar_from_intervals()
 
+        if legend_dict is None or not isinstance(legend_dict[repr_attribute]['legend'], Legend):
+            print("No given legend or incorrect format ! Default is used")
+            self.legend_dict[repr_attribute]['legend'] = Legend.default()
+
         # instantiation with supers properties
         Striplog.__init__(self, list_of_Intervals=self.intervals)
 
-        # other object building processes
-        if legend_dict is None or not isinstance(legend_dict[repr_attribute], Legend):
-            print("No given legend or incorrect format ! Default is used")
-            self.legend_dict[repr_attribute] = Legend.default()
-
         # create object legend
-        build_bh3d_legend(bh3d_list=[self], legend_dict=self.legend_dict, update_legend=True)
-        self.omf_legend = striplog_legend_to_omf_legend(self.legend_dict[repr_attribute])[0]
+        build_bh3d_legend_cmap(bh3d_list=[self], legend_dict=self.legend_dict, update_legend=True)
+        self.omf_legend = striplog_legend_to_omf_legend(self.legend_dict[repr_attribute]['legend'])[0]
         self.geometry
         self.vtk()
 
@@ -246,10 +246,10 @@ class Borehole3D(Striplog):
 
         if repr_cmap is None:  # compute cmap if not given
             print('Colormap computing ...')
-            plot_legend, plot_cmap, uniq_attr_val = build_bh3d_legend(bh3d_list=[self],
-                                                          legend_dict={repr_attribute: repr_legend},
-                                                          repr_attrib_list=[repr_attribute],
-                                                          update_legend=False)
+            plot_legend, plot_cmap, uniq_attr_val = build_bh3d_legend_cmap(bh3d_list=[self],
+                                                                           legend_dict={repr_attribute: repr_legend},
+                                                                           repr_attrib_list=[repr_attribute],
+                                                                           update_legend=False)
             if update_cmap:
                 self.cmap = plot_cmap
         else:
@@ -261,7 +261,7 @@ class Borehole3D(Striplog):
             # scalar_bar properties
             if scalar_bar_args is None:
                 scalar_bar_args = dict(title=repr_attribute.capitalize(),
-                        title_font_size=30,label_font_size=12, n_labels=0,
+                        title_font_size=30, label_font_size=12, n_labels=0,
                         fmt="", font_family="arial", color='k', interactive=True,
                         vertical=True, italic=True, shadow=False,)
 

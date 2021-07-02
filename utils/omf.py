@@ -40,15 +40,19 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
         mcolors.ListedColormap(new_colors)
 
 
-def build_bh3d_legend(bh3d_list, repr_attrib_list=['lithology'], legend_dict=None, width=3, update_legend=False):
+def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'], width=3,
+                           update_legend=False):
     """
     Build a legend based on lithologies in the borehole
 
     Parameters
     -------------
-    bh3d: List of Borehole3D object
-    legend_dict: striplog.Legend object
-        A legend that contains default lithologies and their associated colors / hatches
+    bh3d_list: List of Borehole3D objects
+    legend_dict: dict of dict
+        A dictionary that contains default legend (and cmap) for each attribute.
+        Legend must be a Striplog.Legend object (and cmap, a Matplotlib.Colors.ListedColormap object).
+        e.g: legend_dict={"attribute1": {"legend":Striplog.Legend}}
+
     Returns
     --------
     striplog.Legend
@@ -57,10 +61,10 @@ def build_bh3d_legend(bh3d_list, repr_attrib_list=['lithology'], legend_dict=Non
     # given values test
     if not isinstance(repr_attrib_list, list):
         raise(TypeError('repr_attribute must be a list of attributes present in the component'))
-    if legend_dict is not None and not isinstance(legend_dict, dict):
-        raise(TypeError('legend must be a dict of attributes (key) and Striplog.Legend objects (value)'))
+    if not isinstance(legend_dict, dict):
+        raise(TypeError('legend must be a dict of attributes (key) and legend (and cmap) dict (value).'))
 
-    final_dict = {}
+    process_result = {}  # all boreholes legend dicts
     uniq_attrib_values = []  # list of distinct attributes (e.g: lithologies) in project boreholes
     decors = {}  # dict of decors for building a project legend/cmap
 
@@ -69,9 +73,11 @@ def build_bh3d_legend(bh3d_list, repr_attrib_list=['lithology'], legend_dict=Non
             raise(TypeError('Element in borehole3d must be a Borehole3D object'))
 
         for attr in repr_attrib_list:
-            if attr == 'lithology':
-                legend_copy = deepcopy(bh3d.legend_dict[attr])
+            # print(attr, '\n', legend_dict[attr].keys())
+            if not isinstance(legend_dict[attr]['legend'], Legend):
+                raise (TypeError('legend must be a Striplog.Legend object. Check the docstring!'))
 
+            legend_copy = deepcopy(bh3d.legend_dict[attr]['legend'])
             for intv in bh3d.intervals:
                 if intv.components[0][attr] is None:
                     intv.components[0][attr] = DEFAULT_ATTRIB_VALUE  # set to default value
@@ -95,68 +101,11 @@ def build_bh3d_legend(bh3d_list, repr_attrib_list=['lithology'], legend_dict=Non
             _legend = Legend(_decors)
             _cmap = striplog_legend_to_omf_legend(_legend)[1]
 
+            process_result[bh3d.name] = {}
+            process_result[bh3d.name][attr] = {'legend': _legend, 'cmap': _cmap,
+                                               'values': uniq_attrib_values}
+
             if update_legend:
-                bh3d.cmap = _cmap
-                bh3d.legend = _legend
+                bh3d.legend_dict[attr] = {'legend': _legend, 'cmap': _cmap}
 
-    return _legend, _cmap, uniq_attrib_values
-
-
-def old_build_bh3d_legend(borehole3d, legend, repr_attrib='lithology', width=3, update_legend=False):
-    """
-    Build a legend based on lithologies in the borehole
-
-    Parameters
-    -------------
-    borehole3d: Borehole3D object
-    legend: striplog.Legend object
-        A legend that contains default lithologies and their associated colors / hatches
-    Returns
-    --------
-    striplog.Legend
-    """
-
-    # given values test
-    if not isinstance(legend, Legend):
-        raise(TypeError('legend must be a Striplog.Legend object'))
-
-    if not isinstance(borehole3d, core.omf.Borehole3D):
-        raise(TypeError('Element in borehole3d must be a Borehole3D object'))
-
-    list_of_decors, hatches_used = [], []
-
-    if borehole3d._components is None:
-        components = [i.components[0] for i in borehole3d.intervals]  # don't use self.components !
-    else:
-        components = borehole3d._components
-
-    # TODO : rewrite below like 'update_legend_cmap()' in project object
-    for comp in components:
-        if hasattr(comp, repr_attrib):
-            comp_attr_val = comp[repr_attrib]
-            for leg in legend:
-                leg_attr_val = leg.component[repr_attrib]
-                if leg_attr_val is None:
-                    # legend_copy[i].component[repr_attribute] = DEFAULT_ATTRIB_VALUE
-                    # leg_value = DEFAULT_ATTRIB_VALUE
-                    pass
-                reg = re.compile("^{:s}$".format(leg_attr_val), flags=re.I).match(comp_attr_val)
-
-                if reg:  # attribute value found
-                    c = leg.colour
-                    h = leg.hatch
-        else:
-            raise(TypeError('Cannot create a legend for empty component'))
-            pass
-
-        decor = Decor({'color': c, 'hatch': h, 'component': comp, 'width': width})
-        list_of_decors.append(decor)
-
-    plot_legend = Legend(list_of_decors)
-    plot_cmap = striplog_legend_to_omf_legend(plot_legend)[1]
-
-    if update_legend:
-        borehole3d.cmap = plot_cmap
-        borehole3d.legend = plot_legend
-
-    return plot_legend, plot_cmap
+    return process_result

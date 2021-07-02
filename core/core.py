@@ -34,7 +34,7 @@ class Project:
         
     """
     
-    def __init__(self, session, legend_dict=None, lexicon=None, repr_attribute='lithology', name='new_project'):
+    def __init__(self, session, legend_dict=None, lexicon=None, repr_attribute=['lithology'], name='new_project'):
         """
         Project class
         
@@ -109,7 +109,8 @@ class Project:
         self.refresh()
         list_of_intervals, bh.length = get_interval_list(bh, lexicon=self.lexicon)
         self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals,
-                                            legend=self.legend, length=bh.length))
+                                            legend_dict=self.legend_dict[self.repr_attribute],
+                                            length=bh.length))
             
     def add_components(self, components):
         """
