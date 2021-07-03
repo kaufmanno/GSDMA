@@ -11,7 +11,7 @@ import pyvista as pv
 import omf
 from vtk import vtkX3DExporter
 from IPython.display import HTML
-from utils.config import DEFAULT_ATTRIB_VALUE, DEFAULT_ATTRIB_VALUE
+from utils.config import DEFAULT_ATTRIB_VALUE
 
 
 class Borehole3D(Striplog):
@@ -41,7 +41,8 @@ class Borehole3D(Striplog):
     """
 
     def __init__(self, intervals=None, components=None, repr_attribute='lithology', name='BH3D',
-                 diam=0.5, length=0, x_collar=0., y_collar=0., z_collar=None, legend_dict=None):
+                 diam=0.5, length=0, x_collar=0., y_collar=0., z_collar=None, legend_dict=None,
+                 compute_all_legend=True):
         """
         build a Borehole3D object from Striplog.Intervals list
         
@@ -71,10 +72,10 @@ class Borehole3D(Striplog):
         self.z_collar = z_collar
         self.diameter = diam
         self.length = length
-        self.legend_dict = legend_dict
+        self.legend_dict = deepcopy(legend_dict)  # not alter given legend_dict
         self._repr_attribute = repr_attribute  # given repr_attribute
         self._components = components  # given components
-        self._geometry = []
+        self.geometry = None
         self._vtk = None
         self.cmap = None
 
@@ -85,7 +86,8 @@ class Borehole3D(Striplog):
                 lexicon = Lexicon.default()
                 intervals = [Interval(top=0, base=length, description=DEFAULT_ATTRIB_VALUE,
                                       lexicon=lexicon)]
-                print(f"No intervals given, default interval is used, with lithology ({DEFAULT_ATTRIB_VALUE})!\n")
+                print(f"No intervals given, default interval is used, "
+                      f"with lithology ({DEFAULT_ATTRIB_VALUE})!\n")
 
         self.intervals = intervals
 
@@ -102,10 +104,85 @@ class Borehole3D(Striplog):
         Striplog.__init__(self, list_of_Intervals=self.intervals)
 
         # create object legend
-        build_bh3d_legend_cmap(bh3d_list=[self], legend_dict=self.legend_dict, update_legend=True)
+        build_bh3d_legend_cmap(bh3d_list=[self], legend_dict=self.legend_dict,
+                               compute_all=compute_all_legend, update_bh3d_legend=True)
         self.omf_legend = striplog_legend_to_omf_legend(self.legend_dict[repr_attribute]['legend'])[0]
-        self.geometry
+        self._geometry
         self.vtk()
+
+    # ----------------------------------- Methods ------------------------------------------
+    @property
+    def repr_attribute(self):
+        return self._repr_attribute
+
+    @repr_attribute.setter
+    def repr_attribute(self, value):
+        assert (isinstance(value, str))
+        self._repr_attribute = value
+
+    @property
+    def _geometry(self):
+        """
+        build an omf.LineSetElement geometry of the borehole
+
+        Returns
+        --------
+        geometry : omf.lineset.LineSetGeometry
+            Contains spatial information of a line set
+        """
+
+        vertices, segments = [], []
+        for i in self.intervals:
+            if i.top not in vertices:
+                if hasattr(i.top, 'x') and hasattr(i.top, 'y') and hasattr(i.top, 'z'):
+                    x = i.top.x
+                    y = i.top.y
+                    z = i.top.z
+                else:
+                    x = self.x_collar
+                    y = self.y_collar
+                    z = self.z_collar - i.top.z
+                vertices.append([x, y, z])
+                top = len(vertices) - 1
+            else:
+                top = vertices.index(i.top)
+
+            if i.base not in vertices:
+                if hasattr(i.base, 'x') and hasattr(i.base, 'y') and hasattr(i.top, 'z'):
+                    x = i.base.x
+                    y = i.base.y
+                    z = i.base.z
+                else:
+                    x = self.x_collar
+                    y = self.y_collar
+                    z = self.z_collar - i.base.z
+                vertices.append([x, y, z])
+                base = len(vertices) - 1
+            else:
+                base = vertices.index(i.base)
+
+            segments.append([top, base])
+
+        vertices = np.array(vertices)
+
+        self.geometry = omf.LineSetElement(
+            name=self.name, geometry=omf.LineSetGeometry(vertices=vertices, segments=segments),
+            data=[omf.MappedData(name='component', description='',
+                                 array=omf.ScalarArray(self.get_components_indices(self.repr_attribute)),
+                                 legends=[self.omf_legend], location='segments')])
+
+        print("Borehole geometry created successfully !")
+
+        # return self._geometry
+
+    def vtk(self, radius=None, res=50):
+        """ build a vtk tube of given radius based on the borehole geometry """
+        if radius is None:
+            radius = self.diameter/2 * 5  # multiply for visibility
+            vtk_obj = ov.line_set_to_vtk(self.geometry).tube(radius=radius, n_sides=res)
+            vtk_obj.set_active_scalars('component')
+            self._vtk = vtk_obj
+        return self._vtk
 
     def update_z_collar_from_intervals(self):
         """
@@ -123,84 +200,10 @@ class Borehole3D(Striplog):
         """
         comp_list = list(pd.unique([c[repr_attribute] for c in self._components]))
         indices = [comp_list.index(i.primary[repr_attribute]) for i in self.intervals]
+
         # print([i.primary[repr_attribute] for i in self.intervals])
-        print(indices)
+        # print(indices)
         return np.array(indices)
-
-    def vtk(self, radius=None, res=50):
-        """ build a vtk tube of given radius based on the borehole geometry """
-        if radius is None:
-            radius = self.diameter/2 * 5  # multiply for visibility
-            vtk_obj = ov.line_set_to_vtk(self.geometry).tube(radius=radius, n_sides=res)
-            vtk_obj.set_active_scalars('component')
-            self._vtk = vtk_obj
-        return self._vtk
-
-    @property
-    def repr_attribute(self):
-        return self._repr_attribute
-
-    @repr_attribute.setter
-    def repr_attribute(self, value):
-        assert(isinstance(value, str))
-        self.repr_attribute = value
-
-    @property
-    def geometry(self):
-        """
-        build an omf.LineSetElement geometry of the borehole
-        
-        Returns
-        --------
-        geometry : omf.lineset.LineSetGeometry
-            Contains spatial information of a line set
-        """
-
-        vertices, segments = [], []
-
-        for i in self.intervals:
-            if i.top not in vertices:
-                if hasattr(i.top, 'x') and hasattr(i.top, 'y') and hasattr(i.top, 'z'):
-                    x = i.top.x
-                    y = i.top.y
-                    z = i.top.z
-                else:
-                    x = self.x_collar
-                    y = self.y_collar
-                    z = self.z_collar-i.top.z
-                vertices.append([x, y, z])
-                top = len(vertices) - 1
-            else:
-                top = vertices.index(i.top)
-
-            if i.base not in vertices:
-                if hasattr(i.base, 'x') and hasattr(i.base, 'y') and hasattr(i.top, 'z'):
-                    x = i.base.x
-                    y = i.base.y
-                    z= i.base.z
-                else:
-                    x = self.x_collar
-                    y = self.y_collar
-                    z = self.z_collar - i.base.z
-                vertices.append([x, y, z])
-                base = len(vertices) - 1
-            else:
-                base = vertices.index(i.base)
-
-            segments.append([top, base])
-
-        vertices = np.array(vertices)
-
-        self._geometry = omf.LineSetElement(
-            name=self.name, geometry=omf.LineSetGeometry(vertices=vertices, segments=segments),
-            data=[omf.MappedData(name='component', description='',
-                array=omf.ScalarArray(self.get_components_indices(self.repr_attribute)),
-                legends=[self.omf_legend], location='segments')]
-                                           )
-
-        # print("Borehole geometry created successfully !")
-
-        return self._geometry
 
     def plot3d(self, plotter=None, repr_legend=None, repr_attribute='lithology', repr_cmap=None,
                x3d=False, diam=None, bg_color=["royalblue", "aliceblue"], update_vtk=False,
@@ -235,24 +238,27 @@ class Borehole3D(Striplog):
         elif diam is None and self.diameter != 0:
             diam = self.diameter
 
-        if repr_legend is None:
-            repr_legend = self.legend_dict[repr_attribute]
-
         if update_vtk or diam is not None:
-            seg = self.vtk(radius=(diam/2)*10)
+            seg = self.vtk(radius=(diam/2)*5)
         else:
             seg = self._vtk
         seg.set_active_scalars('component')
 
-        if repr_cmap is None:  # compute cmap if not given
+        if repr_legend is None:
+            repr_legend = self.legend_dict[repr_attribute]['legend']
+
+        if 'cmap' in self.legend_dict[repr_attribute].keys() and repr_cmap is None:
+            plot_cmap = self.legend_dict[repr_attribute]['cmap']
+            uniq_attr_val = self.legend_dict[repr_attribute]['values']
+        else:   # compute cmap
             print('Colormap computing ...')
-            plot_legend, plot_cmap, uniq_attr_val = build_bh3d_legend_cmap(bh3d_list=[self],
-                                                                           legend_dict={repr_attribute: repr_legend},
-                                                                           repr_attrib_list=[repr_attribute],
-                                                                           update_legend=False)
-            if update_cmap:
-                self.cmap = plot_cmap
-        else:
+            synth_legend = build_bh3d_legend_cmap(bh3d_list=[self], repr_attrib_list=[repr_attribute],
+                                                  legend_dict={repr_attribute: {'legend': repr_legend}},
+                                                  update_bh3d_legend=update_cmap)[0]
+            plot_cmap = synth_legend[repr_attribute]['cmap']
+            uniq_attr_val = synth_legend[repr_attribute]['values']
+
+        if repr_cmap is not None:
             plot_cmap = repr_cmap
 
         # display attribute values as a legend
@@ -285,6 +291,7 @@ class Borehole3D(Striplog):
             annotations = {k: v for k, v in zip(centers, uniq_attr_val)}
             print(annotations)
         print(len(plot_cmap.colors))
+
         plotter.add_mesh(seg, cmap=plot_cmap, scalar_bar_args=scalar_bar_args,
                          show_scalar_bar=not show_legend, annotations=annotations)
         if show_legend:
@@ -334,7 +341,7 @@ class Borehole3D(Striplog):
         """
 
         if repr_legend is None:
-            repr_legend = self.legend_dict[repr_attribute]
+            repr_legend = self.legend_dict[repr_attribute]['legend']
 
         legend_copy = deepcopy(repr_legend)  # work with a copy to keep initial legend state
         decors = {}  # dict of decors to build a own legend for the borehole

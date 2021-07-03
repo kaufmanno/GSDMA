@@ -617,8 +617,8 @@ def read_gdf_file(filename=None, epsg=None, to_epsg=None, interact=False):  # fi
 
             if resp == 'y':
                 gdf = gdf.drop(['Longitude', 'Latitude', 'X', 'Y'], axis=1, errors='ignore')
-                gdf.insert(0, 'X', [row.geometry.x for idx, row in gdf.iterrows()])
-                gdf.insert(1, 'Y', [row.geometry.y for idx, row in gdf.iterrows()])
+                gdf.insert(0, 'X', [row._geometry.x for idx, row in gdf.iterrows()])
+                gdf.insert(1, 'Y', [row._geometry.y for idx, row in gdf.iterrows()])
                 break
             elif resp == 'n':
                 break
@@ -627,8 +627,8 @@ def read_gdf_file(filename=None, epsg=None, to_epsg=None, interact=False):  # fi
     elif to_epsg is not None and interact is False:
         gdf.to_crs(epsg=to_epsg, inplace=True)
         gdf = gdf.drop(['Longitude', 'Latitude', 'X', 'Y'], axis=1, errors='ignore')
-        gdf.insert(0, 'X', [row.geometry.x for idx, row in gdf.iterrows()])
-        gdf.insert(1, 'Y', [row.geometry.y for idx, row in gdf.iterrows()])
+        gdf.insert(0, 'X', [row._geometry.x for idx, row in gdf.iterrows()])
+        gdf.insert(1, 'Y', [row._geometry.y for idx, row in gdf.iterrows()])
 
     return gdf
 
@@ -667,15 +667,15 @@ def export_gdf(gdf, epsg, save_name=None):
     elif ext == 'csv':
         if 'X' in gdf.columns:
             gdf = gdf.drop(['X'], axis=1)
-            gdf.insert(0, 'X', gdf.geometry.x)
+            gdf.insert(0, 'X', gdf._geometry.x)
         else:
-            gdf.insert(0, 'X', gdf.geometry.x)
+            gdf.insert(0, 'X', gdf._geometry.x)
 
         if 'Y' in gdf.columns:
             gdf = gdf.drop(['Y'], axis=1)
-            gdf.insert(1, 'Y', gdf.geometry.y)
+            gdf.insert(1, 'Y', gdf._geometry.y)
         else:
-            gdf.insert(1, 'Y', gdf.geometry.y)
+            gdf.insert(1, 'Y', gdf._geometry.y)
 
         gdf.to_csv(f'{save_name}', index_label="Id", index=False, sep=',')
         print(f'{save_name}' + " has been saved !")

@@ -82,7 +82,7 @@ class Project:
                 list_of_intervals, bh.length = get_interval_list(bh, lexicon=self.lexicon)
                 if verbose:
                     print(bh.id, " added")
-                self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, legend=self.legend,
+                self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, legend_dict=self.legend,
                                                     intervals=list_of_intervals, length=bh.length))
 
     def commit(self):
@@ -109,8 +109,7 @@ class Project:
         self.refresh()
         list_of_intervals, bh.length = get_interval_list(bh, lexicon=self.lexicon)
         self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals,
-                                            legend_dict=self.legend_dict[self.repr_attribute],
-                                            length=bh.length))
+                                            legend_dict=self.legend_dict, length=bh.length))
             
     def add_components(self, components):
         """
@@ -229,7 +228,7 @@ class Project:
             bh.plot3d(plotter=pl, bg_color=bg_color, repr_legend=plot_legend, repr_cmap=plot_cmap,
                       repr_attribute=repr_attribute)
             name_pts.update({bh.name: bh._vtk.center[:2]+[bh.z_collar]})
-        print(name_pts)
+        # print(name_pts)
 
         if labels_color is None:
             labels_color = 'black'
