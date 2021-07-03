@@ -42,24 +42,40 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
 
 
 def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'], width=3,
-                           compute_all=False, update_bh3d_legend=False, update_legend=False, verbose=False):
+                           compute_all=False, update_bh3d_legend=False,
+                           update_given_legend=False, verbose=False):
     """
-    Build a legend based on lithologies in the borehole
+    Build legends and colormaps based on attribute values in boreholes
 
     Parameters
     -------------
     bh3d_list: List of Borehole3D objects
-    legend_dict: dict of dict
+
+    legend_dict: Dict of dict
         A dictionary that contains default legend (and cmap) for each attribute.
         Legend must be a Striplog.Legend object (and cmap, a Matplotlib.Colors.ListedColormap object).
         e.g: legend_dict={"attribute1": {"legend":Striplog.Legend}}
 
+    repr_attrib_list: List of str
+        specifies the attributes for which the legend and cmap should be computed
+
+    compute_all: Bool (default=False)
+        compute legend and cmap for all attributes (keys) found in legend_dict.
+        If True, no need to set 'repr_attrib_list'
+
+    update_bh3d_legend: Bool (default=False)
+        If True, updates each borehole legend, cmap
+
+    update_given_legend: Bool (default=False)
+        If True, updates legend, cmap, unique values for each attribute in the given legend_dict
+
     Returns
     --------
-    striplog.Legend
+    synth_legend_cmap : dict of synthetic legend, cmap and unique values basis on all boreholes
+
+    detail_legend_cmap : dict of legend, cmap and unique values for each borehole
     """
 
-    # given values test
     if not isinstance(repr_attrib_list, list):
         raise(TypeError('repr_attribute must be a list of attributes present in the component'))
     if not isinstance(legend_dict, dict):
@@ -68,8 +84,11 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
     if compute_all:  # compute legend, cmap, unique_values for each key in the legend dict
         repr_attrib_list = list(legend_dict.keys())
 
-    detail_legend_cmap = {}  # all boreholes legend/cmap dicts
-    synth_legend_cmap = {}  # synthetic legend/cmap dict for all boreholes
+    detail_legend_cmap = {}  # contains legend/cmap dicts for each borehole
+    synth_legend_cmap = {}  # synthetic legend/cmap dict basis on all boreholes data
+
+    if verbose:
+        print(f'given legend_dict : {legend_dict} \n')
 
     for attr in repr_attrib_list:
         if verbose:
@@ -131,8 +150,9 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
         glob_legend = Legend(glob_decors)
         glob_cmap = striplog_legend_to_omf_legend(glob_legend)[1]
 
-        synth_legend_cmap[attr] = {'legend': glob_legend, 'cmap': glob_cmap, 'values': global_uniq_attrib_val}
-        if update_legend:
-            legend_dict = synth_legend_cmap
+        synth_legend_cmap[attr] = {'legend': glob_legend, 'cmap': glob_cmap,
+                                   'values': global_uniq_attrib_val}
+        if update_given_legend:
+            legend_dict[attr] = synth_legend_cmap[attr]
 
     return synth_legend_cmap, detail_legend_cmap

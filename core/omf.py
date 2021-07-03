@@ -77,15 +77,15 @@ class Borehole3D(Striplog):
         self._components = components  # given components
         self.geometry = None
         self._vtk = None
-        self.cmap = None
+        # self.cmap = None
 
         if intervals is None:
             if length <= 0.:
                 raise (ValueError("Cannot create a borehole without length and interval !"))
             else:
                 lexicon = Lexicon.default()
-                intervals = [Interval(top=0, base=length, description=DEFAULT_ATTRIB_VALUE,
-                                      lexicon=lexicon)]
+                intervals = [Interval(top=0, base=length, lexicon=lexicon,
+                                      description=DEFAULT_ATTRIB_VALUE)]
                 print(f"No intervals given, default interval is used, "
                       f"with lithology ({DEFAULT_ATTRIB_VALUE})!\n")
 
@@ -96,6 +96,7 @@ class Borehole3D(Striplog):
         if self.z_collar is None and self.intervals is not None:
             self.update_z_collar_from_intervals()
 
+        print(legend_dict.keys())
         if legend_dict is None or not isinstance(legend_dict[repr_attribute]['legend'], Legend):
             print("No given legend or incorrect format ! Default is used")
             self.legend_dict[repr_attribute]['legend'] = Legend.default()
@@ -171,6 +172,10 @@ class Borehole3D(Striplog):
                                  array=omf.ScalarArray(self.get_components_indices(self.repr_attribute)),
                                  legends=[self.omf_legend], location='segments')])
 
+        #-----------------------------------------
+        # TODO: try to map data with unique index value for each component
+        # -----------------------------------
+
         print("Borehole geometry created successfully !")
 
         # return self._geometry
@@ -184,16 +189,10 @@ class Borehole3D(Striplog):
             self._vtk = vtk_obj
         return self._vtk
 
-    def update_z_collar_from_intervals(self):
-        """
-        updates z_collar assuming that collar is at the top elevation of the highest interval
-        """
-        self.z_collar = max([i.top.z for i in self.intervals])
-
     def get_components_indices(self, repr_attribute):
         """
         retrieve components indices from borehole's intervals
-        
+
         Returns
         --------
         array of indices
@@ -202,8 +201,14 @@ class Borehole3D(Striplog):
         indices = [comp_list.index(i.primary[repr_attribute]) for i in self.intervals]
 
         # print([i.primary[repr_attribute] for i in self.intervals])
-        # print(indices)
+        print(indices)
         return np.array(indices)
+
+    def update_z_collar_from_intervals(self):
+        """
+        updates z_collar assuming that collar is at the top elevation of the highest interval
+        """
+        self.z_collar = max([i.top.z for i in self.intervals])
 
     def plot3d(self, plotter=None, repr_legend=None, repr_attribute='lithology', repr_cmap=None,
                x3d=False, diam=None, bg_color=["royalblue", "aliceblue"], update_vtk=False,

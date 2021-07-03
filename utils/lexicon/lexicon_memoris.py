@@ -69,7 +69,7 @@ LITHOLOGY_MEMORIS = """colour,width, hatch, component lithology
 #019CCD, None, None, Carbonate(?:s)?,
 #149EFF, None, '=', Calcaire(?:s)?,
 #FDAAFF, None, None, Dolomite(?:s)?,
-#FDAAFF, None, None, Dolomie(?:s)?,
+#FDAFFE, None, None, Dolomie(?:s)?,
 #DEEFFE, None, None, Craie(?:s)?,
 #AAC2C8, None, None, Chert(?:s)?,
 #000000, None, None, Charbon(?:s)?,
