@@ -379,9 +379,9 @@ class Borehole3D(Striplog):
                 # use interval order to obtain correct plot legend order
                 decors.update({attrib_values.index(reg_value[0]): legend_copy[i]})
 
-        print(decors)
-        #plot_decors = [decors[idx] for idx in range(len(decors.values())-1, -1, -1)]
-        plot_legend = Legend([decors[k] for k in sorted(decors.keys())]) #plot_decors)
+        rev_decors = list(decors.values())
+        rev_decors.reverse()
+        plot_legend = Legend([v for v in rev_decors])
 
         fig, ax = plt.subplots(ncols=2, figsize=figsize)
         ax[0].set_title(self.name, size=text_size, color='b')

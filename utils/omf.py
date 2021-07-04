@@ -83,9 +83,6 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
     detail_legend_cmap = {}  # contains legend/cmap dicts for each borehole
     synth_legend_cmap = {}  # synthetic legend/cmap dict basis on all boreholes data
 
-    if verbose:
-        print(f'given legend_dict : {legend_dict} \n')
-
     for attr in repr_attrib_list:
         if verbose:
             print(attr, '\n---------------------')
@@ -115,12 +112,13 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
 
             for i in range((len(legend_copy))):
                 leg_value = legend_copy[i].component[attr]
-                print(leg_value)
-                if leg_value is None:  # attribute not found in legend component
+                # print('build_leg_func:', leg_value)
+                if leg_value is None or leg_value.lower()=='none':  # not found in legend component
                     legend_copy[i].component[attr] = DEFAULT_ATTRIB_VALUE
                     leg_value = DEFAULT_ATTRIB_VALUE
+
                 reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
-                reg_value = list(filter(reg.match, bh3d_uniq_attrib_val))  # find value that matches
+                reg_value = list(filter(reg.match, bh3d_uniq_attrib_val))  # value that matches
 
                 if len(reg_value) > 0:
                     # force matching to plot

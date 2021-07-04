@@ -204,8 +204,8 @@ class Project:
         #     plot_legend, plot_cmap = self.update_legend_cmap(repr_attribute=repr_attribute)
 
         for bh in self.boreholes_3d:
-            bh.plot3d(plotter=pl, bg_color=bg_color, repr_legend=plot_legend, repr_cmap=plot_cmap,
-                      repr_attribute=repr_attribute)
+            bh.plot3d(plotter=pl, bg_color=bg_color, repr_legend_dict=plot_legend,
+                      repr_cmap=plot_cmap,repr_attribute=repr_attribute)
             name_pts.update({bh.name: bh._vtk.center[:2]+[bh.z_collar]})
         # print(name_pts)
 
@@ -218,7 +218,10 @@ class Project:
             # print(len(list(pts.keys())))
             pl.add_point_labels(pv_pts, 'bh_name', point_size=1, font_size=labels_size,
                                 text_color=labels_color, show_points=False)
-            
+
+        #if custom_legend:
+        #    plotter.add_scalar_bar(repr_attribute.upper(), interactive=True, vertical=True)
+
         if not x3d:
             pl.show()
         else:
