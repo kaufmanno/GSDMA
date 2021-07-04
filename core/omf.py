@@ -96,7 +96,7 @@ class Borehole3D(Striplog):
         if self.z_collar is None and self.intervals is not None:
             self.update_z_collar_from_intervals()
 
-        print(legend_dict.keys())
+        # print(legend_dict.keys())
         if legend_dict is None or not isinstance(legend_dict[repr_attribute]['legend'], Legend):
             print("No given legend or incorrect format ! Default is used")
             self.legend_dict[repr_attribute]['legend'] = Legend.default()
@@ -168,13 +168,9 @@ class Borehole3D(Striplog):
 
         self.geometry = omf.LineSetElement(
             name=self.name, geometry=omf.LineSetGeometry(vertices=vertices, segments=segments),
-            data=[omf.MappedData(name='component', description='',
+            data=[omf.MappedData(name=self.repr_attribute, description='',
                                  array=omf.ScalarArray(self.get_components_indices(self.repr_attribute)),
                                  legends=[self.omf_legend], location='segments')])
-
-        #-----------------------------------------
-        # TODO: try to map data with unique index value for each component
-        # -----------------------------------
 
         print("Borehole geometry created successfully !")
 
@@ -185,7 +181,7 @@ class Borehole3D(Striplog):
         if radius is None:
             radius = self.diameter/2 * 5  # multiply for visibility
             vtk_obj = ov.line_set_to_vtk(self.geometry).tube(radius=radius, n_sides=res)
-            vtk_obj.set_active_scalars('component')
+            vtk_obj.set_active_scalars(self.repr_attribute)
             self._vtk = vtk_obj
         return self._vtk
 
@@ -201,7 +197,7 @@ class Borehole3D(Striplog):
         indices = [comp_list.index(i.primary[repr_attribute]) for i in self.intervals]
 
         # print([i.primary[repr_attribute] for i in self.intervals])
-        print(indices)
+        print(f'indices: {np.array(indices)}')
         return np.array(indices)
 
     def update_z_collar_from_intervals(self):
@@ -247,19 +243,18 @@ class Borehole3D(Striplog):
             seg = self.vtk(radius=(diam/2)*5)
         else:
             seg = self._vtk
-        seg.set_active_scalars('component')
+        seg.set_active_scalars(repr_attribute)
 
         if repr_legend is None:
             repr_legend = self.legend_dict[repr_attribute]['legend']
-
-        if 'cmap' in self.legend_dict[repr_attribute].keys() and repr_cmap is None:
-            plot_cmap = self.legend_dict[repr_attribute]['cmap']
-            uniq_attr_val = self.legend_dict[repr_attribute]['values']
+            if 'cmap' in self.legend_dict[repr_attribute].keys() and repr_cmap is None:
+                plot_cmap = self.legend_dict[repr_attribute]['cmap']
+                uniq_attr_val = self.legend_dict[repr_attribute]['values']
         else:   # compute cmap
             print('Colormap computing ...')
             synth_legend = build_bh3d_legend_cmap(bh3d_list=[self], repr_attrib_list=[repr_attribute],
-                                                  legend_dict={repr_attribute: {'legend': repr_legend}},
-                                                  update_bh3d_legend=update_cmap)[0]
+                                legend_dict={repr_attribute: {'legend': repr_legend}},
+                                update_bh3d_legend=update_cmap)[0]
             plot_cmap = synth_legend[repr_attribute]['cmap']
             uniq_attr_val = synth_legend[repr_attribute]['values']
 
@@ -286,16 +281,10 @@ class Borehole3D(Striplog):
             bounds.append(n_col)  # add cmap last limit value
             centers = [(bounds[i] + bounds[i + 1])/2 for i in range(n_col)]
 
-            #comp_list = []
-            # for c in self._components:
-            #     atv = c[repr_attribute]
-            #     if atv not in comp_list:
-            #         comp_list.append(atv)
-            # comp_list = self._components
-            # TODO : reverse cmap only in the legend
+            # TODO : reverse cmap only in the legend for vertical cmap
             annotations = {k: v for k, v in zip(centers, uniq_attr_val)}
-            print(annotations)
-        print(len(plot_cmap.colors))
+            # print(annotations)
+        # print(len(plot_cmap.colors))
 
         plotter.add_mesh(seg, cmap=plot_cmap, scalar_bar_args=scalar_bar_args,
                          show_scalar_bar=not show_legend, annotations=annotations)
@@ -363,7 +352,7 @@ class Borehole3D(Striplog):
             attrib_values.append(intv_value)
 
         attrib_values = list(pd.unique(attrib_values))  # to treat duplicate values
-        for i in range((len(legend_copy))):
+        for i in range(len(legend_copy)):
             leg_value = legend_copy[i].component[repr_attribute]
             if leg_value is None:  # attribute not found in legend component
                 legend_copy[i].component[repr_attribute] = DEFAULT_ATTRIB_VALUE
@@ -380,7 +369,7 @@ class Borehole3D(Striplog):
 
         plot_decors = [decors[idx] for idx in range(len(decors.values())-1, -1, -1)]
         plot_legend = Legend(plot_decors)
-        # print(self.intervals)
+
         fig, ax = plt.subplots(ncols=2, figsize=figsize)
         ax[0].set_title(self.name, size=text_size, color='b')
         self.plot(legend=plot_legend, match_only=[repr_attribute], ax=ax[0])

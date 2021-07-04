@@ -20,7 +20,7 @@ LEXICON_MEMORIS = {'lithology': ['Anthracite(?:s)?', 'Porphyre(?:s)?', 'Houille(
               
            'quantity': ['beaucoup', 'peu', 'moins', 'plusieurs', 'fragment(?:s)?', 'impurité(?:es)', 'abondant(?:e|es)', 'mineur','quelques', 'rare', 'flocon(?:s)?', 'trace(?:s)', '[-.\\d]+%', '[-.\\d]+pc', '[-.\\d]+pourcent'],
 
-           'pollutant': ['As','Hg','Pb','naphtalène','HAP','huile(?:s)?','VR','VS','VI'],
+           'pollutant': ['As','Hg','Pb','naphtalène','HAP','huile(?:s)?','VR','VS','VI','Inconnu'],
 
            'synonyms': {'mort-terrain': ['terre'], 'Anhydrite': ['Gypse'], 'Sel': ['Halite', 'Sylvite']},
 

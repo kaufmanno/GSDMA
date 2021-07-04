@@ -7,7 +7,6 @@ import matplotlib.colors as mcolors
 import core.omf
 from copy import deepcopy
 from utils.config import DEFAULT_ATTRIB_VALUE
-from utils.utils import update_dict
 
 
 def striplog_legend_to_omf_legend(legend, alpha=1.):
@@ -34,11 +33,8 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
     for i in legend:
         omf_legend.append(i.colour)  # i.colour is in RGB format
         new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([alpha])]))
-    # print(new_colors)
-    # print(omf_legend)
 
-    return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), \
-        mcolors.ListedColormap(new_colors)
+    return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), mcolors.ListedColormap(new_colors)
 
 
 def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'], width=3,
@@ -131,9 +127,8 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
                     # add decors to build synthetic legend with all boreholes attributes values
                     if global_uniq_attrib_val.index(reg_value[0]) not in synth_decors.keys():
                         synth_decors.update({global_uniq_attrib_val.index(reg_value[0]): legend_copy[i]})
-
-            _decors = [decors[idx] for idx in range(len(decors.values()))]
-            _legend = Legend(_decors)
+            # print('\n', attr, '\n-----------------\n', decors)
+            _legend = Legend([decors[k] for k in sorted(decors.keys())])
             _cmap = striplog_legend_to_omf_legend(_legend)[1]
 
             if update_bh3d_legend:
@@ -146,8 +141,8 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
             if verbose:
                 print(' |->', detail_legend_cmap, '\n')
 
-        glob_decors = [synth_decors[idx] for idx in range(len(synth_decors.values()))]
-        glob_legend = Legend(glob_decors)
+        glob_legend = Legend([synth_decors[k] for k in sorted(synth_decors.keys())])
+        # print('\n', attr, '\n-----------------\n', glob_legend)
         glob_cmap = striplog_legend_to_omf_legend(glob_legend)[1]
 
         synth_legend_cmap[attr] = {'legend': glob_legend, 'cmap': glob_cmap,
