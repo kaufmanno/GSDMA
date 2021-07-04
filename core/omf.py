@@ -166,11 +166,17 @@ class Borehole3D(Striplog):
 
         vertices = np.array(vertices)
 
+        # Compute MappedData objects based on attributes in the legend dict
+        data = []
+        for attr in self.legend_dict.keys():
+            array = omf.ScalarArray(self.get_components_indices(repr_attribute=attr))
+            legend = striplog_legend_to_omf_legend(self.legend_dict[attr]['legend'])[0]
+            data.append(omf.MappedData(name=attr, array=array, legends=[legend],
+                                       location='segments', description=''))
+
         self.geometry = omf.LineSetElement(
             name=self.name, geometry=omf.LineSetGeometry(vertices=vertices, segments=segments),
-            data=[omf.MappedData(name=self.repr_attribute, description='',
-                                 array=omf.ScalarArray(self.get_components_indices(self.repr_attribute)),
-                                 legends=[self.omf_legend], location='segments')])
+            data=data)
 
         print("Borehole geometry created successfully !")
 
@@ -185,19 +191,30 @@ class Borehole3D(Striplog):
             self._vtk = vtk_obj
         return self._vtk
 
-    def get_components_indices(self, repr_attribute):
+    def get_components_indices(self, repr_attribute=None, intervals=None):
         """
         retrieve components indices from borehole's intervals
+
+        repr_repr_attribute: str
+            attribute to consider when retrieving intervals components indices (e.g: 'lithology')
+
+        intervals : List of Striplog.Interval object
 
         Returns
         --------
         array of indices
         """
-        comp_list = list(pd.unique([c[repr_attribute] for c in self._components]))
-        indices = [comp_list.index(i.primary[repr_attribute]) for i in self.intervals]
 
-        # print([i.primary[repr_attribute] for i in self.intervals])
-        print(f'indices: {np.array(indices)}')
+        if repr_attribute is None:
+            repr_attribute = self.repr_attribute
+        if intervals is None:
+            intervals = self.intervals
+
+        components = [i.components[0] for i in intervals]
+        comp_list = list(pd.unique([c[repr_attribute] for c in components]))
+        indices = [comp_list.index(i.primary[repr_attribute]) for i in intervals]
+
+        # print(f'indices: {np.array(indices)}')
         return np.array(indices)
 
     def update_z_collar_from_intervals(self):
@@ -206,9 +223,9 @@ class Borehole3D(Striplog):
         """
         self.z_collar = max([i.top.z for i in self.intervals])
 
-    def plot3d(self, plotter=None, repr_legend=None, repr_attribute='lithology', repr_cmap=None,
+    def plot3d(self, plotter=None, repr_legend_dict=None, repr_attribute='lithology',
                x3d=False, diam=None, bg_color=["royalblue", "aliceblue"], update_vtk=False,
-               update_cmap=False, show_legend=True, scalar_bar_args=None, annotations=None):
+               update_cmap=False, custom_legend=False, str_annotations=True, scalar_bar_args=None):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -245,31 +262,29 @@ class Borehole3D(Striplog):
             seg = self._vtk
         seg.set_active_scalars(repr_attribute)
 
-        if repr_legend is None:
-            repr_legend = self.legend_dict[repr_attribute]['legend']
-            if 'cmap' in self.legend_dict[repr_attribute].keys() and repr_cmap is None:
-                plot_cmap = self.legend_dict[repr_attribute]['cmap']
-                uniq_attr_val = self.legend_dict[repr_attribute]['values']
-        else:   # compute cmap
-            print('Colormap computing ...')
-            synth_legend = build_bh3d_legend_cmap(bh3d_list=[self], repr_attrib_list=[repr_attribute],
-                                legend_dict={repr_attribute: {'legend': repr_legend}},
-                                update_bh3d_legend=update_cmap)[0]
-            plot_cmap = synth_legend[repr_attribute]['cmap']
-            uniq_attr_val = synth_legend[repr_attribute]['values']
+        if repr_legend_dict is None:
+            repr_legend_dict = self.legend_dict
+            if 'cmap' not in repr_legend_dict[repr_attribute].keys() \
+                    or 'values' not in repr_legend_dict[repr_attribute].keys():
+                print('Colormap computing and unique values searching ...')
+                synth_legend = build_bh3d_legend_cmap(bh3d_list=[self],
+                                                      repr_attrib_list=[repr_attribute],
+                                                      legend_dict=repr_legend_dict,
+                                                      update_bh3d_legend=update_cmap)[0]
+                plot_cmap = synth_legend[repr_attribute]['cmap']
+                uniq_attr_val = synth_legend[repr_attribute]['values']
+            else:
+                plot_cmap = repr_legend_dict[repr_attribute]['cmap']
+                uniq_attr_val = repr_legend_dict[repr_attribute]['values']
 
-        if repr_cmap is not None:
-            plot_cmap = repr_cmap
-
-        # display attribute values as a legend
-        if annotations is None:
-            n_col = len(plot_cmap.colors)  # number of elements to plot
-            # scalar_bar properties
-            if scalar_bar_args is None:
-                scalar_bar_args = dict(title=repr_attribute.capitalize(),
-                        title_font_size=30, label_font_size=12, n_labels=0,
+        # display attribute values (string) as a legend
+        if str_annotations:
+            n_col = len(plot_cmap.colors)
+            if scalar_bar_args is None:  # scalar_bar properties
+                scalar_bar_args = dict(title=repr_attribute.upper(),
+                        title_font_size=25, label_font_size=8, n_labels=0,
                         fmt="", font_family="arial", color='k', interactive=True,
-                        vertical=True, italic=True, shadow=False,)
+                        vertical=False, italic=False, bold=False, shadow=False)
 
             incr = (len(uniq_attr_val) - 1)/n_col  # increment
             bounds = [0]  # cmap colors limits
@@ -278,18 +293,15 @@ class Borehole3D(Striplog):
                 if i < n_col:
                     next_bound += incr
                     bounds.append(bounds[0] + next_bound)
-            bounds.append(n_col)  # add cmap last limit value
+            bounds.append(n_col)  # add cmap last value (limit)
             centers = [(bounds[i] + bounds[i + 1])/2 for i in range(n_col)]
-
-            # TODO : reverse cmap only in the legend for vertical cmap
-            annotations = {k: v for k, v in zip(centers, uniq_attr_val)}
-            # print(annotations)
-        # print(len(plot_cmap.colors))
+            str_annotations = {k: v.capitalize() for k, v in zip(centers, uniq_attr_val)}
 
         plotter.add_mesh(seg, cmap=plot_cmap, scalar_bar_args=scalar_bar_args,
-                         show_scalar_bar=not show_legend, annotations=annotations)
-        if show_legend:
-            plotter.add_scalar_bar(repr_attribute.capitalize(), interactive=True, vertical=False)
+                         show_scalar_bar=not custom_legend, annotations=str_annotations)
+
+        if custom_legend:
+            plotter.add_scalar_bar(scalar_bar_args)
 
         # set background color for the render (None : pyvista default background color)
         if bg_color is not None:
@@ -359,7 +371,7 @@ class Borehole3D(Striplog):
                 leg_value = DEFAULT_ATTRIB_VALUE
             reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
             reg_value = list(filter(reg.match, attrib_values))  # find value that matches
-            # print(i, leg_value, reg_value)
+
             if len(reg_value) > 0:
                 # force matching to plot
                 legend_copy[i].component = Component({repr_attribute: reg_value[0]})
@@ -367,8 +379,9 @@ class Borehole3D(Striplog):
                 # use interval order to obtain correct plot legend order
                 decors.update({attrib_values.index(reg_value[0]): legend_copy[i]})
 
-        plot_decors = [decors[idx] for idx in range(len(decors.values())-1, -1, -1)]
-        plot_legend = Legend(plot_decors)
+        print(decors)
+        #plot_decors = [decors[idx] for idx in range(len(decors.values())-1, -1, -1)]
+        plot_legend = Legend([decors[k] for k in sorted(decors.keys())]) #plot_decors)
 
         fig, ax = plt.subplots(ncols=2, figsize=figsize)
         ax[0].set_title(self.name, size=text_size, color='b')

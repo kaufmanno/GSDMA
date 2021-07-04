@@ -20,7 +20,7 @@ LEXICON_MEMORIS = {'lithology': ['Anthracite(?:s)?', 'Porphyre(?:s)?', 'Houille(
               
            'quantity': ['beaucoup', 'peu', 'moins', 'plusieurs', 'fragment(?:s)?', 'impurité(?:es)', 'abondant(?:e|es)', 'mineur','quelques', 'rare', 'flocon(?:s)?', 'trace(?:s)', '[-.\\d]+%', '[-.\\d]+pc', '[-.\\d]+pourcent'],
 
-           'pollutant': ['As','Hg','Pb','naphtalène','HAP','huile(?:s)?','VR','VS','VI','Inconnu'],
+           'pollutant': ['As','Hg','Pb','naphtalène','HAP','huile(?:s)?','VR','VS','VI'],
 
            'synonyms': {'mort-terrain': ['terre'], 'Anhydrite': ['Gypse'], 'Sel': ['Halite', 'Sylvite']},
 
@@ -41,7 +41,7 @@ POLLUTANT_MEMORIS = """colour,width,component pollutant
 #00FF00, None, VR,
 #FFA500, None, VS,
 #FF0000, None, VI,
-#FFFFFF, None, Inconnu,
+#FFFFFF, None, Inconnu
 """
 
 pollutant_memoris = Legend.from_csv(text=POLLUTANT_MEMORIS, )
