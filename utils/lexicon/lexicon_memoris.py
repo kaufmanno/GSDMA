@@ -44,7 +44,7 @@ POLLUTANT_MEMORIS = """colour,width,component pollutant
 #FFFFFF, None, Inconnu
 """
 
-pollutant_memoris = Legend.from_csv(text=POLLUTANT_MEMORIS, )
+pollutant_memoris = Legend.from_csv(text=POLLUTANT_MEMORIS)
 
 LITHOLOGY_MEMORIS = """colour,width, hatch, component lithology
 #FFFFE9, None, None, Matériau(?:x)? meuble(?:s)?,
@@ -74,7 +74,7 @@ LITHOLOGY_MEMORIS = """colour,width, hatch, component lithology
 #AAC2C8, None, None, Chert(?:s)?,
 #000000, None, None, Charbon(?:s)?,
 #7BA1A8, None, None, Marne(?:s)?,
-#FFFFFF, None, /|\, Inconnu
+#FFFFFF, None, None, Inconnu
 """
 lithology_memoris = Legend.from_csv(text=LITHOLOGY_MEMORIS)
 

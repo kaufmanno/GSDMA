@@ -147,8 +147,9 @@ class Project:
         self.commit()
         self.refresh()
 
-    def update_legend_cmap(self, repr_attribute_list=None, legend_dict=None, width=3, update_all_attrib=False,
-                            update_bh3d_legend=False, update_project_legend=True, verbose=False):
+    def update_legend_cmap(self, repr_attribute_list=None, legend_dict=None, width=3,
+                           update_all_attrib=False, update_bh3d_legend=False,
+                           update_project_legend=True, verbose=False):
         """Update the project cmap based on all boreholes in the project"""
 
         if repr_attribute_list is None:
@@ -157,10 +158,11 @@ class Project:
         if legend_dict is None:
             legend_dict = self.legend_dict
 
-        synth_leg, detail_leg = build_bh3d_legend_cmap(bh3d_list=self.boreholes_3d, legend_dict=legend_dict,
-                            repr_attrib_list=repr_attribute_list, width=width, compute_all=update_all_attrib,
-                            update_bh3d_legend=update_bh3d_legend, update_given_legend=update_project_legend,
-                            verbose=verbose)
+        synth_leg, detail_leg = build_bh3d_legend_cmap(
+            bh3d_list=self.boreholes_3d, legend_dict=legend_dict,
+            repr_attrib_list=repr_attribute_list, width=width, compute_all=update_all_attrib,
+            update_bh3d_legend=update_bh3d_legend, update_given_legend=update_project_legend,
+            verbose=verbose)
 
         if update_project_legend:
             # print('-----------\n', legend_dict)
@@ -168,9 +170,7 @@ class Project:
 
         return synth_leg, detail_leg
 
-    def plot3d(self, plotter=None, repr_attribute='lithology', labels_size=None,
-               labels_color=None, bg_color=("royalblue", "aliceblue"), x3d=False,
-               window_size=None):
+    def plot3d(self, plotter=None, repr_attribute='lithology', repr_legend_dict=None, labels_size=None, labels_color=None, bg_color=("royalblue", "aliceblue"), x3d=False, window_size=None):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -192,8 +192,11 @@ class Project:
         else:
             pl = pv.Plotter(notebook=notebook, window_size=window_size)
 
-        plot_legend = self.legend_dict[repr_attribute]['legend']
-        plot_cmap = self.legend_dict[repr_attribute]['cmap']
+        if repr_legend_dict is None:
+            repr_legend_dict = self.legend_dict
+
+        plot_cmap = repr_legend_dict[repr_attribute]['cmap']
+        uniq_attr_val = repr_legend_dict[repr_attribute]['values']
 
         # if repr_attribute is None or repr_attribute == 'lithology':
         #     repr_attribute = self.repr_attribute
@@ -204,8 +207,9 @@ class Project:
         #     plot_legend, plot_cmap = self.update_legend_cmap(repr_attribute=repr_attribute)
 
         for bh in self.boreholes_3d:
-            bh.plot3d(plotter=pl, bg_color=bg_color, repr_legend_dict=plot_legend,
-                      repr_cmap=plot_cmap,repr_attribute=repr_attribute)
+            bh.plot3d(plotter=pl,  repr_attribute=repr_attribute, bg_color=bg_color,
+                      repr_legend_dict=repr_legend_dict, repr_cmap=plot_cmap,
+                      repr_uniq_val=uniq_attr_val)
             name_pts.update({bh.name: bh._vtk.center[:2]+[bh.z_collar]})
         # print(name_pts)
 

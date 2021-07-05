@@ -224,8 +224,10 @@ class Borehole3D(Striplog):
         self.z_collar = max([i.top.z for i in self.intervals])
 
     def plot3d(self, plotter=None, repr_legend_dict=None, repr_attribute='lithology',
-               x3d=False, diam=None, bg_color=["royalblue", "aliceblue"], update_vtk=False,
-               update_cmap=False, custom_legend=False, str_annotations=True, scalar_bar_args=None):
+               repr_cmap=None, repr_uniq_val=None, x3d=False, diam=None,
+               bg_color=["royalblue", "aliceblue"], update_vtk=False,
+               update_cmap=False, custom_legend=False, str_annotations=True,
+               scalar_bar_args=None):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -276,16 +278,24 @@ class Borehole3D(Striplog):
             else:
                 plot_cmap = repr_legend_dict[repr_attribute]['cmap']
                 uniq_attr_val = repr_legend_dict[repr_attribute]['values']
+        else:
+            plot_cmap = repr_legend_dict[repr_attribute]['cmap']
+            uniq_attr_val = repr_legend_dict[repr_attribute]['values']
+
+        if repr_cmap is not None:
+            plot_cmap = repr_cmap
+        if repr_uniq_val is not None:
+            uniq_attr_val = repr_uniq_val
 
         # display attribute values (string) as a legend
         if str_annotations:
             n_col = len(plot_cmap.colors)
             if scalar_bar_args is None:  # scalar_bar properties
                 scalar_bar_args = dict(title=repr_attribute.upper(),
-                        title_font_size=25, label_font_size=8, n_labels=0,
-                        fmt="", font_family="arial", color='k', interactive=True,
-                        vertical=False, italic=False, bold=False, shadow=False)
-
+                                       title_font_size=25, label_font_size=8, n_labels=n_col,
+                                       fmt='', font_family='arial', color='k', italic=False,
+                                       bold=False, interactive=True,
+                                       vertical=False, shadow=False)
             incr = (len(uniq_attr_val) - 1)/n_col  # increment
             bounds = [0]  # cmap colors limits
             next_bound = 0
@@ -295,13 +305,18 @@ class Borehole3D(Striplog):
                     bounds.append(bounds[0] + next_bound)
             bounds.append(n_col)  # add cmap last value (limit)
             centers = [(bounds[i] + bounds[i + 1])/2 for i in range(n_col)]
-            str_annotations = {k: v.capitalize() for k, v in zip(centers, uniq_attr_val)}
-
+            str_annot = {k: v.capitalize() for k, v in zip(centers, uniq_attr_val)}
+        else:  # numeric values plot
+            scalar_bar_args = None
+            str_annot = None
+        print(n_col, incr, str_annot)
         plotter.add_mesh(seg, cmap=plot_cmap, scalar_bar_args=scalar_bar_args,
-                         show_scalar_bar=not custom_legend, annotations=str_annotations)
+                         show_scalar_bar=not custom_legend, annotations=str_annot)
 
         if custom_legend:
-            plotter.add_scalar_bar(scalar_bar_args)
+            plotter.add_scalar_bar(title=repr_attribute.upper(), title_font_size=25, label_font_size=8,
+                                   n_labels=0, fmt='', font_family='arial', color='k', interactive=True,
+                                   vertical=True, italic=False, bold=False, shadow=False)
 
         # set background color for the render (None : pyvista default background color)
         if bg_color is not None:

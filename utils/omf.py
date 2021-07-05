@@ -115,6 +115,7 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
                 # print('build_leg_func:', leg_value)
                 if leg_value is None or leg_value.lower()=='none':  # not found in legend component
                     legend_copy[i].component[attr] = DEFAULT_ATTRIB_VALUE
+                    legend_copy[i].colour = '#FFFFFF'
                     leg_value = DEFAULT_ATTRIB_VALUE
 
                 reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
