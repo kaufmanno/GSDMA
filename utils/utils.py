@@ -39,7 +39,7 @@ def find_component_from_attrib(intv, attrib, verbose=False):
     pos = []
     j = None
     for i in range(len(intv.components)):
-        values.update({i: intv.components[i][attrib]})  # move it below (after)
+        values.update({i: intv.components[i][attrib]})
         if attrib in intv.components[i].keys():
             pos.append(i)
             j = pos[0]  # take the first one if 2 components match for the attribute
@@ -172,7 +172,7 @@ def plot_from_striplog(striplog, legend=None, width=1.5, ladder=True, aspect=10,
 
 def plot_axis_from_striplog(striplog, ax, legend, ladder=False, default_width=1,
         match_only=None, colour=None, colour_function=None, width_field=None,
-        cmap=None, default=None,  **kwargs):
+        cmap=None, default=None, verbose=False,  **kwargs):
     """
     Plotting, but only the Rectangles. You have to set up the figure.
     Returns a matplotlib axis object.
@@ -196,10 +196,14 @@ def plot_axis_from_striplog(striplog, ax, legend, ladder=False, default_width=1,
     """
     default_c = None
     patches = []
-    for iv in striplog._Striplog__list:  # access private attribute
+
+    for iv in striplog.intervals:  # _Striplog__list:  # access private attribute
         origin = (0, iv.top.z)
         j = find_component_from_attrib(iv, match_only[0])
-        print(f'plot_axis_from_striplog | comp_index: {j}, match:{match_only}')
+        if verbose:
+            print(f'\nplot_axis_from_striplog | comp_index: {j}, match:{match_only},'
+                  f' intv: {iv.components}')
+
         d = legend.get_decor(iv.components[j], match_only=match_only)
         thick = iv.base.z - iv.top.z
 

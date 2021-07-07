@@ -240,7 +240,11 @@ class Borehole3D(Striplog):
         --------
         array of indices
         """
-        verb = 'get_comp'
+
+        verb = False
+        if verbose:
+            verb = 'get_comp'
+
         if repr_attribute is None:
             repr_attribute = self.repr_attribute
         if intervals is None:
@@ -316,7 +320,7 @@ class Borehole3D(Striplog):
             diam = self.diameter
 
         if update_vtk or diam is not None:
-            seg = self.vtk(radius=(diam/2)*5)
+            seg = self.vtk(radius=(diam/2)*2)
         else:
             seg = self._vtk
         seg.set_active_scalars(repr_attribute.lower())
@@ -419,6 +423,9 @@ class Borehole3D(Striplog):
         """
         Plot a 2D log for the attribute
         """
+        verb = False
+        if verbose:
+            verb = 'plot2d'
 
         if repr_legend is None:
             repr_legend = self.legend_dict[repr_attribute]['legend']
@@ -428,14 +435,10 @@ class Borehole3D(Striplog):
         attrib_values = []  # list of lithologies in the borehole
 
         for i in self.intervals:
-            j = find_component_from_attrib(i, repr_attribute, verbose=verbose)
+            j = find_component_from_attrib(i, repr_attribute, verbose=verb)
             intv_value = i.components[j][repr_attribute]
             if verbose:
-                print(f'plot2d | intv_value: {intv_value} | comp: {i.components[j]}')
-            # if intv_value is None:  # attribute not found in the component
-            #     i.components[j][repr_attribute] = DEFAULT_ATTRIB_VALUE
-            #     i.description = ' '.join([i.components[j][k] for k in i.components[j].keys()])
-            #     intv_value = DEFAULT_ATTRIB_VALUE
+                print(f'plot2d | j: {j} | intv_value: {intv_value} | comp: {i.components[j]}')
             if isinstance(intv_value, str):
                 intv_value = intv_value.lower()
             attrib_values.append(intv_value or DEFAULT_ATTRIB_VALUE)
@@ -459,13 +462,14 @@ class Borehole3D(Striplog):
                 decors.update({attrib_values.index(reg_value[0]): legend_copy[i]})
 
         if verbose:
-            print('plot2d | decors:', decors)
+            print('\nplot2d | decors:', decors)
         rev_decors = list(decors.values())
         rev_decors.reverse()
         plot_legend = Legend([v for v in rev_decors])
 
         fig, ax = plt.subplots(ncols=2, figsize=figsize)
         ax[0].set_title(self.name, size=text_size, color='b')
-        plot_from_striplog(self, legend=plot_legend, match_only=[repr_attribute], ax=ax[0])
+        plot_from_striplog(self, legend=plot_legend, match_only=[repr_attribute],
+                           ax=ax[0], verbose=verbose)
         ax[1].set_title('Legend', size=text_size, color='r')
         plot_legend.plot(ax=ax[1])
