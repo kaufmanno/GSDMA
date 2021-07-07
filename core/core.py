@@ -1,7 +1,7 @@
 from core.orm import BoreholeOrm, ComponentOrm, LinkIntervalComponentOrm
 from core.omf import Borehole3D
 from utils.orm import get_interval_list
-from vtk import vtkX3DExporter
+from vtk import vtkX3DExporter # NOQA
 from IPython.display import HTML
 from striplog import Lexicon, Legend
 from utils.omf import build_bh3d_legend_cmap
@@ -79,8 +79,8 @@ class Project:
                 list_of_intervals, bh.length = get_interval_list(bh, lexicon=self.lexicon)
                 if verbose:
                     print(bh.id, " added")
-                self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, legend_dict=self.legend_dict,
-                                                    intervals=list_of_intervals, length=bh.length))
+                self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter,
+                        legend_dict=self.legend_dict, intervals=list_of_intervals, length=bh.length))
 
     def commit(self):
         """Validate all modifications done in the project"""
@@ -171,6 +171,12 @@ class Project:
         return synth_leg, detail_leg
 
     def plot3d(self, plotter=None, repr_attribute='lithology', repr_legend_dict=None, labels_size=None, labels_color=None, bg_color=("royalblue", "aliceblue"), x3d=False, window_size=None):
+        # plotter = None, repr_legend_dict = None, repr_attribute = 'lithology',
+        # repr_cmap = None, repr_uniq_val = None, x3d = False, diam = None,
+        # bg_color = ["royalblue", "aliceblue"], update_vtk = False,
+        # update_cmap = False, custom_legend = False, str_annotations = True,
+        # scalar_bar_args = None
+
         """
         Returns an interactive 3D representation of all boreholes in the project
         

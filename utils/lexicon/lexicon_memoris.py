@@ -20,7 +20,7 @@ LEXICON_MEMORIS = {'lithology': ['Anthracite(?:s)?', 'Porphyre(?:s)?', 'Houille(
               
            'quantity': ['beaucoup', 'peu', 'moins', 'plusieurs', 'fragment(?:s)?', 'impurité(?:es)', 'abondant(?:e|es)', 'mineur','quelques', 'rare', 'flocon(?:s)?', 'trace(?:s)', '[-.\\d]+%', '[-.\\d]+pc', '[-.\\d]+pourcent'],
 
-           'pollutant': ['As','Hg','Pb','naphtalène','HAP','huile(?:s)?','VR','VS','VI'],
+           'pollutant': ['As','Hg','Pb','naphtalène','HAP','huile(?:s)?'],
 
            'synonyms': {'mort-terrain': ['terre'], 'Anhydrite': ['Gypse'], 'Sel': ['Halite', 'Sylvite']},
 
@@ -37,14 +37,21 @@ lexicon_memoris = Lexicon(LEXICON_MEMORIS)
 
 
 #======================= LEGENDES ============================
-POLLUTANT_MEMORIS = """colour,width,component pollutant
+CONTAMINATION_LEVELS_BENZENE_MEMORIS = """colour,width,component benzene
 #00FF00, None, VR,
 #FFA500, None, VS,
 #FF0000, None, VI,
 #FFFFFF, None, Inconnu
 """
+contamination_benzene_memoris = Legend.from_csv(text=CONTAMINATION_LEVELS_BENZENE_MEMORIS)
 
-pollutant_memoris = Legend.from_csv(text=POLLUTANT_MEMORIS)
+CONTAMINATION_LEVELS_TOLUENE_MEMORIS = """colour,width,component toluene
+#00FF00, None, VR,
+#FFA500, None, VS,
+#FF0000, None, VI,
+#FFFFFF, None, Inconnu
+"""
+contamination_toluene_memoris = Legend.from_csv(text=CONTAMINATION_LEVELS_TOLUENE_MEMORIS)
 
 LITHOLOGY_MEMORIS = """colour,width, hatch, component lithology
 #FFFFE9, None, None, Matériau(?:x)? meuble(?:s)?,

@@ -1,3 +1,4 @@
+import pandas as pd
 from striplog.utils import hex_to_rgb
 from striplog import Legend, Decor, Component
 import numpy as np
@@ -7,6 +8,7 @@ import matplotlib.colors as mcolors
 import core.omf
 from copy import deepcopy
 from utils.config import DEFAULT_ATTRIB_VALUE
+from utils.utils import find_component_from_attrib
 
 
 def striplog_legend_to_omf_legend(legend, alpha=1.):
@@ -72,6 +74,10 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
     detail_legend_cmap : dict of legend, cmap and unique values for each borehole
     """
 
+    verb = False
+    if verbose:
+        verb = 'build_leg'  # verbose value to output information in this function
+
     if not isinstance(repr_attrib_list, list):
         raise(TypeError('repr_attribute must be a list of attributes present in the component'))
     if not isinstance(legend_dict, dict):
@@ -84,40 +90,37 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
     synth_legend_cmap = {}  # synthetic legend/cmap dict basis on all boreholes data
 
     for attr in repr_attrib_list:
-        if verbose:
-            print(attr, '\n---------------------')
+        if verbose and verb in verbose:
+            print(f'BLCMap for : {attr}\n---------------------------------------')
         if not isinstance(legend_dict[attr]['legend'], Legend):
             raise (TypeError('legend must be a Striplog.Legend object. Check the docstring!'))
 
-        global_uniq_attrib_val = []  # all unique values for each attribute
+        global_uniq_attrib_val = []  # [DEFAULT_ATTRIB_VALUE]  # all unique values for each attribute
         synth_decors = {}  # dict of decors for building all boreholes synthetic legend/cmap per attribute
         for bh3d in bh3d_list:
-            if verbose:
-                print('|-', bh3d.name)
+            if verbose and verb in verbose:
+                print('|-> BH:', bh3d.name)
             if not isinstance(bh3d, core.omf.Borehole3D):
                 raise(TypeError('Element in borehole3d must be a Borehole3D object'))
 
             legend_copy = deepcopy(legend_dict[attr]['legend'])
-            bh3d_uniq_attrib_val = []  # unique attribute values for each borehole
-            decors = {}  # dict of decors for building each attribute legend/cmap
+            bh3d_uniq_attrib_val = []  # [DEFAULT_ATTRIB_VALUE]  # unique attribute values for each borehole
             for intv in bh3d.intervals:
-                if intv.components[0][attr] is None:
-                    intv.components[0][attr] = DEFAULT_ATTRIB_VALUE  # set to default value
-                if intv.components[0][attr] not in bh3d_uniq_attrib_val:
-                    bh3d_uniq_attrib_val.append(intv.components[0][attr])
-                if intv.components[0][attr] not in global_uniq_attrib_val:
-                    global_uniq_attrib_val.append(intv.components[0][attr])
-                # print('++++++++++++', bh3d.name, '++++++++++++++++++++++++++++')
-                # print(bh3d_uniq_attrib_val, '\n', global_uniq_attrib_values)
+                j = find_component_from_attrib(intv, attr, verbose=verb)
+                if j == -1:  # add default component if none (object size if many attrib !!!)
+                    intv.components.append(Component({attr: DEFAULT_ATTRIB_VALUE}))
 
+                if intv.components[j][attr] not in bh3d_uniq_attrib_val:
+                    bh3d_uniq_attrib_val.append(intv.components[j][attr])
+                if intv.components[j][attr] not in global_uniq_attrib_val:
+                    global_uniq_attrib_val.append(intv.components[j][attr])
+            if verbose and verb in verbose:
+                print(f'\nBLCMap - unique/bh3d: {bh3d_uniq_attrib_val}, unique_proj: {global_uniq_attrib_val}')
+
+            decors = {}  # dict of decors for building each attribute legend/cmap
             for i in range((len(legend_copy))):
                 leg_value = legend_copy[i].component[attr]
-                # print('build_leg_func:', leg_value)
-                if leg_value is None or leg_value.lower()=='none':  # not found in legend component
-                    legend_copy[i].component[attr] = DEFAULT_ATTRIB_VALUE
-                    legend_copy[i].colour = '#FFFFFF'
-                    leg_value = DEFAULT_ATTRIB_VALUE
-
+                # not found in legend component
                 reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
                 reg_value = list(filter(reg.match, bh3d_uniq_attrib_val))  # value that matches
 
@@ -126,26 +129,26 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
                     legend_copy[i].component = Component({attr: reg_value[0]})
                     legend_copy[i].width = width
                     # use interval order to obtain correct plot legend order
-                    decors.update({bh3d_uniq_attrib_val.index(reg_value[0]): legend_copy[i]})
+                    if bh3d_uniq_attrib_val.index(reg_value[0]) not in decors.keys():
+                        decors.update({bh3d_uniq_attrib_val.index(reg_value[0]): legend_copy[i]})
                     # add decors to build synthetic legend with all boreholes attributes values
                     if global_uniq_attrib_val.index(reg_value[0]) not in synth_decors.keys():
                         synth_decors.update({global_uniq_attrib_val.index(reg_value[0]): legend_copy[i]})
-            # print('\n', attr, '\n-----------------\n', decors)
+            if verbose and verb in verbose:
+                print('\nBLCMap | Decors:', decors)
             _legend = Legend([decors[k] for k in sorted(decors.keys())])
             _cmap = striplog_legend_to_omf_legend(_legend)[1]
 
             if update_bh3d_legend:
-                bh3d.legend_dict[attr] = {'legend': _legend, 'cmap': _cmap, 'values': bh3d_uniq_attrib_val}
+                bh3d.legend_dict[attr] = {'legend': _legend, 'cmap': _cmap,
+                                          'values': bh3d_uniq_attrib_val}
 
             if bh3d.name not in detail_legend_cmap.keys():
                 detail_legend_cmap[bh3d.name] = {}
             detail_legend_cmap[bh3d.name][attr] = {'legend': _legend, 'cmap': _cmap,
-                                               'values': bh3d_uniq_attrib_val}
-            if verbose:
-                print(' |->', detail_legend_cmap, '\n')
+                                                   'values': bh3d_uniq_attrib_val}
 
         glob_legend = Legend([synth_decors[k] for k in sorted(synth_decors.keys())])
-        # print('\n', attr, '\n-----------------\n', glob_legend)
         glob_cmap = striplog_legend_to_omf_legend(glob_legend)[1]
 
         synth_legend_cmap[attr] = {'legend': glob_legend, 'cmap': glob_cmap,

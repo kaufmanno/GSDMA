@@ -9,9 +9,10 @@ import re
 import omfvista as ov
 import pyvista as pv
 import omf
-from vtk import vtkX3DExporter
+from vtk import vtkX3DExporter # NOQA
 from IPython.display import HTML
 from utils.config import DEFAULT_ATTRIB_VALUE
+from utils.utils import find_component_from_attrib, plot_from_striplog
 
 
 class Borehole3D(Striplog):
@@ -37,12 +38,11 @@ class Borehole3D(Striplog):
     commit()
     add_components(components)
     plot3d(x3d=False)
-
     """
 
-    def __init__(self, intervals=None, components=None, repr_attribute='lithology', name='BH3D',
+    def __init__(self, intervals=None, repr_attribute='lithology', name='BH3D',
                  diam=0.5, length=0, x_collar=0., y_collar=0., z_collar=None, legend_dict=None,
-                 compute_all_legend=True):
+                 compute_all_legend=True, verbose=False):
         """
         build a Borehole3D object from Striplog.Intervals list
         
@@ -50,8 +50,7 @@ class Borehole3D(Striplog):
         -----------
         intervals : list
             list of Striplog.Interval objects (default = None)
-        components : list
-            list of Striplog.Component objects (default = None)
+
         name : str
         legend : Striplog Legend object (default = None)
         x_collar : float
@@ -64,6 +63,7 @@ class Borehole3D(Striplog):
             diameter of the borehole (default = 0.5)
         length : float
             length of the borehole (default = 0)
+        verbose : False or str ('geom', 'get_comp', 'build_leg', 'plot3d', 'plot2d')
         """
 
         self.name = name
@@ -74,10 +74,12 @@ class Borehole3D(Striplog):
         self.length = length
         self.legend_dict = deepcopy(legend_dict)  # not alter given legend_dict
         self._repr_attribute = repr_attribute  # given repr_attribute
-        self._components = components  # given components
         self.geometry = None
         self._vtk = None
-        # self.cmap = None
+        self.__verbose__ = verbose  # checking outputs
+
+        if self.__verbose__:
+            print(f'\n************************ CREATION OF {self.name} *************************')
 
         if intervals is None:
             if length <= 0.:
@@ -91,12 +93,9 @@ class Borehole3D(Striplog):
 
         self.intervals = intervals
 
-        if components is None:
-            self._components = [i.components[0] for i in self.intervals]  # correct components order
         if self.z_collar is None and self.intervals is not None:
             self.update_z_collar_from_intervals()
 
-        # print(legend_dict.keys())
         if legend_dict is None or not isinstance(legend_dict[repr_attribute]['legend'], Legend):
             print("No given legend or incorrect format ! Default is used")
             self.legend_dict[repr_attribute]['legend'] = Legend.default()
@@ -105,13 +104,14 @@ class Borehole3D(Striplog):
         Striplog.__init__(self, list_of_Intervals=self.intervals)
 
         # create object legend
-        build_bh3d_legend_cmap(bh3d_list=[self], legend_dict=self.legend_dict,
+        build_bh3d_legend_cmap(bh3d_list=[self], legend_dict=self.legend_dict, verbose=self.__verbose__,
                                compute_all=compute_all_legend, update_bh3d_legend=True)
+
         self.omf_legend = striplog_legend_to_omf_legend(self.legend_dict[repr_attribute]['legend'])[0]
-        self._geometry
+        self._geometry(verbose=verbose)
         self.vtk()
 
-    # ----------------------------------- Methods ------------------------------------------
+    # ------------------------------------ Properties ----------------------------
     @property
     def repr_attribute(self):
         return self._repr_attribute
@@ -122,7 +122,38 @@ class Borehole3D(Striplog):
         self._repr_attribute = value
 
     @property
-    def _geometry(self):
+    def attrib_components(self):
+        # components according to the repr_attribute
+        return self.get_attrib_components_dict(self.__verbose__)[self.repr_attribute]
+
+    @property
+    def components(self):
+        # all components in each interval as a dict like {interval_number: components_list}
+        return {i: intv.components for i, intv in enumerate(self.intervals)}
+
+    # ----------------------------------- Methods ------------------------------------------
+    def get_attrib_components_dict(self, verbose=False):
+        # compute a dict of components for all attributes found in legend_dict
+
+        verb = False
+        if verbose:
+            verb = 'get_attrib'
+
+        comp_attrib_dict = {}
+        for attr in self.legend_dict.keys():
+            attr_components = []  # correct components order (not self.components)
+            for i in self.intervals:
+                j = find_component_from_attrib(i, attr, verbose=verb)
+                if j == -1:  # add default component if none
+                    attr_components.append(Component({attr: DEFAULT_ATTRIB_VALUE}))
+                else:
+                    attr_components.append(i.components[j])
+            comp_attrib_dict.update({attr: [attr_components[i] for i in range(len(attr_components)) \
+                                            if attr in attr_components[i].keys()]})
+
+        return comp_attrib_dict
+
+    def _geometry(self, verbose=False):
         """
         build an omf.LineSetElement geometry of the borehole
 
@@ -131,6 +162,9 @@ class Borehole3D(Striplog):
         geometry : omf.lineset.LineSetGeometry
             Contains spatial information of a line set
         """
+        verb = False
+        if verbose:
+            verb = 'geom'  # verbose value to output information in this function
 
         vertices, segments = [], []
         for i in self.intervals:
@@ -169,7 +203,9 @@ class Borehole3D(Striplog):
         # Compute MappedData objects based on attributes in the legend dict
         data = []
         for attr in self.legend_dict.keys():
-            array = omf.ScalarArray(self.get_components_indices(repr_attribute=attr))
+            array = omf.ScalarArray(self.get_components_indices(repr_attribute=attr, verbose=verbose))
+            if verbose and verb in verbose:
+                print(f"\ngeom | {attr}_legend: {self.legend_dict[attr]['legend']}")
             legend = striplog_legend_to_omf_legend(self.legend_dict[attr]['legend'])[0]
             data.append(omf.MappedData(name=attr, array=array, legends=[legend],
                                        location='segments', description=''))
@@ -187,11 +223,11 @@ class Borehole3D(Striplog):
         if radius is None:
             radius = self.diameter/2 * 5  # multiply for visibility
             vtk_obj = ov.line_set_to_vtk(self.geometry).tube(radius=radius, n_sides=res)
-            vtk_obj.set_active_scalars(self.repr_attribute)
+            vtk_obj.set_active_scalars(self.repr_attribute.lower())
             self._vtk = vtk_obj
         return self._vtk
 
-    def get_components_indices(self, repr_attribute=None, intervals=None):
+    def get_components_indices(self, repr_attribute=None, intervals=None, verbose=False):
         """
         retrieve components indices from borehole's intervals
 
@@ -204,17 +240,38 @@ class Borehole3D(Striplog):
         --------
         array of indices
         """
-
+        verb = 'get_comp'
         if repr_attribute is None:
             repr_attribute = self.repr_attribute
         if intervals is None:
             intervals = self.intervals
 
-        components = [i.components[0] for i in intervals]
-        comp_list = list(pd.unique([c[repr_attribute] for c in components]))
-        indices = [comp_list.index(i.primary[repr_attribute]) for i in intervals]
+        if verbose and verb in verbose:
+            print(f'\n~~~~~~~~~~~~~~~~~~ {repr_attribute} ~~~~~~~~~~~~~~~~~~~~~~')
+        components = []  # [Component({repr_attribute: DEFAULT_ATTRIB_VALUE})]  # begin with default component
+        for i in intervals:
+            j = find_component_from_attrib(i, repr_attribute, verbose=verb)
 
-        # print(f'indices: {np.array(indices)}')
+            if j == -1:  # add default component if none
+                print(f'\n//// {j}, {components}, {i.components}\n')
+                components.append(Component({repr_attribute: DEFAULT_ATTRIB_VALUE}))
+            else:
+                components.append(i.components[j])
+        comp_list = list(pd.unique([c[repr_attribute] for c in components]))
+
+        indices = []
+        incr = 0
+        for i in intervals:
+            j = find_component_from_attrib(i, repr_attribute, verbose=verb)
+            indices.append(comp_list.index(i.components[j][repr_attribute]))
+
+            if verbose and verb in verbose:
+                print(f'get_comp | uniq_comp_list: {comp_list}, n_intv:{incr}, ind_val: {j}, comp: {i.components[j][repr_attribute]}')
+
+            incr += 1
+
+        if verbose and verb in verbose:
+            print(f'\nget_comp | comp_indices: {np.array(indices)}')
         return np.array(indices)
 
     def update_z_collar_from_intervals(self):
@@ -227,15 +284,15 @@ class Borehole3D(Striplog):
                repr_cmap=None, repr_uniq_val=None, x3d=False, diam=None,
                bg_color=["royalblue", "aliceblue"], update_vtk=False,
                update_cmap=False, custom_legend=False, str_annotations=True,
-               scalar_bar_args=None):
+               scalar_bar_args=None, verbose=False):
         """
         Returns an interactive 3D representation of all boreholes in the project
-        
+
         Parameters
         -----------
         plotter : pyvista.plotter object
             Plotting object to display vtk meshes or numpy arrays (default=None)
-            
+
         x3d : bool
             If True, generates a 3xd file of the 3D (default=False)
 
@@ -262,7 +319,7 @@ class Borehole3D(Striplog):
             seg = self.vtk(radius=(diam/2)*5)
         else:
             seg = self._vtk
-        seg.set_active_scalars(repr_attribute)
+        seg.set_active_scalars(repr_attribute.lower())
 
         if repr_legend_dict is None:
             repr_legend_dict = self.legend_dict
@@ -270,9 +327,8 @@ class Borehole3D(Striplog):
                     or 'values' not in repr_legend_dict[repr_attribute].keys():
                 print('Colormap computing and unique values searching ...')
                 synth_legend = build_bh3d_legend_cmap(bh3d_list=[self],
-                                                      repr_attrib_list=[repr_attribute],
-                                                      legend_dict=repr_legend_dict,
-                                                      update_bh3d_legend=update_cmap)[0]
+                        repr_attrib_list=[repr_attribute], legend_dict=repr_legend_dict,
+                        update_bh3d_legend=update_cmap)[0]
                 plot_cmap = synth_legend[repr_attribute]['cmap']
                 uniq_attr_val = synth_legend[repr_attribute]['values']
             else:
@@ -291,11 +347,10 @@ class Borehole3D(Striplog):
         if str_annotations:
             n_col = len(plot_cmap.colors)
             if scalar_bar_args is None:  # scalar_bar properties
-                scalar_bar_args = dict(title=repr_attribute.upper(),
-                                       title_font_size=25, label_font_size=8, n_labels=n_col,
-                                       fmt='', font_family='arial', color='k', italic=False,
-                                       bold=False, interactive=True,
-                                       vertical=False, shadow=False)
+                scalar_bar_args = dict(title=repr_attribute.upper(), title_font_size=25,
+                        label_font_size=8, n_labels=n_col, fmt='', font_family='arial',
+                        color='k', italic=False, bold=False, interactive=True,
+                        vertical=False, shadow=False)
             incr = (len(uniq_attr_val) - 1)/n_col  # increment
             bounds = [0]  # cmap colors limits
             next_bound = 0
@@ -309,14 +364,18 @@ class Borehole3D(Striplog):
         else:  # numeric values plot
             scalar_bar_args = None
             str_annot = None
-        print(n_col, incr, str_annot)
+
+        if verbose:
+            print(f'plot3d | n_colors: {n_col} | incr: {incr}| unique: {uniq_attr_val}'
+              f'\nannotations: {str_annot}')
+
         plotter.add_mesh(seg, cmap=plot_cmap, scalar_bar_args=scalar_bar_args,
                          show_scalar_bar=not custom_legend, annotations=str_annot)
 
         if custom_legend:
-            plotter.add_scalar_bar(title=repr_attribute.upper(), title_font_size=25, label_font_size=8,
-                                   n_labels=0, fmt='', font_family='arial', color='k', interactive=True,
-                                   vertical=True, italic=False, bold=False, shadow=False)
+            plotter.add_scalar_bar(title=repr_attribute.upper(), title_font_size=25, n_labels=0,
+                        label_font_size=8, fmt='', font_family='arial', color='k', italic=False,
+                        bold=False, interactive=True, vertical=True, shadow=False)
 
         # set background color for the render (None : pyvista default background color)
         if bg_color is not None:
@@ -327,7 +386,7 @@ class Borehole3D(Striplog):
                 top_c = None
                 btm_c = bg_color
             else:
-                print('bg_color must be a color string or a list of 2 colors strings !')
+                raise(ValueError('bg_color must be a color string or a list of 2 colors strings !'))
 
             plotter.set_background(color=btm_c, top=top_c)
 
@@ -356,9 +415,9 @@ class Borehole3D(Striplog):
                                                               '\n</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
 
-    def log_plot(self, figsize=(6, 6), repr_legend=None, text_size=15, width=3, repr_attribute='lithology'):
+    def log_plot(self, figsize=(6, 6), repr_legend=None, text_size=15, width=3, repr_attribute='lithology', verbose=False):
         """
-        Plot a 2D lithological log
+        Plot a 2D log for the attribute
         """
 
         if repr_legend is None:
@@ -369,18 +428,23 @@ class Borehole3D(Striplog):
         attrib_values = []  # list of lithologies in the borehole
 
         for i in self.intervals:
-            intv_value = i.primary[repr_attribute]
-            if intv_value is None:  # attribute not found in the component
-                i.components[0][repr_attribute] = DEFAULT_ATTRIB_VALUE
-                i.description = ' '.join([i.components[0][k] for k in i.components[0].keys()])
-                intv_value = DEFAULT_ATTRIB_VALUE
+            j = find_component_from_attrib(i, repr_attribute, verbose=verbose)
+            intv_value = i.components[j][repr_attribute]
+            if verbose:
+                print(f'plot2d | intv_value: {intv_value} | comp: {i.components[j]}')
+            # if intv_value is None:  # attribute not found in the component
+            #     i.components[j][repr_attribute] = DEFAULT_ATTRIB_VALUE
+            #     i.description = ' '.join([i.components[j][k] for k in i.components[j].keys()])
+            #     intv_value = DEFAULT_ATTRIB_VALUE
             if isinstance(intv_value, str):
                 intv_value = intv_value.lower()
-            attrib_values.append(intv_value)
+            attrib_values.append(intv_value or DEFAULT_ATTRIB_VALUE)
 
         attrib_values = list(pd.unique(attrib_values))  # to treat duplicate values
         for i in range(len(legend_copy)):
             leg_value = legend_copy[i].component[repr_attribute]
+            if verbose:
+                print('plot2d | legend_val:', leg_value)
             if leg_value is None:  # attribute not found in legend component
                 legend_copy[i].component[repr_attribute] = DEFAULT_ATTRIB_VALUE
                 leg_value = DEFAULT_ATTRIB_VALUE
@@ -394,12 +458,14 @@ class Borehole3D(Striplog):
                 # use interval order to obtain correct plot legend order
                 decors.update({attrib_values.index(reg_value[0]): legend_copy[i]})
 
+        if verbose:
+            print('plot2d | decors:', decors)
         rev_decors = list(decors.values())
         rev_decors.reverse()
         plot_legend = Legend([v for v in rev_decors])
 
         fig, ax = plt.subplots(ncols=2, figsize=figsize)
         ax[0].set_title(self.name, size=text_size, color='b')
-        self.plot(legend=plot_legend, match_only=[repr_attribute], ax=ax[0])
+        plot_from_striplog(self, legend=plot_legend, match_only=[repr_attribute], ax=ax[0])
         ax[1].set_title('Legend', size=text_size, color='r')
         plot_legend.plot(ax=ax[1])
