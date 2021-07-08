@@ -23,6 +23,39 @@ def update_dict(d, u):
     return d
 
 
+def legend_from_attributes(attributes):
+    """
+    Generate a legend dict (attribute:Legend) from a list of attributes string and/or
+    tuples of attribute and associated legend
+
+    Parameter
+    ------------
+    attributes: str
+
+    return
+    -----------
+    legend_dict : dict
+    """
+    legend_dict = {}
+    for attr in attributes:
+        if isinstance(attr, tuple):
+            v = [i for i, j in enumerate(attr) if isinstance(j, Legend)][0]
+            k = [i for i, j in enumerate(attr) if isinstance(j, str)][0]
+            attribute = attr[k]
+            legend = attr[v]
+        elif isinstance(attr, str):
+            attribute = attr
+            # default contamination level for pollutants
+            legend_text = f"colour,width,component {attr}\n#00FF00, None, VR,\n#FFA500, None, VS,\n#FF0000, None, VI,\n#FFFFFF, None, Inconnu\n"
+            legend = Legend.from_csv(text=legend_text)
+        else:
+            raise(TypeError('Only a list containing strings and/or tuple (attribute, Legend) is allowed !'))
+
+        legend_dict.update({attribute: legend})
+
+    return legend_dict
+
+
 def find_component_from_attrib(intv, attrib, verbose=False):
     """retrieve component index in the components list of an interval, according to the defined attribute
 
