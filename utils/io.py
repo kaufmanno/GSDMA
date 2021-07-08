@@ -2,6 +2,7 @@ import re
 from os import walk
 import numpy as np
 import geopandas as gpd
+import pandas
 import pandas as pd
 from shapely import wkt
 from striplog import Striplog, Lexicon, Interval, Component, Position
@@ -9,7 +10,7 @@ from core.orm import BoreholeOrm, PositionOrm
 from ipywidgets import interact, IntSlider
 from IPython.display import display
 from utils.config import DEFAULT_BOREHOLE_LENGTH, DEFAULT_BOREHOLE_DIAMETER, DEFAULT_ATTRIB_VALUE
-from utils.utils import update_dict
+from utils.utils import update_dict, get_components
 
 
 def df_from_sources(search_dir, filename, columns=None, verbose=False):
@@ -119,6 +120,131 @@ def read_files(fdir, crit_col, columns=None, verbose=False):
     return df_all
 
 
+def striplog_from_dataframe(df, bh_name, attributes, symbols=None, iv_top=None, iv_base=None,
+                            thickness='Thickness', use_default=False, query=True):
+    """
+    creates a Striplog object from a dataframe
+
+    Parameters
+    ----------
+    df : Pandas.DataFrame
+        Dataframe that contains borehole intervals data
+
+    bh_name: str
+        Borehole name (or ID)
+
+    attributes: list
+        Attributes to use for creating components
+
+    lexicon : striplog.Lexicon
+        Lexicon to use for attributes
+
+    iv_top : str
+        Dataframe column that contains interval top
+
+    iv_base : str
+        Dataframe column that contains interval base
+
+    thickness : str
+        Dataframe column that contains lithology thickness (default:None)
+
+    query : bool
+        Work on a restricted copy of df by querying this dataframe first
+
+    Returns
+    -------
+    strip : dict of striplog objects
+
+    """
+
+    attrib_cdt, attrib_top_cdt, attrib_base_cdt = False, False, False
+    thick_cdt, color_cdt = False, False
+
+    for attrib_col in attributes:
+        if attrib_col not in list(df.columns):
+            raise (NameError(f"{attrib_col} is not in the dataframe columns"))
+
+    if thickness is not None and thickness in list(df.columns):
+        thick_cdt = True
+    if iv_top is not None and iv_top in list(df.columns):
+        attrib_top_cdt = True
+    if iv_base is not None and iv_base in list(df.columns):
+        attrib_base_cdt = True
+
+    strip = {}
+    bh_list = []
+
+    for i in df.index:
+        if bh_name is not None and bh_name in df.columns:
+            bh_id = bh_name
+        else:
+            bh_id = df.loc[i, 'ID']
+
+        if bh_id not in bh_list:
+            print(f"|__ID:\'{bh_id}\'")
+            bh_list.append(bh_id)
+            if query:
+                selection = df['ID'] == f"{bh_id}"  # f'ID=="{bh_id}"'
+                tmp = df[selection].copy()  # divide to work faster ;)
+                tmp.reset_index(drop=True, inplace=True)
+            else:
+                tmp = df
+
+            intervals = []
+            for j in tmp.index:
+                # lithology processing -------------------------------------------
+
+                iv_components = []
+                for attrib in attributes:
+                    val = tmp.loc[j, attrib]
+                    lexicon = symbols[attrib.lower()]['lexicon']
+                    if Component.from_text(val, lexicon) == Component({}):  # empty component !
+                        print(f"Error : No value matching with '{val}' in given lexicon")
+                    else:
+                        iv_components.append(Component.from_text(val, lexicon))
+                print(iv_components)
+
+                # length processing -----------------------------------------------
+                if thick_cdt and not pd.isnull(tmp.loc[j, thickness]):
+                    thick = tmp.loc[j, thickness]
+                else:
+                    if use_default:
+                        print(f'Warning : ++ No thickness provided, default is used '
+                              f'(length={DEFAULT_BOREHOLE_LENGTH})')
+                        thick = DEFAULT_BOREHOLE_LENGTH
+                    else:
+                        raise (ValueError('Cannot create interval with null thickness !'))
+
+                # intervals processing ----------------------------------------------
+                if attrib_top_cdt:
+                    top = tmp.loc[j, iv_top]
+                elif thick_cdt:
+                    if j == tmp.index[0]:
+                        top = 0
+                    else:
+                        top += tmp.loc[j - 1, thickness]
+                else:
+                    raise (ValueError('Cannot retrieve or compute top values. provide thickness values! '))
+
+                if attrib_base_cdt:
+                    base = tmp.loc[j, iv_base]
+                else:
+                    base = top + thick
+
+                if base != 0.:
+                    intervals = intervals + [Interval(top=top, base=base, description=val,
+                                                      components=iv_components, lexicon=lexicon)]
+
+            if len(intervals) != 0:
+                strip.update({bh_id: Striplog(list_of_Intervals=intervals)})
+            else:
+                print(f"Error : -- Cannot create a striplog, no interval (length or base = 0)")
+
+    print(f"Summary : {list(strip.values())}")
+
+    return strip
+
+
 def striplog_from_df(df, attrib_cols, bh_name=None, attrib_top_col=None, attrib_base_col=None,
                      thick_col=None,color_col=None, lexicon=None, use_default=True,
                      verbose=False, query=True):
@@ -131,7 +257,7 @@ def striplog_from_df(df, attrib_cols, bh_name=None, attrib_top_col=None, attrib_
         dataframe that contains boreholes data
     bh_name: str
         Borehole name (or ID)
-    attrib_cols : str
+    attrib_cols : str, list
         dataframe column that contains lithology or description text (default:None)
     
     thick_col : str
@@ -295,6 +421,141 @@ def striplog_from_text_file(filename, lexicon=None):
         raise(EOFError("Error! Check the file extension !"))
 
     return strip
+
+
+def boreholes_from_dataframe(df, x=None, y=None, z=None, symbols=None, attributes=None,
+                             diameter='Diameter', thickness='Length',  iv_top=None,
+                             iv_base=None, verbose=False, use_default=True):
+    """ Creates a list of BoreholeORM objects from a dataframe
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+        A dataframe of borehole intervals
+
+    x : str
+        Column name where the x coordinates of the position of the top of the intervals are stored
+
+    y : str
+        Column name where the x coordinates of the position of the top of the intervals are stored
+
+    z : str
+        Column name where the x coordinates of the position of the top of the intervals are stored
+
+    symbols: dict
+        A dict e.g. {attribute_1: {'legend': striplog.Legend, 'lexicon': striplog.Lexicon}, ...}
+         '
+    attributes : list
+        Dictionary with lexicons as keys and associated list of column names (attributes) as values
+
+    verbose : Bool
+        allow verbose option if set = True
+
+    use_default : Bool
+        allow use default when values not available if set = True
+
+    Returns
+    -------
+    boreholes: list
+               boreholes object
+
+    components: dict
+                dictionary containing ID and component
+
+    """
+
+    int_id = 0  # interval id
+    pos_id = 0  # position id
+    boreholes = []
+    components = []
+    comp_id = 0  # component id
+    component_dict = {}
+    link_dict = {}  # link between intervals and components (<-> junction table)
+    df_id = 0  # dataframe id
+
+    assert isinstance(df, pd.DataFrame)
+
+    print(f'\nDataframe processing...\n================================')
+    bh_id_list = []  #
+    bh_idx = 0  # borehole index in the current dataframe
+
+    if diameter in df.columns:
+        diam = df[diameter]
+    else:
+        print(f'Warning : -- No borehole diameter, default is used (diameter={DEFAULT_BOREHOLE_DIAMETER})')
+        diam = pd.Series([DEFAULT_BOREHOLE_DIAMETER] * len(df))
+
+    for idx, row in df.iterrows():
+        bh_name = row['ID']
+
+        if bh_name not in bh_id_list:
+            bh_id_list.append(bh_name)
+            boreholes.append(BoreholeOrm(id=bh_name))
+            interval_number = 0
+
+            bh_selection = df['ID'] == f"{bh_name}"
+            tmp = df[bh_selection].copy()
+            tmp.reset_index(drop=True, inplace=True)
+            strip = striplog_from_dataframe(df=tmp, bh_name=bh_name, attributes=attributes, symbols=symbols,
+                                            iv_top=iv_top, iv_base=iv_base, thickness=thickness,
+                                            use_default=use_default, query=False)
+            for v in strip.values():
+                for c in get_components(v):
+                    # print('color:', c.colour)
+                    if c not in component_dict.keys():
+                        component_dict.update({c: comp_id})
+                        comp_id += 1
+                    print(f'comp: {c}, id: {comp_id}')
+                d = {}
+
+                # ORM processing
+                for interval in v:
+                    top = PositionOrm(id=pos_id, upper=row['Z'] - interval.top.upper,
+                                      middle=row['Z'] - interval.top.middle,
+                                      lower=row['Z'] - interval.top.lower,
+                                      x=row['X'], y=row['Y']
+                                      )
+
+                    base = PositionOrm(id=pos_id + 1, upper=row['Z'] - interval.base.upper,
+                                       middle=row['Z'] - interval.base.middle,
+                                       lower=row['Z'] - interval.base.lower,
+                                       x=row['X'], y=row['Y']
+                                       )
+
+                    d.update({int_id: {'description': interval.description,
+                                       'interval_number': interval_number,
+                                       'top': top, 'base': base}
+                              })
+
+                    for idx in interval.components:
+                        if idx != Component({}):
+                            print(f'comp_dict: {component_dict}')
+                            link_dict.update({(int_id, component_dict[idx]): {'extra_data': ''}})
+
+                    interval_number += 1
+                    int_id += 1
+                    pos_id += 2
+
+                if verbose:
+                    print(f'{d}\n')
+                if bh_idx < len(boreholes):
+                    boreholes[bh_idx].intervals_values = d
+                    boreholes[bh_idx].length = tmp[thickness].cumsum().max()
+                    if diam[bh_idx] is not None and not pd.isnull(diam[bh_idx]):
+                        boreholes[bh_idx].diameter = tmp[diameter][0]
+                    else:
+                        boreholes[bh_idx].diameter = DEFAULT_BOREHOLE_DIAMETER
+
+                bh_idx += 1
+
+        else:
+            pass
+
+        components = {v: k for k, v in component_dict.items()}
+
+    print(f"\nEnd of the process : {len(bh_id_list)} unique ID found")
+
+    return boreholes, components, link_dict
 
 
 def boreholes_from_files(boreholes_dict=None, x=None, y=None, z=None,

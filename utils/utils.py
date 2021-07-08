@@ -56,6 +56,12 @@ def legend_from_attributes(attributes):
     return legend_dict
 
 
+def get_components(strip):
+    """retrieve all components of a Striplog object"""
+
+    return list(set([comp for iv in strip._Striplog__list for comp in iv.components]))
+
+
 def find_component_from_attrib(intv, attrib, verbose=False):
     """retrieve component index in the components list of an interval, according to the defined attribute
 
