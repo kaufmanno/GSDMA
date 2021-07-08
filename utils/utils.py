@@ -51,7 +51,7 @@ def legend_from_attributes(attributes):
         else:
             raise(TypeError('Only a list containing strings and/or tuple (attribute, Legend) is allowed !'))
 
-        legend_dict.update({attribute: legend})
+        legend_dict.update({attribute: {'legend': legend}})
 
     return legend_dict
 
@@ -230,7 +230,7 @@ def plot_axis_from_striplog(striplog, ax, legend, ladder=False, default_width=1,
     default_c = None
     patches = []
 
-    for iv in striplog.intervals:  # _Striplog__list:  # access private attribute
+    for iv in striplog.intervals:
         origin = (0, iv.top.z)
         j = find_component_from_attrib(iv, match_only[0])
         if verbose:

@@ -252,7 +252,7 @@ class Borehole3D(Striplog):
 
         if verbose and verb in verbose:
             print(f'\n~~~~~~~~~~~~~~~~~~ {repr_attribute} ~~~~~~~~~~~~~~~~~~~~~~')
-        components = []  # [Component({repr_attribute: DEFAULT_ATTRIB_VALUE})]  # begin with default component
+        components = []
         for i in intervals:
             j = find_component_from_attrib(i, repr_attribute, verbose=verb)
 
