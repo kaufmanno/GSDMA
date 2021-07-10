@@ -1021,7 +1021,7 @@ def gdf_geom(gdf):
     return gdf
 
 
-def gdf_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, drop_skip_col=None, verbose=False):
+def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, drop_skip_col=None, verbose=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
 
     Parameters

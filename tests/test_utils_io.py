@@ -14,7 +14,7 @@ class MyTestCase(unittest.TestCase):
         df2 = pd.DataFrame({'ID': ['id1', 'id2', 'id3', 'id4', 'id5', 'id6', 'id7'],
                            'X': [152890, 152885, np.nan, np.nan, 152875, 152895, 152861],
                            'Y': [122596, 122500, np.nan, np.nan, 122576, 122581, 122546]})
-        actual_df, df_conflicts = utils.io.gdf_merger(df1, df2, how='outer', on='ID', dist_max=2.)
+        actual_df, df_conflicts = utils.io.data_merger(df1, df2, how='outer', on='ID', dist_max=2.)
         actual_df.set_index('ID', inplace=True)
         # actual_df=actual_df[['ID', 'X', 'Y']]
         expected_df = pd.DataFrame({'ID': ['id1', 'id2', 'id3', 'id4', 'id5', '_id6_', 'id6', 'id7', 'id8', '?0', '?1'],
