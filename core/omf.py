@@ -17,7 +17,7 @@ from utils.utils import find_component_from_attrib, plot_from_striplog
 
 class Borehole3D(Striplog):
     """
-    Borehole object based col striplog object that can be displayed in a 3D environment
+    Borehole object based on striplog object that can be displayed in a 3D environment
     
     Attributes
     -----------

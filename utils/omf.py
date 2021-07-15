@@ -104,7 +104,7 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
                 raise(TypeError('Element in borehole3d must be a Borehole3D object'))
 
             legend_copy = deepcopy(legend_dict[attr]['legend'])
-            bh3d_uniq_attrib_val = []  # [DEFAULT_ATTRIB_VALUE]  # unique attribute values for each borehole
+            bh3d_uniq_attrib_val = []  # unique attribute values for each borehole
             for intv in bh3d.intervals:
                 j = find_component_from_attrib(intv, attr, verbose=verb)
                 if j == -1:  # add default component if none (object size if many attrib !!!)

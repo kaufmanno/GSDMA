@@ -7,6 +7,9 @@ from striplog import Lexicon, Legend
 from utils.omf import build_bh3d_legend_cmap
 import numpy as np
 import pyvista as pv
+import folium as fm
+from folium import plugins
+import geopandas as gpd
 
 
 class Project:
@@ -252,3 +255,66 @@ class Project:
                        '</viewpoint>\n <Inline nameSpaceName="Borehole" mapDEFToID="true" url="' + filename + '" />\n' \
                        '</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
+
+    def plot2d(self, tile=None, epsg=31370, save_as=None):
+        """2D Plot of all boreholes in the project
+
+        parameters
+        -------------
+        tile : dict of a tile properties (name, attributes, url)
+        epsg : int
+            Value of Coordinates Reference System (CRS)
+        save_as : str
+             filename (and dir) to save the map (e.g: 'tmp/mymap.html')
+
+        """
+        # create a geopandas with all project boreholes
+        bhs = gpd.GeoDataFrame(columns=['Name', 'X', 'Y'])
+        for bh in self.boreholes_3d:
+            i = len(bhs)
+            xy = bh._vtk.center[:2]  # retrieve collars positions
+            bhs.loc[i, ['Name', 'X', 'Y']] = [bh.name, xy[0], xy[1]]
+
+        geom = gpd.points_from_xy(bhs.X, bhs.Y, crs=f"EPSG:{epsg}")
+        bhs.geometry = geom
+        bhs.drop(columns=['X', 'Y'], inplace=True)
+
+        # Change CRS EPSG 31370 (Lambert 72) into EPSG 4326 (WGS 84)
+        if epsg != 4326:
+            bhs = bhs.to_crs(epsg=4326)
+        center = [bhs.geometry.y.mean(), bhs.geometry.x.mean()]
+
+        # Use a satellite map
+        if tile is None:
+            tile = {'name': 'Satellite',
+                    'attributes': "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX,"
+                              " GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User "
+                              "Community",
+                    'url': "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery"
+                           "/MapServer/tile/{z}/{y}/{x}"}
+
+        bhs_map = fm.Map(location=center, tiles='OpenStreetMap', zoom_start=15, max_zoom=25,
+                        control_scale=True)
+
+        ch1 = fm.FeatureGroup(name='Boreholes')
+
+        for idx, row in bhs.iterrows():
+            fm.CircleMarker([row.geometry.y, row.geometry.x], popup=row.Name, radius=0.2,
+                            color='red', fill_color='red',
+                            opacity=0.9).add_to(ch1)
+
+        mini_map = plugins.MiniMap(toggle_display=True, zoom_level_offset=-6)
+
+        # adding features to the base_map
+        fm.TileLayer(name=tile['name'], tiles=tile['url'], attr=tile['attributes'], max_zoom=25,
+                     control=True).add_to(bhs_map)
+        ch1.add_to(bhs_map)
+        fm.LayerControl().add_to(bhs_map)
+        bhs_map.add_child(mini_map)
+
+        # save in a file
+        if save_as is not None:
+            bhs_map.save(save_as)  # ('tmp_files/BH_location.html')
+
+        # plot map
+        return bhs_map
