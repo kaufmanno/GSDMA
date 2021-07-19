@@ -1,9 +1,7 @@
 from striplog import Lexicon, Striplog, Legend, Interval, Decor, Component
-from utils.omf import striplog_legend_to_omf_legend
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from utils.omf import build_bh3d_legend_cmap
 from copy import deepcopy
 import re
 import omfvista as ov
@@ -12,7 +10,8 @@ import omf
 from vtk import vtkX3DExporter # NOQA
 from IPython.display import HTML
 from utils.config import DEFAULT_ATTRIB_VALUE
-from utils.utils import find_component_from_attrib, plot_from_striplog
+from utils.visual import find_component_from_attrib, plot_from_striplog, striplog_legend_to_omf_legend, \
+    build_bh3d_legend_cmap
 
 
 class Borehole3D(Striplog):
@@ -41,8 +40,8 @@ class Borehole3D(Striplog):
     """
 
     def __init__(self, intervals=None, repr_attribute='lithology', name='BH3D',
-                 diam=0.5, length=0, x_collar=0., y_collar=0., z_collar=None, legend_dict=None,
-                 compute_all_legend=True, verbose=False):
+                 diam=0.5, length=0, x_collar=0., y_collar=0., z_collar=None,
+                 legend_dict=None, compute_all_legend=True, verbose=False):
         """
         build a Borehole3D object from Striplog.Intervals list
         
@@ -66,6 +65,7 @@ class Borehole3D(Striplog):
         verbose : False or str ('geom', 'get_comp', 'build_leg', 'plot3d', 'plot2d')
         """
 
+        # ------------------ Class attributes ----------------------------------------
         self.name = name
         self.x_collar = x_collar
         self.y_collar = y_collar
@@ -111,7 +111,7 @@ class Borehole3D(Striplog):
         self._geometry(verbose=verbose)
         self.vtk()
 
-    # ------------------------------------ Properties ----------------------------
+    # ------------------------------- Class Properties ----------------------------
     @property
     def repr_attribute(self):
         return self._repr_attribute
@@ -131,7 +131,7 @@ class Borehole3D(Striplog):
         # all components in each interval as a dict like {interval_number: components_list}
         return {i: intv.components for i, intv in enumerate(self.intervals)}
 
-    # ----------------------------------- Methods ------------------------------------------
+    # -------------------------------- Class Methods ------------------------------
     def get_attrib_components_dict(self, verbose=False):
         # compute a dict of components for all attributes found in legend_dict
 
@@ -419,7 +419,8 @@ class Borehole3D(Striplog):
                                                               '\n</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
 
-    def log_plot(self, figsize=(6, 6), repr_legend=None, text_size=15, width=3, repr_attribute='lithology', verbose=False):
+    def log_plot(self, figsize=(6, 6), repr_legend=None, text_size=15, width=3,
+                 repr_attribute='lithology', verbose=False):
         """
         Plot a 2D log for the attribute
         """

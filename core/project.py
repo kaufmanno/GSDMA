@@ -1,10 +1,10 @@
 from core.orm import BoreholeOrm, ComponentOrm, LinkIntervalComponentOrm
-from core.omf import Borehole3D
+from core.visual import Borehole3D
 from utils.orm import get_interval_list
 from vtk import vtkX3DExporter # NOQA
 from IPython.display import HTML
 from striplog import Lexicon, Legend
-from utils.omf import build_bh3d_legend_cmap
+from utils.visual import build_bh3d_legend_cmap
 import numpy as np
 import pyvista as pv
 import folium as fm
@@ -20,7 +20,7 @@ class Project:
     -----------
     session : ORM Session object
     name : str
-    boreholes : list of BoreholeORM object
+    boreholes_orm : list of BoreholeORM object
     boreholes_3d : list of Borehole3D object
     legend : Striplog Legend object
 
@@ -48,8 +48,9 @@ class Project:
         
         self.session = session
         self.name = name
-        self.boreholes = None
+        self.boreholes_orm = None
         self.boreholes_3d = None
+        self.__components__ = None
         self.repr_attribute = repr_attribute
 
         if legend_dict is None:
@@ -73,17 +74,18 @@ class Project:
             if True, updates Striplog/OMF 3D boreholes (default=False)
         """
         
-        self.boreholes = self.session.query(BoreholeOrm).all()
+        self.boreholes_orm = self.session.query(BoreholeOrm).all()
         if verbose:
-            print(self.legend)
+            print(self.legend_dict)
         if update_3d:
             self.boreholes_3d = []
-            for bh in self.boreholes:
-                list_of_intervals, bh.length = get_interval_list(bh, lexicon=self.lexicon)
+            for bh in self.boreholes_orm:
+                list_of_intervals, bh.length = get_interval_list(bh)
                 if verbose:
                     print(bh.id, " added")
                 self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter,
-                        legend_dict=self.legend_dict, intervals=list_of_intervals, length=bh.length))
+                        legend_dict=self.legend_dict, intervals=list_of_intervals,
+                        length=bh.length))
 
     def commit(self):
         """Validate all modifications done in the project"""
@@ -107,8 +109,10 @@ class Project:
         self.session.add(bh)
         self.commit()
         self.refresh()
-        list_of_intervals, bh.length = get_interval_list(bh, lexicon=self.lexicon)
-        self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter, intervals=list_of_intervals,
+        list_of_intervals, bh.length = get_interval_list(bh)
+        print('\n*_*_*_*_', list_of_intervals[0], '\n')
+        self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter,
+                                            intervals=list_of_intervals,
                                             legend_dict=self.legend_dict, length=bh.length))
             
     def add_components(self, components):
@@ -128,7 +132,7 @@ class Project:
         for comp_id in components.keys():
             new_component = ComponentOrm(id=comp_id, description=components[comp_id].summary())
             self.session.add(new_component)
-            
+        self.__components__ = components
         self.commit()
         self.refresh()
 
@@ -265,7 +269,7 @@ class Project:
         epsg : int
             Value of Coordinates Reference System (CRS)
         save_as : str
-             filename (and dir) to save the map (e.g: 'tmp/mymap.html')
+             filename (and dir) to save html version of the map (e.g: 'mydir/mymap.html')
 
         """
         # create a geopandas with all project boreholes

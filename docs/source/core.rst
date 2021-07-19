@@ -4,18 +4,18 @@ core package
 Submodules
 ----------
 
-core.core module
+core.project module
 ----------------
 
-.. automodule:: core.core
+.. automodule:: core.project
    :members:
    :undoc-members:
    :show-inheritance:
 
-core.omf module
+core.visual module
 ---------------
 
-.. automodule:: core.omf
+.. automodule:: core.visual
    :members:
    :undoc-members:
    :show-inheritance:

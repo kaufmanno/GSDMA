@@ -1,16 +1,12 @@
+import collections.abc
 import re
 from os import walk
 import numpy as np
 import geopandas as gpd
-import pandas
 import pandas as pd
 from shapely import wkt
-from striplog import Striplog, Lexicon, Interval, Component, Position
-from core.orm import BoreholeOrm, PositionOrm
 from ipywidgets import interact, IntSlider
 from IPython.display import display
-from utils.config import DEFAULT_BOREHOLE_LENGTH, DEFAULT_BOREHOLE_DIAMETER, DEFAULT_ATTRIB_VALUE
-from utils.utils import update_dict, get_components
 
 
 def df_from_sources(search_dir, filename, columns=None, verbose=False):
@@ -341,7 +337,8 @@ def gdf_geom(gdf):
     return gdf
 
 
-def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, drop_skip_col=None, verbose=False):
+def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
+                drop_skip_col=None, verbose=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
 
     Parameters
@@ -555,7 +552,8 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, 
     return gdf, gdf_conflict
 
 
-def data_validation(overall_data, conflict_data, valid_dict, index_col='index', verbose=False):
+def data_validation(overall_data, conflict_data, valid_dict, index_col='index',
+                    verbose=False):
     """
     Validate correct data in a conflictual dataframe after merging
 
@@ -657,8 +655,9 @@ def fix_duplicates(df1, df2, id_col='ID', x_gap=.8, y_gap=.8, drop_old_id=True):
         data2.drop(columns=f'Old_{id_col}', inplace=True)
 
 
-def gdf_filter(data, position=True, id_col='ID', expression=None, regex=None, bypass_col=['Old_ID', 'exp_ID'],
-               dist_max=1, val_max=1.5, drop=False, drop_old_id=True, verbose=False):
+def gdf_filter(data, position=True, id_col='ID', expression=None, regex=None,
+               bypass_col=['Old_ID', 'exp_ID'], dist_max=1, val_max=1.5,
+               drop=False, drop_old_id=True):
     """
     filter duplicates from a dataframe, considering ID, position, and/or an expression)
     expression: str
@@ -797,7 +796,8 @@ def gdf_filter(data, position=True, id_col='ID', expression=None, regex=None, by
     return data, check_data
 
 
-def na_line_drop(data, col_n=3, line_non_na=0, drop_by_position=False, old_idx=False, verbose=False):
+def na_line_drop(data, col_n=3, line_non_na=0, drop_by_position=False,
+                 old_idx=False, verbose=False):
     """
     Delete rows in the dataframe where the count of non-NaN values is lower than rows_non_na
 
@@ -904,7 +904,8 @@ def col_ren(data, line_to_col=1, mode=0, name=[]):
     return data
 
 
-def compute_BH_length(df, mode='length', length_col=None, top_col='Litho_top', base_col='Litho_base', reset_drop=True):
+def compute_borehole_length(df, mode='length', length_col=None, top_col='Litho_top',
+                            base_col='Litho_base', reset_drop=True):
     """
 
     """
@@ -948,3 +949,20 @@ def compute_BH_length(df, mode='length', length_col=None, top_col='Litho_top', b
     df.insert(df.columns.to_list().index('ID') + 1, length_col, df.pop(length_col))
     df.reset_index(drop=reset_drop, inplace=True)
 
+
+def update_dict(d, u):
+    """
+    parameters
+    ------------
+    d: dict to update
+    u: dict to add
+    returns
+    ---------
+    d : dict
+    """
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = update_dict(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
