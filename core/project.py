@@ -1,7 +1,7 @@
 from core.orm import BoreholeOrm, ComponentOrm, LinkIntervalComponentOrm
 from core.visual import Borehole3D
 from utils.orm import get_interval_list
-from vtk import vtkX3DExporter # NOQA
+from vtk import vtkX3DExporter, vtkPolyDataMapper # NOQA
 from IPython.display import HTML
 from striplog import Lexicon, Legend
 from utils.visual import build_bh3d_legend_cmap
@@ -177,13 +177,7 @@ class Project:
 
         return synth_leg, detail_leg
 
-    def plot3d(self, plotter=None, repr_attribute='lithology', repr_legend_dict=None, labels_size=None, labels_color=None, bg_color=("royalblue", "aliceblue"), x3d=False, window_size=None):
-        # plotter = None, repr_legend_dict = None, repr_attribute = 'lithology',
-        # repr_cmap = None, repr_uniq_val = None, x3d = False, diam = None,
-        # bg_color = ["royalblue", "aliceblue"], update_vtk = False,
-        # update_cmap = False, custom_legend = False, str_annotations = True,
-        # scalar_bar_args = None
-
+    def plot3d(self, plotter=None, repr_attribute='lithology', repr_legend_dict=None, labels_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"), x3d=False, window_size=None, str_annotations=True, scalar_bar_args=None):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -192,7 +186,7 @@ class Project:
         x3d : bool
             if True, generates a 3xd file of the 3D (default=False)
         """
-
+        custom_legend = False
         name_pts = {}
         if window_size is not None:
             notebook = False
@@ -211,20 +205,15 @@ class Project:
         plot_cmap = repr_legend_dict[repr_attribute]['cmap']
         uniq_attr_val = repr_legend_dict[repr_attribute]['values']
 
-        # if repr_attribute is None or repr_attribute == 'lithology':
-        #     repr_attribute = self.repr_attribute
-        #     plot_cmap = self.cmap
-        #     plot_legend = self.legend
-        # elif repr_attribute is not None and repr_attribute != 'lithology':
-        #     print('Colormap computing ...')
-        #     plot_legend, plot_cmap = self.update_legend_cmap(repr_attribute=repr_attribute)
-
         for bh in self.boreholes_3d:
-            bh.plot3d(plotter=pl,  repr_attribute=repr_attribute, bg_color=bg_color,
+            bh_val_un = bh.legend_dict[repr_attribute]['values']
+            bh.plot3d(plotter=pl,  repr_attribute=repr_attribute,
+                      bg_color=bg_color,
                       repr_legend_dict=repr_legend_dict, repr_cmap=plot_cmap,
-                      repr_uniq_val=uniq_attr_val)
+                      repr_uniq_val=uniq_attr_val, custom_legend=custom_legend)
             name_pts.update({bh.name: bh._vtk.center[:2]+[bh.z_collar]})
-        # print(name_pts)
+            print(len(bh_val_un), bh_val_un)
+        print(uniq_attr_val)
 
         if labels_color is None:
             labels_color = 'black'
@@ -232,15 +221,11 @@ class Project:
         if labels_size is not None:
             pv_pts = pv.PolyData(np.array(list(name_pts.values())))
             pv_pts['bh_name'] = list(name_pts.keys())
-            # print(len(list(pts.keys())))
             pl.add_point_labels(pv_pts, 'bh_name', point_size=1, font_size=labels_size,
                                 text_color=labels_color, show_points=False)
 
-        #if custom_legend:
-        #    plotter.add_scalar_bar(repr_attribute.upper(), interactive=True, vertical=True)
-
         if not x3d:
-            pl.show()
+            pl.show(auto_close=True)
         else:
             writer = vtkX3DExporter()
             writer.SetInput(pl.renderer.GetRenderWindow())
