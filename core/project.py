@@ -1,6 +1,5 @@
 from core.orm import BoreholeOrm, ComponentOrm, LinkIntervalComponentOrm
-from core.visual import Borehole3D
-from utils.orm import get_interval_list
+from utils.orm import create_bh3d_from_bhorm
 from vtk import vtkX3DExporter, vtkPolyDataMapper # NOQA
 from IPython.display import HTML
 from striplog import Lexicon, Legend
@@ -50,7 +49,7 @@ class Project:
         self.name = name
         self.boreholes_orm = None
         self.boreholes_3d = None
-        self.__components__ = None
+        self.__components_dict__ = None
         self.repr_attribute = repr_attribute
 
         if legend_dict is None:
@@ -59,9 +58,7 @@ class Project:
             lexicon = Lexicon.default()
 
         self.legend_dict = legend_dict
-        # self.legend = self.legend_dict[repr_attribute]
         self.lexicon = lexicon
-        # self.cmap = None
         self.refresh(update_3d=True)
 
     def refresh(self, update_3d=False, verbose=False):
@@ -80,18 +77,14 @@ class Project:
         if update_3d:
             self.boreholes_3d = []
             for bh in self.boreholes_orm:
-                list_of_intervals, bh.length = get_interval_list(bh)
-                if verbose:
-                    print(bh.id, " added")
-                self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter,
-                        legend_dict=self.legend_dict, intervals=list_of_intervals,
-                        length=bh.length))
+                self.boreholes_3d.append(create_bh3d_from_bhorm(bh, verbose=verbose,
+                                                                legend_dict=self.legend_dict))
 
     def commit(self):
         """Validate all modifications done in the project"""
         self.session.commit()
         
-    def add_borehole(self, bh):
+    def add_borehole(self, bh, verbose=False):
         """
         Add a list of Boreholes to the project
         
@@ -109,11 +102,7 @@ class Project:
         self.session.add(bh)
         self.commit()
         self.refresh()
-        list_of_intervals, bh.length = get_interval_list(bh)
-        print('\n*_*_*_*_', list_of_intervals[0], '\n')
-        self.boreholes_3d.append(Borehole3D(name=bh.id, diam=bh.diameter,
-                                            intervals=list_of_intervals,
-                                            legend_dict=self.legend_dict, length=bh.length))
+        self.boreholes_3d.append(create_bh3d_from_bhorm(bh, verbose=verbose, legend_dict=self.legend_dict))
             
     def add_components(self, components):
         """
@@ -132,11 +121,11 @@ class Project:
         for comp_id in components.keys():
             new_component = ComponentOrm(id=comp_id, description=components[comp_id].summary())
             self.session.add(new_component)
-        self.__components__ = components
+        self.__components_dict__ = components
         self.commit()
         self.refresh()
 
-    def add_link_between_components_and_intervals(self, link_component_interval):
+    def add_link_components_intervals(self, link_component_interval):
         """
         Add a list of Components to the project
 
@@ -154,9 +143,8 @@ class Project:
         self.commit()
         self.refresh()
 
-    def update_legend_cmap(self, repr_attribute_list=None, legend_dict=None, width=3,
-                           update_all_attrib=False, update_bh3d_legend=False,
-                           update_project_legend=True, verbose=False):
+    def update_legend_cmap(self, repr_attribute_list=None, legend_dict=None, width=3, update_all_attrib=False,
+                           update_bh3d_legend=False, update_project_legend=True, verbose=False):
         """Update the project cmap based on all boreholes in the project"""
 
         if repr_attribute_list is None:
@@ -167,8 +155,10 @@ class Project:
 
         synth_leg, detail_leg = build_bh3d_legend_cmap(
             bh3d_list=self.boreholes_3d, legend_dict=legend_dict,
-            repr_attrib_list=repr_attribute_list, width=width, compute_all=update_all_attrib,
-            update_bh3d_legend=update_bh3d_legend, update_given_legend=update_project_legend,
+            repr_attrib_list=repr_attribute_list, width=width,
+            compute_all=update_all_attrib,
+            update_bh3d_legend=update_bh3d_legend,
+            update_given_legend=update_project_legend,
             verbose=verbose)
 
         if update_project_legend:
@@ -177,7 +167,8 @@ class Project:
 
         return synth_leg, detail_leg
 
-    def plot3d(self, plotter=None, repr_attribute='lithology', repr_legend_dict=None, labels_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"), x3d=False, window_size=None, str_annotations=True, scalar_bar_args=None):
+    def plot3d(self, plotter=None, repr_attribute='lithology', repr_legend_dict=None, labels_size=15,
+               labels_color=None, bg_color=("royalblue", "aliceblue"),x3d=False, window_size=None):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -276,14 +267,11 @@ class Project:
         # Use a satellite map
         if tile is None:
             tile = {'name': 'Satellite',
-                    'attributes': "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX,"
-                              " GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User "
-                              "Community",
-                    'url': "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery"
-                           "/MapServer/tile/{z}/{y}/{x}"}
+                    'attributes': "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
+                    'url': "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"}
 
-        bhs_map = fm.Map(location=center, tiles='OpenStreetMap', zoom_start=15, max_zoom=25,
-                        control_scale=True)
+        bhs_map = fm.Map(location=center, tiles='OpenStreetMap', zoom_start=15,
+                         max_zoom=25, control_scale=True)
 
         ch1 = fm.FeatureGroup(name='Boreholes')
 

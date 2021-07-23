@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Float, Boolean, ForeignKey
+from sqlalchemy import Column, ForeignKey, Integer, String, Float, Text, DateTime, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, synonym, backref
 from sqlalchemy.orm.collections import attribute_mapped_collection
@@ -33,11 +33,12 @@ class BoreholeOrm(Base):
                              collection_class=attribute_mapped_collection('id'),
                              cascade='all, delete-orphan')
 
-    intervals_values = association_proxy(
-        'intervals', 'description', creator=lambda k, v: IntervalOrm(
-            id=k, description=v['description'],
-            interval_number=v['interval_number'],
-            top=v['top'], base=v['base']))
+    intervals_values = association_proxy('intervals', 'description',
+                            creator=lambda k, v: IntervalOrm(
+                                    id=k, description=v['description'],
+                                    interval_number=v['interval_number'],
+                                    top=v['top'], base=v['base'])
+                                         )
 
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
@@ -124,7 +125,7 @@ class LinkIntervalComponentOrm(Base):
     id : int
         The id of the interval, different for each borehole interval.
     description : str
-                 The name of the component.
+         The name of the component.
 
     """
     __tablename__ = 'Linkintervalcomponent'
@@ -171,8 +172,8 @@ class PositionOrm(Base):
 class IntervalDataOrm(Base):
     """The IntervalData table
 
+    Attributes
     """
-
     __tablename__ = 'IntervalData'
 
     id = Column(Integer, primary_key=True)

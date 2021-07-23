@@ -288,8 +288,7 @@ def boreholes_from_dataframe(df, symbols=None, attributes=None, iv_top=None,
                                        )
 
                     desc = ', '.join([c.json() for c in intv.components])
-                    # print('HEEER:', desc)
-                    # 'description': intv.description,
+                    # print('description:', desc)
                     interval_dict.update({int_id: {'description': desc,
                                        'interval_number': interval_number,
                                        'top': top, 'base': base}})
