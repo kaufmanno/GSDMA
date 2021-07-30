@@ -40,7 +40,7 @@ class Project:
         Parameters
         -----------
         session : ORM session object
-        legend : bool
+        legend_dict : dict
         name : str
         
         """
@@ -143,8 +143,9 @@ class Project:
         self.commit()
         self.refresh()
 
-    def update_legend_cmap(self, repr_attribute_list=None, legend_dict=None, width=3, update_all_attrib=False,
-                           update_bh3d_legend=False, update_project_legend=True, verbose=False):
+    def update_legend_cmap(self, repr_attribute_list=None, legend_dict=None, width=3,
+                update_all_attrib=False, update_bh3d_legend=False, update_project_legend=True,
+                verbose=False):
         """Update the project cmap based on all boreholes in the project"""
 
         if repr_attribute_list is None:
@@ -153,13 +154,10 @@ class Project:
         if legend_dict is None:
             legend_dict = self.legend_dict
 
-        synth_leg, detail_leg = build_bh3d_legend_cmap(
-            bh3d_list=self.boreholes_3d, legend_dict=legend_dict,
-            repr_attrib_list=repr_attribute_list, width=width,
-            compute_all=update_all_attrib,
-            update_bh3d_legend=update_bh3d_legend,
-            update_given_legend=update_project_legend,
-            verbose=verbose)
+        synth_leg, detail_leg = build_bh3d_legend_cmap(bh3d_list=self.boreholes_3d, legend_dict=legend_dict,
+                        repr_attrib_list=repr_attribute_list, width=width, compute_all=update_all_attrib,
+                        update_bh3d_legend=update_bh3d_legend, update_given_legend=update_project_legend,
+                        verbose=verbose)
 
         if update_project_legend:
             # print('-----------\n', legend_dict)
@@ -168,7 +166,8 @@ class Project:
         return synth_leg, detail_leg
 
     def plot3d(self, plotter=None, repr_attribute='lithology', repr_legend_dict=None, labels_size=15,
-               labels_color=None, bg_color=("royalblue", "aliceblue"),x3d=False, window_size=None):
+               labels_color=None, bg_color=("royalblue", "aliceblue"),x3d=False, window_size=None,
+               verbose=False):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -203,8 +202,8 @@ class Project:
                       repr_legend_dict=repr_legend_dict, repr_cmap=plot_cmap,
                       repr_uniq_val=uniq_attr_val, custom_legend=custom_legend)
             name_pts.update({bh.name: bh._vtk.center[:2]+[bh.z_collar]})
-            print(len(bh_val_un), bh_val_un)
-        print(uniq_attr_val)
+            if verbose:
+                print(f'Borehole "{bh.name}": {len(bh_val_un)} --> {bh_val_un}')
 
         if labels_color is None:
             labels_color = 'black'

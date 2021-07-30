@@ -10,7 +10,7 @@ from striplog import Legend, Component
 import numpy as np
 from striplog.utils import hex_to_rgb
 import core.visual
-from utils.config import DEFAULT_ATTRIB_VALUE
+from utils.config import DEFAULT_ATTRIB_VALUE, WORDS_WITH_S
 from utils.lexicon.lexicon_memoris import lexicon_memoris, pollutants_memoris, CONTAMINATION_LEVELS_MEMORIS
 
 
@@ -120,10 +120,13 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
             legend_copy = deepcopy(legend_dict[attr]['legend'])
             bh3d_uniq_attrib_val = []  # unique attribute values for each borehole
             for intv in bh3d.intervals:
-                # print('~~~:', intv)
                 j = find_component_from_attrib(intv, attr, verbose=verb)
-                if j == -1:  # add default component if none (object size if many attrib !!!)
+                if j == -1:  # add default component if none found
                     intv.components.append(Component({attr: DEFAULT_ATTRIB_VALUE}))
+
+                if intv.components[j][attr] not in WORDS_WITH_S:
+                    comp_v = intv.components[j][attr].rstrip('s')  # remove ending 's'
+                    intv.components[j] = Component({attr: comp_v})  # overwrite component
 
                 if intv.components[j][attr] not in bh3d_uniq_attrib_val:
                     bh3d_uniq_attrib_val.append(intv.components[j][attr])

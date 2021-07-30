@@ -13,19 +13,7 @@ POLLUTANTS_MEMORIS = {'pollutant': ['arsenic', 'cadmium', 'chrome total', 'chrom
 
 pollutants_memoris = Lexicon(POLLUTANTS_MEMORIS)
 
-LEXICON_MEMORIS = {'lithology': ['Anthracite(?:s)?', 'Porphyre(?:s)?', 'Houille(?:s)?', 'Diorite(?:s)?', 'Cargneule(?:s)?', 'Molasse(?:s)?', 'Jaspe(?:s)?', 'Gravier(?:s)?', 'Leptynite(?:s)?', 'Pyroxénite(?:s)?', 'Pierre coquillière(?:s)?', 'Grès(?:s)?', 'Obsidienne(?:s)?', 'Basalte(?:s)?', 'Charbon(?:s)?', 'Anhydrite(?:s)?', 'Andésite(?:s)?', 'Ardoise(?:s)?', 'Carbonatite(?:s)?', 'Dolérite(?:s)?', 'Cendres(?:s)?', 'Poudingue(?:s)?', 'Alios(?:s)?', 'Quartzite(?:s)?', 'Calcaire(?:s)?', 'Gypse(?:s)?', 'Limon(?:s)?', 'Phonolite(?:s)?', 'Arkose(?:s)?', 'Pegmatite(?:s)?', 'Bauxite(?:s)?', 'Pierre coquillère(?:s)?', 'Gneiss', 'Mort-terrain(?:s)?', 'Silcrète(?:s)?', 'Lignite(?:s)?', 'Conglomérat(?:s)?', 'Glauconie(?:s)?', 'Ponce(?:s)?', 'Péridotite(?:s)?', 'Combarbalite(?:s)?', 'Glauconite(?:s)?', 'Anatexite(?:s)?', 'Amphibolite(?:s)?', 'Greisen(?:s)?', 'Tuffeau(?:s)?', 'Granite(?:s)?', 'Gr(?:è|e|é)s', 'Brèche(?:s)?', 'Dolomie(?:s)?', 'Tuf volcanique(?:s)?', 'Halite(?:s)?', "Granite d'anatexie(?:s)?", 'Ignimbrite(?:s)?', 'Bentonite(?:s)?', 'Monzonite(?:s)?', 'Rhyolite(?:s)?', 'Monazite(?:s)?', 'Silex', 'Gabbro(?:s)?', 'Argile(?:s)?', 'Syénite(?:s)?', 'Kimberlite(?:s)?', 'Cendre(?:s)?', 'Cinérite(?:s)?', 'Tourbe(?:s)?', 'Aplite(?:s)?', 'Grè(?:s)?', 'Marne(?:s)?', 'Dacite(?:s)?', 'Micaschiste(?:s)?', 'Molasse (?:s)?', 'Tillite(?:s)?', 'Schiste(?:s)?', 'Granodiorite(?:s)?', 'Phtanite(?:s)?', 'Tuf(?:s)?', 'Sable(?:s)?', 'Trachyte(?:s)?', 'Remblai(?:s)?', 'Alluvion(?:s)?', 'Boue(?:s)?', 'Marbre(?:s)?', 'Ophite(?:s)?', 'Éclogite(?:s)?', 'Cipolin(?:s)?', 'Kersantite(?:s)?', 'Lapillis(?:s)?', 'Diatomite(?:s)?', 'Craie(?:s)?', 'Radiolarite(?:s)?'],
-              
-           'state': ['altéré(?:e|es)?', 'sain(?:s|e|es)?', 'hétérogène(?:s)?', 'homogène(?:s)?'],
-              
-           'shape': ['lentille(?:s)?', 'biseau(x)?', 'strie(?:s)?', 'veine(?:s)?', 'filet(?:s)?', 'filon(?:s)?', 'intercalé(?:s|e|es)?', 'intercalation(?:s)?', 'interstratifié(?:s|e|es)?', 'tacheté(?:s|e|es)?', 'bande(?:s)?', 'bariolé(?:e|es)?'],
-              
-           'material': ['laitier', 'Scories', 'béton', 'scorie(?:s)?', 'Ballast', 'Laitier', 'Géotextile', 'Scorie', 'g[e|é]otextile(?:s)?', 'Ballasts', 'ballast(?:s)?', 'Béton'],
-              
-           'modifier': ['Sableu(?:x|se|ses)?', 'shisteu(?:x|se)', 'caillouteu(?:x|se)', 'Charboneu(?:x|se|ses)?', 'Schisteu(?:x|se|ses)?', 'sableu(?:x|se)', 'argileu(?:x|se)', 'graveleu(?:x|se)', 'pierreu(?:x|se)', 'Argileu(?:x|se|ses)?', 'silteu(?:x|se)', 'Cendreu(?:x|se|ses)?', 'Charbonneu(?:x|se|ses)?', 'Tourbeu(?:x|se|ses)?', 'Limoneu(?:x|se|ses)?', 'bitumineu(?:x|se)', 'saturé(?:e|es)?', 'Gréseu(?:x|se|ses)?', 'boueu(?:x|se)'],
-              
-           'grainsize': ['(?:pluri(?:-)?)?(?:d[e|é]ci|centi|milli)?m[e|é]trique(?:s)?', 'vf(?:-)?', 'f(?:-)?',  '\\d+ mm(?:-)?', 'c(?:-)?', 'vc', 'très fin(?:e à)?', 'fin(?:e|s|es à)?','moyen(?:ne à)?',  'grossi(?:er|ers|ère|ères à)?', 'très grossi(?:er|ère)', 't fin(?:e|s|es à)?', 'moy(?: à)?',  'moy.(?: à)?', 't grossier(?:s)?', 'granules?', 'cailloux?', 'galets?', 'blocs rocheux?'],
-
-                   'quantity': ['beaucoup', 'peu', 'moins', 'plusieurs', 'fragment(?:s)?', 'impurité(?:es)', 'abondant(?:e|es)', 'mineur','quelques', 'rare', 'flocon(?:s)?', 'trace(?:s)', '[-.\\d]+%', '[-.\\d]+pc', '[-.\\d]+pourcent'],
+LEXICON_MEMORIS = {'lithology': ['Anthracite(?:s)?', 'Porphyre(?:s)?', 'Houille(?:s)?', 'Diorite(?:s)?', 'Cargneule(?:s)?', 'Molasse(?:s)?', 'Jaspe(?:s)?', 'Gravier(?:s)?', 'Leptynite(?:s)?', 'Pyroxénite(?:s)?', 'Pierre coquillière(?:s)?', 'Grès(?:s)?', 'Obsidienne(?:s)?', 'Basalte(?:s)?', 'Charbon(?:s)?', 'Anhydrite(?:s)?', 'Andésite(?:s)?', 'Ardoise(?:s)?', 'Carbonatite(?:s)?', 'Dolérite(?:s)?', 'Cendres(?:s)?', 'Poudingue(?:s)?', 'Alios(?:s)?', 'Quartzite(?:s)?', 'Calcaire(?:s)?', 'Gypse(?:s)?', 'Limon(?:s)?', 'Phonolite(?:s)?', 'Arkose(?:s)?', 'Pegmatite(?:s)?', 'Bauxite(?:s)?', 'Pierre coquillère(?:s)?', 'Gneiss', 'Mort-terrain(?:s)?', 'Silcrète(?:s)?', 'Lignite(?:s)?', 'Conglomérat(?:s)?', 'Glauconie(?:s)?', 'Ponce(?:s)?', 'Péridotite(?:s)?', 'Combarbalite(?:s)?', 'Glauconite(?:s)?', 'Anatexite(?:s)?', 'Amphibolite(?:s)?', 'Greisen(?:s)?', 'Tuffeau(?:s)?', 'Granite(?:s)?', 'Gr(?:è|e|é)s', 'Brèche(?:s)?', 'Dolomie(?:s)?', 'Tuf volcanique(?:s)?', 'Halite(?:s)?', "Granite d'anatexie(?:s)?", 'Ignimbrite(?:s)?', 'Bentonite(?:s)?', 'Monzonite(?:s)?', 'Rhyolite(?:s)?', 'Monazite(?:s)?', 'Silex', 'Gabbro(?:s)?', 'Argile(?:s)?', 'Syénite(?:s)?', 'Kimberlite(?:s)?', 'Cendre(?:s)?', 'Cinérite(?:s)?', 'Tourbe(?:s)?', 'Aplite(?:s)?', 'Grè(?:s)?', 'Marne(?:s)?', 'Dacite(?:s)?', 'Micaschiste(?:s)?', 'Molasse (?:s)?', 'Tillite(?:s)?', 'Schiste(?:s)?', 'Granodiorite(?:s)?', 'Phtanite(?:s)?', 'Tuf(?:s)?', 'Sable(?:s)?', 'Trachyte(?:s)?', 'Remblai(?:s)?', 'Alluvion(?:s)?', 'Marbre(?:s)?', 'Ophite(?:s)?', 'Éclogite(?:s)?', 'Cipolin(?:s)?', 'Kersantite(?:s)?', 'Lapillis(?:s)?', 'Diatomite(?:s)?', 'Craie(?:s)?', 'Boue(?:s)?', 'laitier', 'béton', 'scorie(?:s)?', 'Ballast(?:s)?', 'Laitier'],
 
                    'synonyms': {'mort-terrain': ['terre'], 'Anhydrite': ['Gypse'], 'Sel': ['Halite', 'Sylvite']},
 
@@ -34,8 +22,6 @@ LEXICON_MEMORIS = {'lithology': ['Anthracite(?:s)?', 'Porphyre(?:s)?', 'Houille(
                    'parts_of_speech': {'noun': ['lithology'], 'adjective': ['colour', 'grainsize', 'modifier'], 'subordinate': ['quantity']},
 
                    'abbreviations': {'Argilo':'Argile', 'Sablo':'sable'},
-
-                   'colour': ['Bleu(?:e|es|âtre|âtres)?', 'Blanc(?:he|hes|hâtre|hâtres)?', 'Gris(?:e|es|âtre|âtres)?', 'Jaun(?:e|es|âtre|âtres)?', 'Marron', 'Noir(?:e|es|âtre|âtres)?', 'Ros(?:e|es|âtre|âtres)?', 'Roug(?:e|es|âtre|âtres)?', 'Ver(?:t|te|tes|dâtre|dâtres)?', 'Violet(?:te|tes)?', 'Orange', 'Jaune-gris', 'Blanc-gris', 'Brun-jaune', 'Gris-noir', 'Rouge-orange', 'Noir-brun', 'Jaune-vert', 'Vert-ocre', 'Verdâtre-brun', 'Grise-verdâtre', 'Noir-rouge', 'beige', 'Jaune-kaki', 'Brun-gris', 'Jaune-ocre', 'Vert-de-gris', 'Gris-rouge', 'Aigue-marine', 'Azur', 'Azur clair', 'Azurin', 'Bleu acier', 'Bleu ardoise', 'Bleu barbeau', 'Bleu bleuet', 'Bleu bondi', 'Bleu céleste', 'Bleu céruléen', 'Bleu charrette', 'Bleu charron', 'Bleu ciel', 'Bleu cobalt', 'Bleu de Berlin', 'Bleu de France', 'Bleu de minuit', 'Bleu de Prusse', 'Bleu denim', 'Bleu des mers du sud', 'Bleu dragée', 'Bleu égyptien', 'Bleu électrique', 'Bleu guède', 'Bleu horizon', 'Bleu majorelle', 'Bleu marine', 'Bleu maya', 'Bleu minéral', 'Bleu nuit', 'Bleu outremer', 'Bleu paon', 'Bleu persan', 'Bleu pétrole', 'Bleu roi', 'Bleu saphir', 'Bleu sarcelle', 'Bleu smalt', 'Bleu tiffany', 'Bleu turquin', 'Cæruléum', 'Canard', 'Cérulé', 'Cyan', 'Fumée', 'Givré', 'Indigo', 'Indigo du web', 'Klein', 'Lapis-lazuli', 'Lavande', 'Pastel', 'Pervenche', 'Turquoise', 'Blanc', 'Albâtre', 'Azur brume', 'Beige clair', 'Blanc cassé', 'Blanc céruse', 'Blanc crème', "Blanc d'argent", 'Blanc de lait', 'Blanc de lin', 'Blanc de platine', 'Blanc de plomb', 'Blanc de Saturne', 'Blanc de Troyes', 'Blanc de Zinc', "Blanc d'Espagne", "Blanc d'ivoire", 'Blanc écru', 'Blanc lunaire', 'Blanc neige', 'Blanc opalin', 'Blanc-bleu', "Coquille d'oeuf", 'Cuisse de nymphe', 'Brun', 'Acajou', 'Alezan', 'Ambre', 'Auburn', 'Basané', 'Beige', 'Beigeasse', 'Bistre', 'Bitume', 'Blet', 'Brique', 'Bronze', 'Brou de noix', 'Bureau', 'Cacao', 'Cachou', 'Café', 'Café au lait', 'Cannelle', 'Caramel', 'Châtaigne', 'Châtain', 'Chaudron', 'Chocolat', 'Citrouille', 'Fauve', 'Feuille-morte', 'Grège', 'Gris de maure', 'Lavallière', 'Marron', 'Mordoré', 'Noisette', 'Orange brûlée', 'Puce', 'Rouge bismarck', 'Rouge tomette', 'Rouille', 'Sang de boeuf', 'Senois', 'Sépia', 'Tabac', 'Terre de Sienne', "Terre d'ombre", 'Vanille', 'Gris', 'Ardoise', 'Argent', 'Bis', 'Céladon', 'Etain oxydé', 'Etain pur', 'Gris acier', 'Gris anthracite', 'Gris de Payne', 'Gris fer', 'Gris Fer', 'Gris Perle', 'Gris souris', 'Gris tourterelle', 'Mastic', 'Pinchard', 'Plomb', 'Rose Mountbatten', 'Taupe', 'Tourdille', 'Jaune', 'Aurore', 'Beurre', 'Beurre frais', 'Blé', 'Blond', "Boutton d'or", 'Bulle', "Caca d'oie", 'Chamois', 'Champagne', 'Chrome', 'Citron', 'Flave', 'Fleur de soufre', 'Gomme-gutte', 'Jaune auréolin', 'Jaune banane', 'Jaune canari', 'Jaune chartreuse', 'Jaune de cobalt', 'Jaune de Naples', "Jaune d'or", 'Jaune impérial', 'Jaune mimosa', 'Jaune moutarde', 'Jaune nankin', 'Jaune olive', 'Jaune paille', 'Jaune poussin', 'Maïs', 'Mars', 'Miel', 'Ocre jaune', 'Ocre rouge', 'Or', 'Orpiment', 'Poil de chameau', 'Queue de vache', 'Safran', 'Soufre', 'Topaze', 'Vénitien', 'Noir', 'Aile de corbeau', 'Cassis', 'Dorian', 'Ebène', 'Noir animal', 'Noir charbon', "Noir d'aniline", 'Noir de carbone', 'Noir de fumée', 'Noir de jais', "Noir d'encre", "Noir d'ivoire", 'Noiraud', 'Réglisse', 'Orange', 'Abricot', 'Bisque', 'Carotte', 'Corail', 'Cuivre', 'Mandarine', 'Melon', 'Orangé', 'Roux', 'Saumon', 'Tangerine', 'Tanné', 'Ventre de biche', 'Rose', 'Cerise', 'Chair', 'Framboise', 'Fushia', 'Héliotrope', 'Incarnadin', 'Magenta', 'Magenta foncé', 'Magenta fushia', 'Mauve', 'Pêche', 'Rose balais', 'Rose bonbon', 'Rose dragée', 'Rose thé', 'Rose vif', 'Rouge', 'Amarante', 'Bordeaux', 'Ecarlate', 'Fraise', 'Fraise écrasée', 'Grenadine', 'Grenat', 'Incarnat', 'Nacarat', 'Passe-velours', 'Pourpre', 'Prune', 'Rouge alizarine', 'Rouge anglais', 'Rouge bourgogne', 'Rouge capucine', 'Rouge cardinal', 'Rouge carmin', 'Rouge cinabre', 'Rouge coquelicot', 'Rouge cramoisi', "Rouge d'Andrinople", "Rouge d'aniline", 'Rouge de falun', 'Rouge de mars', 'Rouge écrevisse', 'Rouge feu', 'Rouge garance', 'Rouge groseille', 'Rouge ponceau', 'Rouge rubis', 'Rouge sang', 'Rouge tomate', 'Rouge turc', 'Rouge vermillon', 'Rouge-violet', 'Terracotta', 'Vermeil', 'Zizolin', 'Vert', 'Asperge', 'Glauque', 'Hooker', 'Jade', 'Kaki', 'Menthe', "Menthe à l'eau", 'Sinople', 'Vert absinthe', 'Vert amande', 'Vert anglais', 'Vert anis', 'Vert avocat', 'Vert bouteille', 'Vert chartreuse', 'Vert citron', 'Vert de chrome', 'Vert de gris', 'Vert de vessie', "Vert d'eau", 'Vert émeraude', 'Vert empire', 'Vert épinard', 'Vert gazon', 'Vert impérial', 'Vert kaki', 'Vert lichen', 'Vert lime', 'Vert malachite', 'Vert mélèse', 'Vert militaire', 'Vert mousse', 'Vert olive', 'Vert opaline', 'Vert perroquet', 'Vert pin', 'Vert pistache', 'Vert poireau', 'Vert pomme', 'Vert prairie', 'Vert prasin', 'Vert printemps', 'Vert sapin', 'Vert sauge', 'Vert smaragdin', 'Vert tilleul', 'Vert véronèse', 'Vert viride', 'Violet', 'Améthyste', 'Aubergine', 'Byzantin', 'Byzantium', 'Colombin', 'Glycine', 'Gris de lin', 'Lie de vin', 'Lilas', 'Orchidée', 'Parme', "Violet d'évêque", 'Violine', 'rouge', 'orange gris', 'verdâtre', 'gris', 'brun', 'blanc', 'noire', 'brique', 'sable beige', 'brun beige', 'noir verdâtre', 'jaune', 'noir', 'verdâtre brun']
                    }
 
 lexicon_memoris = Lexicon(LEXICON_MEMORIS)
@@ -52,32 +38,34 @@ CONTAMINATION_LEVELS_MEMORIS = """colour,width,component {:}
 
 LITHOLOGY_MEMORIS = """colour,width, hatch, component lithology
 #FFFFE9, None, None, Matériau(?:x)? meuble(?:s)?,
-#FFFFD5, None, '....', Alluvion(?:s)?,
-#331100, None, None, Boue(?:s)?,
-#D3B798, None, 'v', Remblai(?:s)?,
-#FFCC99, None, None, Tourbe(?:s)?,
-#FFEAA7, None, None, Gypse(?:s)?,
-#00151A, None, None, Houille(?:s)?,
-#798732, None, '-.', Limon(?:s)?,
-#FFCB23, None, '..', Sable(?:s)?,
-#ADB7CC, None, 'oo, Gravier(?:s)?,
-#ACE4C8, None, None, Silt(?:s)?,
-#D5E6CC, None, '---', Argile(?:s)?,
-#92DCB7, None, None, Bentonite(?:s)?,
-#BBFFDD, None, '--', Schiste(?:s)?,
-#95FFCA, None, None, Argilite(?:s)?,
-#D6FE9A, None, None, Siltite(?:s)?,
-#E1F0D8, None, None, Tuffeau(?:s)?,
+#FFF497, None, '....', Alluvion,
+#331100, None, None, Boue,
+#D3B798, None, 'v', Remblai,
+#a5c7c9, None, 't', B[é|e]ton,
+#8da3c9, None, 't', Scorie,
+#FFCC99, None, None, Tourbe,
+#FFEAA7, None, None, Gypse,
+#00151A, None, None, Houille,
+#798732, None, '-.', Limon,
+#FFCB23, None, '..', Sable,
+#ADB7CC, None, 'oo, Gravier,
+#ACE4C8, None, None, Silt,
+#D5E6CC, None, '---', Argile,
+#92DCB7, None, None, Bentonite,
+#BBFFDD, None, '--', Schiste,
+#95FFCA, None, None, Argilite,
+#D6FE9A, None, None, Siltite,
+#E1F0D8, None, None, Tuffeau,
 #69CF9C, None, None, Silex,
-#B7D9CC, None, None, Conglomérat(?:s)?,
-#019CCD, None, None, Carbonate(?:s)?,
-#149EFF, None, '=', Calcaire(?:s)?,
-#FDAAFF, None, None, Dolomite(?:s)?,
-#FDAFFE, None, None, Dolomie(?:s)?,
-#DEEFFE, None, None, Craie(?:s)?,
-#AAC2C8, None, None, Chert(?:s)?,
-#000000, None, None, Charbon(?:s)?,
-#7BA1A8, None, None, Marne(?:s)?,
+#B7D9CC, None, None, Conglomérat,
+#019CCD, None, None, Carbonate,
+#149EFF, None, '=', Calcaire,
+#FDAAFF, None, None, Dolomite,
+#FDAFFE, None, None, Dolomie,
+#DEEFFE, None, None, Craie,
+#AAC2C8, None, None, Chert,
+#000000, None, None, Charbon,
+#7BA1A8, None, None, Marne,
 #FFFFFF, None, None, Inconnu
 """
 lithology_memoris = Legend.from_csv(text=LITHOLOGY_MEMORIS)

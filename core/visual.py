@@ -94,7 +94,7 @@ class Borehole3D(Striplog):
         self.intervals = intervals
 
         if self.z_collar is None and self.intervals is not None:
-            self.update_z_collar_from_intervals()
+            self.update_z_collar()
 
         if legend_dict is None or not isinstance(legend_dict[repr_attribute]['legend'], Legend):
             print("No given legend or incorrect format ! Default is used")
@@ -159,6 +159,56 @@ class Borehole3D(Striplog):
 
         return comp_attrib_dict
 
+    def get_components_indices(self, repr_attribute=None, intervals=None, verbose=False):
+        """
+        retrieve components indices from borehole's intervals
+
+        repr_repr_attribute: str
+            attribute to consider when retrieving intervals components indices (e.g: 'lithology')
+
+        intervals : List of Striplog.Interval object
+
+        Returns
+        --------
+        array of indices
+        """
+
+        verb = False
+        if verbose:
+            verb = 'get_comp'
+
+        if repr_attribute is None:
+            repr_attribute = self.repr_attribute
+        if intervals is None:
+            intervals = self.intervals
+
+        if verbose and verb in verbose:
+            print(f'\n~~~~~~~~~~~~~~~~~~ {repr_attribute} ~~~~~~~~~~~~~~~~~~~~~~')
+        components = []
+        for i in intervals:
+            j = find_component_from_attrib(i, repr_attribute, verbose=verb)
+            if j == -1:  # add default component if none
+                print(f'\n//// {j}, {components}, {i.components}\n')
+                components.append(Component({repr_attribute: DEFAULT_ATTRIB_VALUE}))
+            else:
+                components.append(i.components[j])
+        comp_list = list(pd.unique([c[repr_attribute] for c in components]))
+
+        indices = []
+        incr = 0
+        for i in intervals:
+            j = find_component_from_attrib(i, repr_attribute, verbose=verb)
+            indices.append(comp_list.index(i.components[j][repr_attribute]))
+
+            if verbose and verb in verbose:
+                print(f'get_comp | uniq_comp_list: {comp_list}, n_intv:{incr}, ind_val: {j}, comp: {i.components[j][repr_attribute]}')
+
+            incr += 1
+
+        if verbose and verb in verbose:
+            print(f'\nget_comp | comp_indices: {np.array(indices)}')
+        return np.array(indices)
+
     def _geometry(self, verbose=False):
         """
         build an omf.LineSetElement geometry of the borehole
@@ -222,8 +272,6 @@ class Borehole3D(Striplog):
 
         print("Borehole geometry created successfully !")
 
-        # return self._geometry
-
     def vtk(self, radius=None, res=50):
         """ build a vtk tube of given radius based on the borehole geometry """
         if radius is None:
@@ -233,58 +281,7 @@ class Borehole3D(Striplog):
             self._vtk = vtk_obj
         return self._vtk
 
-    def get_components_indices(self, repr_attribute=None, intervals=None, verbose=False):
-        """
-        retrieve components indices from borehole's intervals
-
-        repr_repr_attribute: str
-            attribute to consider when retrieving intervals components indices (e.g: 'lithology')
-
-        intervals : List of Striplog.Interval object
-
-        Returns
-        --------
-        array of indices
-        """
-
-        verb = False
-        if verbose:
-            verb = 'get_comp'
-
-        if repr_attribute is None:
-            repr_attribute = self.repr_attribute
-        if intervals is None:
-            intervals = self.intervals
-
-        if verbose and verb in verbose:
-            print(f'\n~~~~~~~~~~~~~~~~~~ {repr_attribute} ~~~~~~~~~~~~~~~~~~~~~~')
-        components = []
-        for i in intervals:
-            j = find_component_from_attrib(i, repr_attribute, verbose=verb)
-
-            if j == -1:  # add default component if none
-                print(f'\n//// {j}, {components}, {i.components}\n')
-                components.append(Component({repr_attribute: DEFAULT_ATTRIB_VALUE}))
-            else:
-                components.append(i.components[j])
-        comp_list = list(pd.unique([c[repr_attribute] for c in components]))
-
-        indices = []
-        incr = 0
-        for i in intervals:
-            j = find_component_from_attrib(i, repr_attribute, verbose=verb)
-            indices.append(comp_list.index(i.components[j][repr_attribute]))
-
-            if verbose and verb in verbose:
-                print(f'get_comp | uniq_comp_list: {comp_list}, n_intv:{incr}, ind_val: {j}, comp: {i.components[j][repr_attribute]}')
-
-            incr += 1
-
-        if verbose and verb in verbose:
-            print(f'\nget_comp | comp_indices: {np.array(indices)}')
-        return np.array(indices)
-
-    def update_z_collar_from_intervals(self):
+    def update_z_collar(self):
         """
         updates z_collar assuming that collar is at the top elevation of the highest interval
         """
@@ -309,13 +306,15 @@ class Borehole3D(Striplog):
         for i in self.intervals:
             j = find_component_from_attrib(i, repr_attribute, verbose=verb)
             intv_value = i.components[j][repr_attribute]
-            if verbose:
-                print(f'plot2d | j: {j} | intv_value: {intv_value} | comp: {i.components[j]}')
+
             if isinstance(intv_value, str):
                 intv_value = intv_value.lower()
             attrib_values.append(intv_value or DEFAULT_ATTRIB_VALUE)
-
         attrib_values = list(pd.unique(attrib_values))  # to treat duplicate values
+
+        if verbose:
+            print(f'\nattrib_values : {attrib_values}\n')
+            print(legend_copy)
         for i in range(len(legend_copy)):
             leg_value = legend_copy[i].component[repr_attribute]
             if verbose:
@@ -460,7 +459,7 @@ class Borehole3D(Striplog):
             plotter.set_background(color=btm_c, top=top_c)
 
         if show and not x3d:
-            plotter.show(auto_close=True)
+            plotter.show()
         if x3d:
             writer = vtkX3DExporter()
             writer.SetInput(plotter.renderer.GetRenderWindow())

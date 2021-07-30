@@ -29,8 +29,7 @@ class BoreholeOrm(Base):
     id = Column(String(32), primary_key=True)
     length = Column(Float(64), default=0.)
     diameter = Column(Float(64), default=0.)
-    intervals = relationship('IntervalOrm',
-                             collection_class=attribute_mapped_collection('id'),
+    intervals = relationship('IntervalOrm', collection_class=attribute_mapped_collection('id'),
                              cascade='all, delete-orphan')
 
     intervals_values = association_proxy('intervals', 'description',
@@ -130,7 +129,7 @@ class LinkIntervalComponentOrm(Base):
     """
     __tablename__ = 'Linkintervalcomponent'
 
-    int_id = Column(Integer, ForeignKey('Intervals.id'), primary_key=True)
+    intv_id = Column(Integer, ForeignKey('Intervals.id'), primary_key=True)
     comp_id = Column(Integer, ForeignKey('Components.id'), primary_key=True)
     extra_data = Column(String(256))
     component = relationship('ComponentOrm', backref=backref("component_assoc"))

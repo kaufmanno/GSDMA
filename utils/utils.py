@@ -1,12 +1,9 @@
 import re
-import numpy as np
 import pandas as pd
 from striplog import Component, Interval, Striplog, Lexicon
 
-from core.orm import BoreholeOrm, PositionOrm
-from utils.config import DEFAULT_BOREHOLE_LENGTH, DEFAULT_CONTAM_LEVELS, DEFAULT_BOREHOLE_DIAMETER, DEFAULT_ATTRIB_VALUE
-from utils.visual import get_components
-from utils.lexicon.lexicon_memoris import lexicon_memoris, pollutants_memoris
+from utils.config import DEFAULT_BOREHOLE_LENGTH, DEFAULT_CONTAM_LEVELS
+from utils.lexicon.lexicon_memoris import pollutants_memoris
 
 
 def striplog_from_text_file(filename, lexicon=None):
@@ -55,8 +52,9 @@ def striplog_from_text_file(filename, lexicon=None):
     return strip
 
 
-def striplog_from_dataframe(df, bh_name, attributes, symbols=None, iv_top=None,
-        iv_base=None, thickness='Thickness', use_default=False, query=True):
+def striplog_from_dataframe(df, bh_name, attributes, symbols=None, intv_top=None,
+                            intv_base=None, thickness='Thickness', use_default=False,
+                            query=True):
     """
     creates a Striplog object from a dataframe
 
@@ -74,10 +72,10 @@ def striplog_from_dataframe(df, bh_name, attributes, symbols=None, iv_top=None,
     symbols : dict of striplog.Lexicon, striplog.Legend objects
         Legend and/or Lexicon to use for attributes
 
-    iv_top : str
+    intv_top : str
         Dataframe column that contains interval top
 
-    iv_base : str
+    intv_base : str
         Dataframe column that contains interval base
 
     thickness : str
@@ -101,9 +99,9 @@ def striplog_from_dataframe(df, bh_name, attributes, symbols=None, iv_top=None,
 
     if thickness is not None and thickness in list(df.columns):
         thick_cdt = True
-    if iv_top is not None and iv_top in list(df.columns):
+    if intv_top is not None and intv_top in list(df.columns):
         attrib_top_cdt = True
-    if iv_base is not None and iv_base in list(df.columns):
+    if intv_base is not None and intv_base in list(df.columns):
         attrib_base_cdt = True
 
     strip = {}
@@ -158,7 +156,7 @@ def striplog_from_dataframe(df, bh_name, attributes, symbols=None, iv_top=None,
 
                 # intervals processing ----------------------------------------------
                 if attrib_top_cdt:
-                    top = tmp.loc[j, iv_top]
+                    top = tmp.loc[j, intv_top]
                 elif thick_cdt:
                     if j == tmp.index[0]:
                         top = 0
@@ -168,13 +166,14 @@ def striplog_from_dataframe(df, bh_name, attributes, symbols=None, iv_top=None,
                     raise (ValueError('Cannot retrieve or compute top values. provide thickness values! '))
 
                 if attrib_base_cdt:
-                    base = tmp.loc[j, iv_base]
+                    base = tmp.loc[j, intv_base]
                 else:
                     base = top + thick
 
                 if base != 0.:
                     intervals = intervals + [Interval(top=top, base=base, description=val,
-                                                      components=iv_components, lexicon=lexicon)]
+                                                      components=iv_components,
+                                                      lexicon=lexicon)]
 
             if len(intervals) != 0:
                 strip.update({bh_id: Striplog(list_of_Intervals=intervals)})
@@ -186,141 +185,3 @@ def striplog_from_dataframe(df, bh_name, attributes, symbols=None, iv_top=None,
     return strip
 
 
-def boreholes_from_dataframe(df, symbols=None, attributes=None, iv_top=None,
-        iv_base=None, diameter='Diameter', thickness='Length',
-        verbose=False, use_default=True):
-    """ Creates a list of BoreholeORM objects from a dataframe
-
-    Parameters
-    ----------
-    df: pandas.DataFrame
-        A dataframe of borehole intervals
-
-    x : str
-        Column name where the x coordinates of the position of the top of the intervals are stored
-
-    y : str
-        Column name where the x coordinates of the position of the top of the intervals are stored
-
-    z : str
-        Column name where the x coordinates of the position of the top of the intervals are stored
-
-    symbols: dict
-        A dict e.g. {attribute_1: {'legend': striplog.Legend, 'lexicon': striplog.Lexicon}, ...}
-         '
-    attributes : list
-        Dictionary with lexicons as keys and associated list of column names (attributes) as values
-
-    verbose : Bool
-        allow verbose option if set = True
-
-    use_default : Bool
-        allow use default when values not available if set = True
-
-    Returns
-    -------
-    boreholes: list
-               boreholes object
-
-    components: dict
-                dictionary containing ID and component
-
-    """
-
-    int_id = 0  # interval id
-    pos_id = 0  # position id
-    boreholes_orm = []
-    components = []
-    comp_id = 0  # component id
-    component_dict = {}
-    link_dict = {}  # link between intervals and components (<-> junction table)
-
-    assert isinstance(df, pd.DataFrame)
-
-    print(f'\nDataframe processing...\n================================')
-    bh_id_list = []  #
-    bh_idx = 0  # borehole index in the current dataframe
-
-    if diameter in df.columns:
-        diam = df[diameter]
-    else:
-        print(f'Warning : -- No borehole diameter, default is used (diameter={DEFAULT_BOREHOLE_DIAMETER})')
-        diam = pd.Series([DEFAULT_BOREHOLE_DIAMETER] * len(df))
-
-    for idx, row in df.iterrows():
-        bh_name = row['ID']
-
-        if bh_name not in bh_id_list:
-            bh_id_list.append(bh_name)
-            boreholes_orm.append(BoreholeOrm(id=bh_name))
-            interval_number = 0
-
-            bh_selection = df['ID'] == f"{bh_name}"
-            tmp = df[bh_selection].copy()
-            tmp.reset_index(drop=True, inplace=True)
-            striplog_dict = striplog_from_dataframe(df=tmp, bh_name=bh_name,
-                                            attributes=attributes,
-                                            symbols=symbols, thickness=thickness,
-                                            iv_top=iv_top, iv_base=iv_base,
-                                            use_default=use_default, query=False)
-            for strip in striplog_dict.values():
-                # print('strip:', v)
-                for c in get_components(strip):
-                    if c not in component_dict.keys():
-                        component_dict.update({c: comp_id})
-                        comp_id += 1
-                        # comp_id = list(component_dict.keys()).index(c)
-                    # print(f'component: {c}, component_id: {comp_id}')
-
-                interval_dict = {}
-                # ORM processing
-                for intv in strip:
-                    top = PositionOrm(id=pos_id, upper=row['Z'] - intv.top.upper,
-                                      middle=row['Z'] - intv.top.middle,
-                                      lower=row['Z'] - intv.top.lower,
-                                      x=row['X'], y=row['Y']
-                                      )
-
-                    base = PositionOrm(id=pos_id + 1, upper=row['Z'] - intv.base.upper,
-                                       middle=row['Z'] - intv.base.middle,
-                                       lower=row['Z'] - intv.base.lower,
-                                       x=row['X'], y=row['Y']
-                                       )
-
-                    desc = ', '.join([c.json() for c in intv.components])
-                    # print('description:', desc)
-                    interval_dict.update({int_id: {'description': desc,
-                                       'interval_number': interval_number,
-                                       'top': top, 'base': base}})
-
-                    for idx in intv.components:
-                        if idx != Component({}):
-                            if verbose:
-                                print(f'comp_dict: {component_dict}')
-                            link_dict.update({
-                                (int_id, component_dict[idx]): {'extra_data': ''}})
-
-                    interval_number += 1
-                    int_id += 1
-                    pos_id += 2
-
-                if verbose:
-                    print(f'{interval_dict}\n')
-                if bh_idx < len(boreholes_orm):
-                    boreholes_orm[bh_idx].intervals_values = interval_dict
-                    boreholes_orm[bh_idx].length = tmp[thickness].cumsum().max()
-                    if diam[bh_idx] is not None and not pd.isnull(diam[bh_idx]):
-                        boreholes_orm[bh_idx].diameter = tmp[diameter][0]
-                    else:
-                        boreholes_orm[bh_idx].diameter = DEFAULT_BOREHOLE_DIAMETER
-
-                bh_idx += 1
-        else:
-            # already processed
-            pass
-
-        components = {v: k for k, v in component_dict.items()}
-
-    print(f"\nEnd of the process : {len(bh_id_list)} unique ID found")
-
-    return boreholes_orm, components, link_dict

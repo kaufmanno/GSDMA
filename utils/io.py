@@ -1,4 +1,5 @@
 import collections.abc
+import os
 import re
 from os import walk
 import numpy as np
@@ -116,7 +117,7 @@ def read_files(fdir, crit_col, columns=None, verbose=False):
     return df_all
 
 
-def read_gdf_file(filename=None, epsg=None, to_epsg=None, interact=False):  # file_dir=None,
+def read_geodf_file(filename=None, epsg=None, to_epsg=None, interact=False):  # file_dir=None,
     """
     create a geodataframe and transform coordinates system (if 'to_epsg' is set)
     
@@ -141,7 +142,7 @@ def read_gdf_file(filename=None, epsg=None, to_epsg=None, interact=False):  # fi
     if filename is None:
         filename = str(input("File name and extension (.json, .gpkg, .csv) ? : "))
 
-    # if file_dir == None :
+    # if file_dir is None :
     #   file_dir = ROOT_DIR + '/playground/TFE_test/tmp_files/'
     #  filename=file_dir+filename
 
@@ -259,7 +260,7 @@ def export_gdf(gdf, epsg, save_name=None):
         print(f'file\'s name extension not given or incorrect, please choose (.json, .gpkg, .csv)')
 
 
-def gdf_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None, view=True):  # display dataframes with  a widget
+def dataframe_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None, view=True):  # display dataframes with  a widget
 
     if un_val is None:
         print(f'Rows : {df.shape[0]}, columns : {df.shape[1]}')
@@ -328,7 +329,7 @@ def gen_id_dated(gdf, ref_col='Ref', date_col=None, date_ref='No_date'):
     # return gdf[refcol]
 
 
-def gdf_geom(gdf):
+def gen_geodf_geom(gdf):
     # geom = gpd.GeoSeries(gdf.apply(lambda x: Point(x['X'], x['Y']),1),crs={'init': 'epsg:31370'})
     # gdf = gpd.GeoDataFrame(gdf, geometry=geom, crs="EPSG:31370")
 
@@ -337,7 +338,7 @@ def gdf_geom(gdf):
     return gdf
 
 
-def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
+def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, error_tol=0.2,
                 drop_skip_col=None, verbose=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
 
@@ -346,9 +347,13 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
     gdf1, gdf2 : pandas (Geo)DataFrame
 
     how: str
+        the way to merge data (default= 'outer')
     on: str
+        column use as primary criteria for merging and object distinction
     dist_max: float
+        maximum distance between 2 objects
     date_col: str
+        column that contains dates as secondary criteria to distinguish objects
     drop_skip_col: list
         list of columns to ignore when drop duplicates
     verbose: bool
@@ -437,24 +442,24 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
                     gdf.loc[idx, col_i + '_y'] = np.nan
                     if verbose: print('1A')
                 # if repeated column i contains nan in gdf2 and a value in gdf1 -> keep value in gdf1
-                elif pd.isnull(mdf.loc[idx, col_i + '_y']) and not pd.isnull(mdf.loc[idx, col_i + '_x']):
+                elif not pd.isnull(mdf.loc[idx, col_i + '_x']) and pd.isnull(mdf.loc[idx, col_i + '_y']):
                     gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
                     gdf.loc[idx, col_i + '_x'] = np.nan
                     if verbose: print('1B')
+                # if both repeated columns contain nan -> put nan in gdf
+                elif pd.isnull(mdf.loc[idx, col_i + '_x']) and pd.isnull(mdf.loc[idx, col_i + '_y']):
+                    gdf.loc[idx, col_i] = np.nan
+                    if verbose: print('1C')
                 # if repeated columns contain the same value -> keep value in gdf1
                 elif mdf.loc[idx, col_i + '_x'] == mdf.loc[idx, col_i + '_y']:
                     gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
                     gdf.loc[idx, col_i + '_x'] = np.nan
                     gdf.loc[idx, col_i + '_y'] = np.nan
-                    if verbose: print('1C')
-                # if both repeated columns contain nan -> put nan in gdf
-                elif pd.isnull(mdf.loc[idx, col_i + '_x']) and pd.isnull(mdf.loc[idx, col_i + '_y']):
-                    gdf.loc[idx, col_i] = np.nan
                     if verbose: print('1D')
                 # if repeated columns contain different values -> handle following dtype
                 else:
                     # always keep one single object position values because not distinct objects
-                    if col_i == 'X' or col_i == 'Y' or col_i == 'Z':
+                    if col_i == 'X' or col_i == 'Y':  # or col_i == 'Z':
                         gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
                         gdf.loc[idx, col_i + '_x'] = np.nan
                         gdf.loc[idx, col_i + '_y'] = np.nan
@@ -479,7 +484,6 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
                             gdf.loc[idx, col_i + '_y'] = np.nan
                             if verbose: print('1G')
                         else:
-                            # TODO : Implemented  a test to check whether the values are equivalent (close enough)
                             gdf.loc[idx, col_i] = '#conflict'
                             if col_i + '_x' not in conflict_col:
                                 conflict_col = conflict_col + [col_i + '_x', col_i + '_y']
@@ -488,18 +492,32 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
                             conflict = True
                             row_conf_cols.append(col_i)
                             update_dict(conflict_idx_col, {idx: row_conf_cols})
+                            if verbose: print('1H')
 
-                    # if the values are not considered as the same -> stage to put in gdf_conflict
+                    # if the values are not considered as the same
+                    # check if values are close enough (according to error_tolerance)
                     else:
-                        if verbose: print('1H')
-                        gdf.loc[idx, col_i] = np.nan
-                        if col_i + '_x' not in conflict_col:
-                            conflict_col = conflict_col + [col_i + '_x', col_i + '_y']
-                        if idx not in conflict_row:
-                            conflict_row = conflict_row + [idx]
-                        conflict = True
-                        row_conf_cols.append(col_i)
-                        update_dict(conflict_idx_col, {idx: row_conf_cols})
+                        tolerance_satisfy = False
+                        if error_tol is not None:
+                            a = mdf.loc[idx, col_i + '_x']
+                            b = mdf.loc[idx, col_i + '_y']
+                            tolerance_on_min = min(a, b) + min(a, b) * error_tol
+                            # values are close, choose the maximum
+                            if tolerance_on_min < max(a, b):
+                                tolerance_satisfy = True
+                                gdf.loc[idx, col_i] = max(a, b)
+
+                        # values are very different -> put in gdf_conflict
+                        if not tolerance_satisfy:
+                            gdf.loc[idx, col_i] = np.nan
+                            if col_i + '_x' not in conflict_col:
+                                conflict_col = conflict_col + [col_i + '_x', col_i + '_y']
+                            if idx not in conflict_row:
+                                conflict_row = conflict_row + [idx]
+                            conflict = True
+                            row_conf_cols.append(col_i)
+                            update_dict(conflict_idx_col, {idx: row_conf_cols})
+                        if verbose: print('1I')
         else:
             if verbose: print('2A')
             distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
@@ -577,7 +595,19 @@ def data_validation(overall_data, conflict_data, valid_dict, index_col='index',
         conflict_data.loc[idx, [col+'_x', col+'_y']] = 'Done'
 
     for i, r in conflict_data.iterrows():
-        if sum(x == 'Done' for x in r) == 2 * len(conflict_data.loc[i, 'Check_col'].split(',')):
+        rem_cols = []  # removed cols
+        cols = r['Check_col'].split(', ')
+        if len(cols) > 1:
+            for col in cols:
+                if r[col + '_x'] == r[col + '_y']:
+                    cols.remove(col)
+                    if col not in rem_cols:
+                        rem_cols.append(col)
+                    # update check_col column values
+                    conflict_data.loc[i, 'Check_col'] = ', '.join(cols)
+
+        # drop a row if all its validations are done
+        if sum(x == 'Done' for x in r) == 2 * len(conflict_data.loc[i, 'Check_col'].split(',') + rem_cols):
             conflict_data.drop(index=i, inplace=True)
 
     if len(conflict_data) == 0:
@@ -655,9 +685,9 @@ def fix_duplicates(df1, df2, id_col='ID', x_gap=.8, y_gap=.8, drop_old_id=True):
         data2.drop(columns=f'Old_{id_col}', inplace=True)
 
 
-def gdf_filter(data, position=True, id_col='ID', expression=None, regex=None,
-               bypass_col=['Old_ID', 'exp_ID'], dist_max=1, val_max=1.5,
-               drop=False, drop_old_id=True):
+def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
+                bypass_col=['Old_ID', 'Origin_ID'], dist_max=1, error_max=1.5,
+                drop=False, drop_old_id=True):
     """
     filter duplicates from a dataframe, considering ID, position, and/or an expression)
     expression: str
@@ -694,7 +724,7 @@ def gdf_filter(data, position=True, id_col='ID', expression=None, regex=None,
                 else:
                     sub = ''
                 data.loc[idx, f'new_{id_col}'] = re.sub(sub, '', row[id_col].lower(), re.I).upper().replace(' ', '')
-        data.rename(columns={f'{id_col}': 'exp_ID', f'new_{id_col}': 'ID'}, inplace=True)
+        data.rename(columns={f'{id_col}': 'Origin_ID', f'new_{id_col}': 'ID'}, inplace=True)
 
     # filtering
     for i in data.index:
@@ -719,7 +749,8 @@ def gdf_filter(data, position=True, id_col='ID', expression=None, regex=None,
                                         elif data.iloc[i, c] != data.iloc[j, c] and \
                                                 re.search('int|float', data[cols[c]].dtype.name):
                                             val = abs(data.iloc[i, c] - data.iloc[j, c]) / abs(np.nanmedian(data.iloc[:, c]))
-                                            if val <= val_max:
+                                            # val = abs(data.iloc[i, c] - data.iloc[j, c]) / max(data.iloc[i, c],data.iloc[j, c])
+                                            if val <= error_max:
                                                 same = True
                                             else:
                                                 same = False
@@ -751,9 +782,9 @@ def gdf_filter(data, position=True, id_col='ID', expression=None, regex=None,
                                     if data.iloc[i, c] == data.iloc[j, c]:
                                         same = True
                                     elif data.iloc[i, c] != data.iloc[j, c] and re.search('int|float', data[cols[c]].dtype.name):
-                                        #val = max(data.iloc[i, c], data.iloc[j, c]) / min(data.iloc[i, c], data.iloc[j, c])
+                                        # val = abs(data.iloc[i, c] - data.iloc[j, c]) / max(data.iloc[i, c], data.iloc[j, c])
                                         val = abs(data.iloc[i, c] - data.iloc[j, c]) / abs(np.nanmedian(data.iloc[:, c]))
-                                        if val <= val_max:
+                                        if val <= error_max:
                                             same = True
                                         else:
                                             same = False
@@ -948,6 +979,83 @@ def compute_borehole_length(df, mode='length', length_col=None, top_col='Litho_t
     df.drop(index=df.query(f'{base_col}.isnull() and {top_col}.isnull()').index, inplace=True)
     df.insert(df.columns.to_list().index('ID') + 1, length_col, df.pop(length_col))
     df.reset_index(drop=reset_drop, inplace=True)
+
+
+def files_search(work_dir, files_dict, prefix='', skip=None, details=False):
+    if skip is None:
+        skip = "we don't want to skip a word"
+
+    for k in files_dict.keys():
+        tmp_list = []
+        for p, d, f in os.walk(work_dir):
+            for x in f:
+                add = False
+                if re.search(prefix, x, re.I) and not re.search(skip, x, re.I):
+                    add = True
+                    i = str(f'{p}/{x}')
+                else:
+                    add = False
+                    i = ''
+
+                if re.search(k, i, re.I) and add:
+                    tmp_list.append(i)
+        tmp_list.sort()
+        files_dict.update({k: tmp_list})
+
+    for k, v in files_dict.items():
+        print(k, ' \t: ', len(v))
+
+    if details:  # Look filenames
+        which = files_dict.keys()
+
+        for w in which:
+            print('\n+++++++++++++++++')
+            print(f'+  {w.upper()}\t+ ')
+            print('+++++++++++++++++')
+            [print(i, '-', x) for i, x in enumerate(files_dict[w], 0)]
+
+
+def data_overview(d, verbose=False):  # check for same datasets in given files
+    """d: dict
+    """
+    l = len(d)
+    with_coord = []
+    no_coord = []
+    same = []
+
+    def create_df(files, verbose=True):  # find another name for this function
+        """
+        create dataframes from files and test if they contain position informations
+        files: list of files name
+        """
+        dfs = []
+        for f in files:
+            df = pd.read_csv(f, delimiter=',')
+            dfs.append(df)
+
+            if verbose:
+                if 'X' in list(df.columns):
+                    msg = ' --> Coordinates'
+                else:
+                    msg = ' --> No coordinates'
+
+                print(f"df1 : {msg}")
+
+        return dfs
+
+    for i in range(l - 1):
+        for j in range(i, l):
+            a, b = create_df([d[i], d[j]], verbose)
+            if j != i:
+                if a.equals(b):
+                    same.append((i, j))
+
+            if 'X' in list(b.columns) and j not in with_coord:
+                with_coord.append(j)
+            elif 'X' not in list(b.columns) and j not in no_coord:
+                no_coord.append(j)
+
+    print(f'Same files:{same}\nFiles with coordinates:{with_coord}\nFiles without coordinates:{no_coord}')
 
 
 def update_dict(d, u):
