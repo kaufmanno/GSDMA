@@ -338,8 +338,9 @@ def gen_geodf_geom(gdf):
     return gdf
 
 
-def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, error_tol=0.2,
-                drop_skip_col=None, verbose=False):
+def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
+                error_tol_dict={0.1:['Diam_for', 'Long_for'], 0.01:['Z']}, drop_skip_col=None,
+                verbose=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
 
     Parameters
@@ -356,6 +357,8 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, 
         column that contains dates as secondary criteria to distinguish objects
     drop_skip_col: list
         list of columns to ignore when drop duplicates
+    error_tol_dict : dict
+        dictionary of tolerance on value error for a list of columns
     verbose: bool
 
     Returns
@@ -497,18 +500,23 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, 
                     # if the values are not considered as the same
                     # check if values are close enough (according to error_tolerance)
                     else:
-                        tolerance_satisfy = False
-                        if error_tol is not None:
+                        close_values = False
+                        if error_tol_dict is not None:
                             a = mdf.loc[idx, col_i + '_x']
                             b = mdf.loc[idx, col_i + '_y']
-                            tolerance_on_min = min(a, b) + min(a, b) * error_tol
-                            # values are close, choose the maximum
-                            if tolerance_on_min < max(a, b):
-                                tolerance_satisfy = True
-                                gdf.loc[idx, col_i] = max(a, b)
+                            for tol, cols in error_tol_dict.items():
+                                if col_i in cols:
+                                    tolerance_on_min = min(a, b) + min(a, b) * tol
+                                    # values are close, choose the maximum
+                                    if tolerance_on_min >= max(a, b):
+                                        gdf.loc[idx, col_i] = max(a, b)
+                                        close_values = True
+                            # print(close_values, tolerance_on_min, max(a, b))
+                            if verbose: print('1I')
 
                         # values are very different -> put in gdf_conflict
-                        if not tolerance_satisfy:
+                        if not close_values:
+                            print('here')
                             gdf.loc[idx, col_i] = np.nan
                             if col_i + '_x' not in conflict_col:
                                 conflict_col = conflict_col + [col_i + '_x', col_i + '_y']
@@ -517,7 +525,7 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, 
                             conflict = True
                             row_conf_cols.append(col_i)
                             update_dict(conflict_idx_col, {idx: row_conf_cols})
-                        if verbose: print('1I')
+                        if verbose: print('1J')
         else:
             if verbose: print('2A')
             distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
@@ -570,7 +578,7 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None, 
     return gdf, gdf_conflict
 
 
-def data_validation(overall_data, conflict_data, valid_dict, index_col='index',
+def data_validation(overall_data, conflict_data, valid_dict, index_col='index', pass_col='Origin_ID',
                     verbose=False):
     """
     Validate correct data in a conflictual dataframe after merging
@@ -609,6 +617,8 @@ def data_validation(overall_data, conflict_data, valid_dict, index_col='index',
         # drop a row if all its validations are done
         if sum(x == 'Done' for x in r) == 2 * len(conflict_data.loc[i, 'Check_col'].split(',') + rem_cols):
             conflict_data.drop(index=i, inplace=True)
+        if len(r['Check_col']) == 1 and r['Check_col'] == pass_col:
+            conflict_data.drop(index=i, inplace=True)
 
     if len(conflict_data) == 0:
         overall_data.drop(columns=index_col, inplace=True)
@@ -638,7 +648,11 @@ def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
 
 
 def fix_duplicates(df1, df2, id_col='ID', x_gap=.8, y_gap=.8, drop_old_id=True):
-    """ find nearest object by position and set same ID (to treat same position but different names cases)
+    """ Look for nearest objects in 2 dataframes, by position, and set same ID
+    (to treat same position but different names cases)
+
+    Parameters
+    ------------
     x_gap : float
         gap between X coordinates of an object in df1 and df2
     y_gap : float
@@ -689,7 +703,10 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
                 bypass_col=['Old_ID', 'Origin_ID'], dist_max=1, error_max=1.5,
                 drop=False, drop_old_id=True):
     """
-    filter duplicates from a dataframe, considering ID, position, and/or an expression)
+    filter duplicates in dataframe rows, considering ID, position, and/or an expression)
+
+    Parameters
+    ------------
     expression: str
         expression (words) to strip from a string and regularize it
     """
