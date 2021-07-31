@@ -265,7 +265,7 @@ def dataframe_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None, view
     if un_val is None:
         print(f'Rows : {df.shape[0]}, columns : {df.shape[1]}')
     else:
-        print(f"Rows : {df.shape[0]}, columns : {df.shape[1]}, Unique col '{un_val}': {len(set(df[un_val]))}")
+        print(f"Rows : {df.shape[0]}, columns : {df.shape[1]}, Unique values on col '{un_val}': {len(set(df[un_val]))}")
 
     if view:
         @interact(last_row=IntSlider(min=min(rows, df.shape[0]), max=df.shape[0],
@@ -405,7 +405,6 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
         row_conf_cols = []  # conflictual columns for each row
         dist = 0
 
-        # put this here to avoid to duplicate many lines below
         if 'X' in dble_cols:  # coordinates in both dataframes
             # compute distance between the points coming from each dataframe
             if not pd.isnull(mdf.loc[idx, 'X_x']) and not pd.isnull(mdf.loc[idx, 'X_y']):
@@ -438,7 +437,7 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
         # else add a new row in gdf to store two distinct object
         if not distinct_objects:  # comparison and merging
             for col_i in dble_cols:
-                # print(idx, col_i)
+                # print(idx, col_i, mdf.loc[idx, col_i + '_x'])
                 # if repeated column i contains nan in gdf1 and a value in gdf2 -> keep value in gdf2
                 if pd.isnull(mdf.loc[idx, col_i + '_x']) and not pd.isnull(mdf.loc[idx, col_i + '_y']):
                     gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_y']
@@ -449,16 +448,16 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
                     gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
                     gdf.loc[idx, col_i + '_x'] = np.nan
                     if verbose: print('1B')
-                # if both repeated columns contain nan -> put nan in gdf
-                elif pd.isnull(mdf.loc[idx, col_i + '_x']) and pd.isnull(mdf.loc[idx, col_i + '_y']):
-                    gdf.loc[idx, col_i] = np.nan
-                    if verbose: print('1C')
                 # if repeated columns contain the same value -> keep value in gdf1
                 elif mdf.loc[idx, col_i + '_x'] == mdf.loc[idx, col_i + '_y']:
                     gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_x']
                     gdf.loc[idx, col_i + '_x'] = np.nan
                     gdf.loc[idx, col_i + '_y'] = np.nan
                     if verbose: print('1D')
+                # if both repeated columns contain nan -> put nan in gdf
+                elif pd.isnull(mdf.loc[idx, col_i + '_x']) and pd.isnull(mdf.loc[idx, col_i + '_y']):
+                    gdf.loc[idx, col_i] = np.nan
+                    if verbose: print('1C')
                 # if repeated columns contain different values -> handle following dtype
                 else:
                     # always keep one single object position values because not distinct objects
@@ -515,8 +514,8 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
                             if verbose: print('1I')
 
                         # values are very different -> put in gdf_conflict
+
                         if not close_values:
-                            print('here')
                             gdf.loc[idx, col_i] = np.nan
                             if col_i + '_x' not in conflict_col:
                                 conflict_col = conflict_col + [col_i + '_x', col_i + '_y']
@@ -700,8 +699,8 @@ def fix_duplicates(df1, df2, id_col='ID', x_gap=.8, y_gap=.8, drop_old_id=True):
 
 
 def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
-                bypass_col=['Old_ID', 'Origin_ID'], dist_max=1, error_max=1.5,
-                drop=False, drop_old_id=True):
+                bypass_col=['Old_ID', 'Origin_ID'], dist_max=1, drop=False, drop_old_id=True,
+                error_max_dict={0.1:['Diam_for', 'Long_for'], 0.01:['Z']}):
     """
     filter duplicates in dataframe rows, considering ID, position, and/or an expression)
 
@@ -751,7 +750,8 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
         if position:  # use position XY
             pos_1 = [data.loc[i, 'X'], data.loc[i, 'Y']]
             if uid not in id_list and len(tmp) >= 2:
-                id_list.append(uid)
+                id_list.append(uid)  # list of ID already treated
+                drop_dict = {}
                 for j in tmp.index:  # retrieve duplicates ID index
                     if j != i:
                         pos_2 = [data.loc[j, 'X'], data.loc[j, 'Y']]
@@ -759,24 +759,30 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
                         if not distinct:
                             bypass_col += ['X', 'Y', 'ID']
                             if j not in drop_idx:
-                                for c in range(len(data.columns)-1):
+                                for c in range(len(cols)-1):
                                     if cols[c] not in bypass_col:
                                         if data.iloc[i, c] == data.iloc[j, c]:  # all values (str, numeric) are equals
                                             same = True
+                                        # numeric values
                                         elif data.iloc[i, c] != data.iloc[j, c] and \
                                                 re.search('int|float', data[cols[c]].dtype.name):
-                                            val = abs(data.iloc[i, c] - data.iloc[j, c]) / abs(np.nanmedian(data.iloc[:, c]))
-                                            # val = abs(data.iloc[i, c] - data.iloc[j, c]) / max(data.iloc[i, c],data.iloc[j, c])
-                                            if val <= error_max:
-                                                same = True
-                                            else:
-                                                same = False
-                                                if cols[c] in check_dict.keys():
-                                                    idxs = check_dict[cols[c]] + [j]
-                                                else:
-                                                    idxs = [j]
-                                                update_dict(check_dict, {cols[c]: idxs})
-                                                if j not in check_idx: check_idx.append(j)
+                                            a = data.iloc[i, c]
+                                            b = data.iloc[j, c]
+                                            for tol, tol_cols in error_max_dict.items():
+                                                if cols[c] in tol_cols:
+                                                    tolerance_on_min = min(a, b) + min(a, b) * tol
+                                                    if tolerance_on_min < max(a, b):
+                                                        same = False
+                                                        if cols[c] in check_dict.keys():
+                                                            idxs = check_dict[cols[c]] + [j]
+                                                        else:
+                                                            idxs = [j]
+                                                        update_dict(check_dict, {cols[c]: idxs})
+                                                        if j not in check_idx:
+                                                            check_idx.append(j)
+                                                    else:
+                                                        same = True
+
                                         else:  # str values
                                             same = False
                                             if cols[c] in check_dict.keys():
@@ -784,12 +790,26 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
                                             else:
                                                 idxs = [j]
                                             update_dict(check_dict, {cols[c]: idxs})
-                                            if j not in check_idx: check_idx.append(j)
-                                if same: drop_idx.append(j)  # same objet -> most be dropped
+                                            if j not in check_idx:
+                                                check_idx.append(j)
+                                if same:
+                                    drop_dict.update({j: data.loc[j, :].isnull().sum()})  # count NaN values on row
+
+                # keep the best row based on less NaN values
+                best_row = [k for k, v in drop_dict.items() if v == min(drop_dict.values())]
+                # print(i, best_row, drop_dict, data.loc[i, 'ID'])
+                if len(best_row) == 0 or (data.loc[i, :].isnull().sum() < drop_dict[best_row[0]]):
+                    best_row = [i]
+                else:
+                    drop_dict.update({i: data.loc[i, :].isnull().sum()})
+                if best_row[0] in drop_dict.keys():
+                    drop_dict.pop(best_row[0])
+                    drop_idx = drop_idx + list(drop_dict.keys())
 
         else:  # without position XY, use ID
             if uid not in id_list and len(tmp) >= 2:
                 id_list.append(uid)
+                drop_dict = {}
                 for j in tmp.index:
                     if j != i:
                         bypass_col += ['X', 'Y', 'ID']
@@ -799,19 +819,23 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
                                     if data.iloc[i, c] == data.iloc[j, c]:
                                         same = True
                                     elif data.iloc[i, c] != data.iloc[j, c] and re.search('int|float', data[cols[c]].dtype.name):
-                                        # val = abs(data.iloc[i, c] - data.iloc[j, c]) / max(data.iloc[i, c], data.iloc[j, c])
-                                        val = abs(data.iloc[i, c] - data.iloc[j, c]) / abs(np.nanmedian(data.iloc[:, c]))
-                                        if val <= error_max:
-                                            same = True
-                                        else:
-                                            same = False
-                                            if cols[c] in check_dict.keys():
-                                                idxs = check_dict[cols[c]] + [j]
-                                            else:
-                                                idxs = [j]
-                                            update_dict(check_dict, {cols[c]: idxs})
-                                            if j not in check_idx: check_idx.append(j)
-                                    else:
+                                        a = data.iloc[i, c]
+                                        b = data.iloc[j, c]
+                                        for tol, tol_cols in error_max_dict.items():
+                                            if cols[c] in tol_cols:
+                                                tolerance_on_min = min(a, b) + min(a, b) * tol
+                                                if tolerance_on_min < max(a, b):
+                                                    same = False
+                                                    if cols[c] in check_dict.keys():
+                                                        idxs = check_dict[cols[c]] + [j]
+                                                    else:
+                                                        idxs = [j]
+                                                    update_dict(check_dict, {cols[c]: idxs})
+                                                    if j not in check_idx: check_idx.append(j)
+                                                else:
+                                                    same = True
+
+                                else:
                                         same = False
                                         if cols[c] in check_dict.keys():
                                             idxs = check_dict[cols[c]] + [j]
@@ -820,12 +844,32 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
                                         update_dict(check_dict, {cols[c]: idxs})
                                         if j not in check_idx: check_idx.append(j)
                             if same:
-                                drop_idx.append(j)  # same objet -> most be dropped
+                                drop_dict.update({j: data.loc[j, :].isnull().sum()})  # count NaN values on row
 
-    check_data = data.loc[check_idx, list(check_dict.keys())]
+                # keep the best row based on less NaN values
+                best_row = [k for k, v in drop_dict.items() if v == min(drop_dict.values())]
+                # print(i, best_row, drop_dict, data.loc[i, 'ID'])
+                if len(best_row) == 0 or (data.loc[i, :].isnull().sum() < drop_dict[best_row[0]]):
+                    best_row = [i]
+                else:
+                    drop_dict.update({i: data.loc[i, :].isnull().sum()})
+                if best_row[0] in drop_dict.keys():
+                    drop_dict.pop(best_row[0])
+                    drop_idx = drop_idx + list(drop_dict.keys())
+
+    check_data = data.loc[check_idx,['ID'] + list(check_dict.keys())]
+    check_data.insert(0, 'Check_col', '')
+    for key, val in check_dict.items():
+        for v in val:
+            if check_data.loc[v, 'Check_col'] == '':
+                check_data.loc[v, 'Check_col'] = key
+            else:
+                check_data.loc[v, 'Check_col'] = ', '.join([check_data.loc[v, 'Check_col']] + [key])
+
     if len(check_data) > 0:
+        print("some data must be checked !")
+        # print(f"some data must be checked , look at indices : {check_dict.values()}\n")
         pass
-        #print(f"some data must be checked , look at indices : {check_dict.values()}\n")
 
     if len(drop_idx) > 0:
         print(f"same objects at indices:{drop_idx}, will be dropped if drop is set True!")
@@ -862,7 +906,7 @@ def na_line_drop(data, col_n=3, line_non_na=0, drop_by_position=False,
         print(f"{len(no_pos)} without position -> lines dropped !")
 
     for i in range(len(data)): # data.index:
-        if verbose : print(i)
+        if verbose: print(i)
 
         if line_non_na >= data.iloc[i, col_n:-1].notnull().sum():
             data.loc[i, 'line_na'] = True
