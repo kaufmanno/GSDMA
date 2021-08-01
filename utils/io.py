@@ -260,12 +260,17 @@ def export_gdf(gdf, epsg, save_name=None):
         print(f'file\'s name extension not given or incorrect, please choose (.json, .gpkg, .csv)')
 
 
-def dataframe_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None, view=True):  # display dataframes with  a widget
+def dataframe_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None, view=True):
+    # display dataframes with  a widget
 
     if un_val is None:
         print(f'Rows : {df.shape[0]}, columns : {df.shape[1]}')
-    else:
-        print(f"Rows : {df.shape[0]}, columns : {df.shape[1]}, Unique values on col '{un_val}': {len(set(df[un_val]))}")
+    elif isinstance(un_val, str):
+        print(f"Rows : {df.shape[0]}, columns : {df.shape[1]}, "
+              f"Unique values on col '{un_val}': {len(set(df[un_val]))}")
+    elif isinstance(un_val, list):
+        print(f"Rows : {df.shape[0]}, columns : {df.shape[1]}, "
+              f"Unique values on cols: {dict({c: len(set(df[c])) for c in un_val})}")
 
     if view:
         @interact(last_row=IntSlider(min=min(rows, df.shape[0]), max=df.shape[0],
@@ -338,7 +343,7 @@ def gen_geodf_geom(gdf):
     return gdf
 
 
-def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
+def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=None,
                 error_tol_dict={0.1:['Diam_for', 'Long_for'], 0.01:['Z']}, drop_skip_col=None,
                 verbose=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
@@ -353,7 +358,7 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
         column use as primary criteria for merging and object distinction
     dist_max: float
         maximum distance between 2 objects
-    date_col: str
+    crit_2nd_col: str
         column that contains dates as secondary criteria to distinguish objects
     drop_skip_col: list
         list of columns to ignore when drop duplicates
@@ -395,6 +400,8 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
 
     if 'X' not in dble_cols:
         dist_max = None  # avoid error due to dist_max definition without position data
+    if crit_2nd_col not in dble_cols:
+        crit_2nd_col = None  # avoid error due to column not in merged dataframe
 
     for col_i in dble_cols:
         gdf[col_i] = np.nan  # creation of the definitive column
@@ -413,12 +420,14 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
             else:
                 distinct_objects = False
 
-        if dist_max is None and date_col is None:
+        if dist_max is None and crit_2nd_col is None:
             distinct_objects = False
 
-        elif date_col is not None and date_col in dble_cols:  # compare temporal data
-            if not pd.isnull(mdf.loc[idx, date_col+'_x']) and not pd.isnull(mdf.loc[idx, date_col+'_y']):
-                if mdf.loc[idx, date_col+'_x'] == mdf.loc[idx, date_col+'_y']:
+        # compare with secondary criteria (e.g: date/time for temporal data)
+        elif crit_2nd_col is not None and crit_2nd_col in dble_cols:
+            # print('HERE')
+            if not pd.isnull(mdf.loc[idx, crit_2nd_col + '_x']) and not pd.isnull(mdf.loc[idx, crit_2nd_col + '_y']):
+                if mdf.loc[idx, crit_2nd_col + '_x'] == mdf.loc[idx, crit_2nd_col + '_y']:
                     distinct_objects = False
                     # if dates are the same, but coordinates are different
                     if dist_max is not None and dist <= dist_max ** 2:  # considered as same object
@@ -433,6 +442,8 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
                 distinct_objects = False
 
         if verbose: print(idx, 'distinct: ', distinct_objects)
+        # print(idx, 'distinct: ', distinct_objects)
+
         # If objects are not distinct -> compare them and merge values or generate conflict
         # else add a new row in gdf to store two distinct object
         if not distinct_objects:  # comparison and merging
@@ -546,9 +557,9 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
     gdf.drop('split_distinct', axis='columns', inplace=True)
 
     gdf.insert(0, on, gdf.pop(on))
-    if date_col is not None and date_col in gdf.columns:
+    if crit_2nd_col is not None and crit_2nd_col in gdf.columns:
         col_pos = 1
-        gdf.insert(col_pos, date_col, gdf.pop(date_col))
+        gdf.insert(col_pos, crit_2nd_col, gdf.pop(crit_2nd_col))
     else:
         col_pos = 0
     if 'X' in gdf.columns: gdf.insert(col_pos+1, 'X', gdf.pop('X'))
@@ -577,8 +588,8 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, date_col=None,
     return gdf, gdf_conflict
 
 
-def data_validation(overall_data, conflict_data, valid_dict, index_col='index', pass_col='Origin_ID',
-                    verbose=False):
+def data_validation(overall_data, conflict_data, valid_dict=None, index_col='index', pass_col='Origin_ID',
+                    valid_all=False, verbose=False):
     """
     Validate correct data in a conflictual dataframe after merging
 
@@ -590,17 +601,39 @@ def data_validation(overall_data, conflict_data, valid_dict, index_col='index', 
         Dataframe that contains the conflictual values
     valid_dict : dict
         Dictionary of columns and (list of) index(es) that specify which values are correct in the conflict_data
-
+    valid_all: bool
+        use it when all conflict values are correct. this creates new rows to add values_y
     """
-    # TODO : possibility to add a new line when suppose no real conflict (confirm with yes or no)
-    for valid_col, idx in valid_dict.items():
-        col = re.sub("_x|_y", "", valid_col)
-        q = list(overall_data.query(f'{index_col}=={idx}').index)
-        if verbose:
-            print(q, idx, '---', overall_data.loc[q, col], conflict_data.loc[idx, valid_col])
-        overall_data.loc[q, col] = conflict_data.loc[idx, valid_col]
-        conflict_data.loc[idx, [col+'_x', col+'_y']] = 'Done'
 
+    # add a new line when suppose no real conflict
+    if valid_all:
+        id_col = conflict_data.columns[1]
+        idx1 = conflict_data.index
+        idx2 = pd.Index([len(overall_data)+i for i in range(len(idx1))])
+        cols = pd.unique([re.sub('_x|_y', '', c) for c in list(conflict_data.columns[2:])])
+        rows_val = overall_data.loc[idx1, :].copy()
+        overall_data = overall_data.append(rows_val, ignore_index=True)
+        overall_data.loc[idx2, id_col] = ['_' + v + '_' for v in conflict_data.loc[idx1, id_col]]
+
+        for c in cols:
+            overall_data.loc[idx2, c] = [v for v in conflict_data[c + '_y']]
+            overall_data.loc[idx1, c] = [v for v in conflict_data[c + '_x']]
+        # print('x1:', overall_data.loc[idx2, cols], '\n\ny1:', overall_data.loc[idx1, cols])
+        conflict_data.loc[:, 2:] = 'Done'
+
+    # change conflictual values
+    elif valid_dict is not None:
+        for valid_col, idx in valid_dict.items():
+            col = re.sub("_x|_y", "", valid_col)
+            q_idx = list(overall_data.query(f'{index_col}=={idx}').index)
+            if verbose:
+                print(q_idx, idx, '---', overall_data.loc[q_idx, col], conflict_data.loc[idx, valid_col])
+            overall_data.loc[q_idx, col] = conflict_data.loc[idx, valid_col]
+            conflict_data.loc[idx, [col + '_x', col + '_y']] = 'Done'
+    else:
+        raise(ValueError('valid_dict cannot be None if valid_all not set True!'))
+
+    # conflict_data cleaning after validation
     for i, r in conflict_data.iterrows():
         rem_cols = []  # removed cols
         cols = r['Check_col'].split(', ')
@@ -625,6 +658,9 @@ def data_validation(overall_data, conflict_data, valid_dict, index_col='index', 
     else:
         print(f"Validation done, but conflicts remain!")
 
+    if valid_all:
+        return overall_data
+
 
 def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
     """
@@ -646,7 +682,7 @@ def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
     return data
 
 
-def fix_duplicates(df1, df2, id_col='ID', x_gap=.8, y_gap=.8, drop_old_id=True):
+def fix_duplicates(df1, df2, id_col='ID', crit_2nd_col=None, x_gap=.8, y_gap=.8, drop_old_id=True):
     """ Look for nearest objects in 2 dataframes, by position, and set same ID
     (to treat same position but different names cases)
 
@@ -656,6 +692,8 @@ def fix_duplicates(df1, df2, id_col='ID', x_gap=.8, y_gap=.8, drop_old_id=True):
         gap between X coordinates of an object in df1 and df2
     y_gap : float
         gap between Y coordinates of an object in df1 and df2
+    crit_2nd_col : str
+        Secondary criteria. e.g: Objects must be the same type (e.g: 'soil', 'piezo') for comparison
     """
 
     if len(df1) < len(df2):  # loop on the smallest dataframe to avoid over-looping
@@ -675,17 +713,21 @@ def fix_duplicates(df1, df2, id_col='ID', x_gap=.8, y_gap=.8, drop_old_id=True):
     cnt = 0  # counter
     for idx in data1.index:
         x, y = data1.loc[idx, 'X'], data1.loc[idx, 'Y']
-        q = list(data2.query(f"X <= {x + x_gap} and X >= {x} and Y <= {y + y_gap} and Y >= {y}").index)
+        q_idx = list(data2.query(f"X <= {x + x_gap} and X >= {x} and Y <= {y + y_gap} and Y >= {y}").index)
+        same_obj = False
 
-        cnt += len(q)
-        if len(q) != 0:
-            # same object, keep one ID
+        if len(q_idx) != 0:
+            same_obj = True
+            if crit_2nd_col is not None and data1.loc[idx, crit_2nd_col] != data2.loc[idx, crit_2nd_col]:
+                same_obj = False
+
+        if same_obj:  # same object, check type and keep one ID
+            cnt += len(q_idx)
             data1.loc[idx, f'new_{id_col}'] = data1.loc[idx, id_col]
-            data2.loc[q, f'new_{id_col}'] = data1.loc[idx, id_col]
-        else:
-            # distinct object, keep original ID
+            data2.loc[q_idx, f'new_{id_col}'] = data1.loc[idx, id_col]
+        else:  # distinct object, keep original ID
             data1.loc[idx, f'new_{id_col}'] = data1.loc[idx, id_col]
-            data2.loc[q, f'new_{id_col}'] = data2.loc[idx, id_col]
+            data2.loc[q_idx, f'new_{id_col}'] = data2.loc[idx, id_col]
 
     print(f"{cnt} duplicate objects fixed!")
     data1.rename(columns={id_col: f'Old_{id_col}', f'new_{id_col}': id_col}, inplace=True)
@@ -740,7 +782,10 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
                 else:
                     sub = ''
                 data.loc[idx, f'new_{id_col}'] = re.sub(sub, '', row[id_col].lower(), re.I).upper().replace(' ', '')
-        data.rename(columns={f'{id_col}': 'Origin_ID', f'new_{id_col}': 'ID'}, inplace=True)
+        data.rename(columns={f'{id_col}': 'Origin_ID', f'new_{id_col}': id_col}, inplace=True)
+
+    if 'X' not in data:
+        position = False  # avoid error due to dist_max definition without position data
 
     # filtering
     for i in data.index:
@@ -757,7 +802,7 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
                         pos_2 = [data.loc[j, 'X'], data.loc[j, 'Y']]
                         distinct = not ((pos_1[0] - pos_2[0]) ** 2 + (pos_1[1] - pos_2[1]) ** 2 <= dist_max ** 2)
                         if not distinct:
-                            bypass_col += ['X', 'Y', 'ID']
+                            bypass_col += ['X', 'Y', id_col]
                             if j not in drop_idx:
                                 for c in range(len(cols)-1):
                                     if cols[c] not in bypass_col:
@@ -797,7 +842,7 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
 
                 # keep the best row based on less NaN values
                 best_row = [k for k, v in drop_dict.items() if v == min(drop_dict.values())]
-                # print(i, best_row, drop_dict, data.loc[i, 'ID'])
+                # print(i, best_row, drop_dict, data.loc[i, id_col])
                 if len(best_row) == 0 or (data.loc[i, :].isnull().sum() < drop_dict[best_row[0]]):
                     best_row = [i]
                 else:
@@ -812,7 +857,7 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
                 drop_dict = {}
                 for j in tmp.index:
                     if j != i:
-                        bypass_col += ['X', 'Y', 'ID']
+                        bypass_col += ['X', 'Y', id_col]
                         if j not in drop_idx:
                             for c in range(len(data.columns)-1):
                                 if cols[c] not in bypass_col:
@@ -857,7 +902,7 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
                     drop_dict.pop(best_row[0])
                     drop_idx = drop_idx + list(drop_dict.keys())
 
-    check_data = data.loc[check_idx,['ID'] + list(check_dict.keys())]
+    check_data = data.loc[check_idx, [id_col] + list(check_dict.keys())]
     check_data.insert(0, 'Check_col', '')
     for key, val in check_dict.items():
         for v in val:
@@ -874,14 +919,16 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
     if len(drop_idx) > 0:
         print(f"same objects at indices:{drop_idx}, will be dropped if drop is set True!")
 
-    data.rename(columns={'ID': 'Old_ID'}, inplace=True)
-    data.insert(0, 'ID', data['Old_ID'].apply(lambda x: re.sub(f"{expression}|' '", "", str(x))))
+    if expression is not None:
+        data.rename(columns={id_col: 'Old_ID'}, inplace=True)
+        data.insert(0, id_col, data['Old_ID'].apply(lambda x: re.sub(f"{expression}|' '", "", str(x))))
 
     if drop:
         data.drop(index=drop_idx, inplace=True)
         data.reset_index(drop=True, inplace=True)
-    if drop_old_id:
+    if drop_old_id and reg is not None:
         data.drop(columns='Old_ID', inplace=True)
+        data.drop(columns='Origin_ID', inplace=True)
 
     print(f"Rows : {data.shape[0]} ; Columns : {data.shape[1]} ; Unique on '{id_col}' : {len(set(data[id_col]))} ; ")
 
