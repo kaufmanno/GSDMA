@@ -137,7 +137,7 @@ class Project:
         """
 
         for link in link_component_interval.keys():
-            new_link = LinkIntervalComponentOrm(int_id=link[0], comp_id=link[1], **link_component_interval[link])
+            new_link = LinkIntervalComponentOrm(intv_id=link[0], comp_id=link[1], **link_component_interval[link])
             self.session.add(new_link)
 
         self.commit()

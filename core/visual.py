@@ -10,8 +10,7 @@ import omf
 from vtk import vtkX3DExporter # NOQA
 from IPython.display import HTML
 from utils.config import DEFAULT_ATTRIB_VALUE
-from utils.visual import find_component_from_attrib, plot_from_striplog, striplog_legend_to_omf_legend, \
-    build_bh3d_legend_cmap
+from utils.visual import find_component_from_attrib, plot_from_striplog, striplog_legend_to_omf_legend, build_bh3d_legend_cmap
 
 
 class Borehole3D(Striplog):

@@ -448,7 +448,7 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=No
         # else add a new row in gdf to store two distinct object
         if not distinct_objects:  # comparison and merging
             for col_i in dble_cols:
-                # print(idx, col_i, mdf.loc[idx, col_i + '_x'])
+                #print(idx, col_i, mdf.loc[idx, col_i + '_x'])
                 # if repeated column i contains nan in gdf1 and a value in gdf2 -> keep value in gdf2
                 if pd.isnull(mdf.loc[idx, col_i + '_x']) and not pd.isnull(mdf.loc[idx, col_i + '_y']):
                     gdf.loc[idx, col_i] = mdf.loc[idx, col_i + '_y']
@@ -792,115 +792,72 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
         uid = data.loc[i, id_col]
         tmp = data[data[id_col] == f"{uid}"]
 
-        if position:  # use position XY
-            pos_1 = [data.loc[i, 'X'], data.loc[i, 'Y']]
-            if uid not in id_list and len(tmp) >= 2:
-                id_list.append(uid)  # list of ID already treated
-                drop_dict = {}
-                for j in tmp.index:  # retrieve duplicates ID index
-                    if j != i:
+        if uid not in id_list and len(tmp) >= 2:
+            id_list.append(uid)  # list of ID already treated
+            drop_dict = {}
+            for j in tmp.index:  # retrieve duplicates ID index
+                if j != i:
+                    if position:   # use position XY
+                        pos_1 = [data.loc[i, 'X'], data.loc[i, 'Y']]
                         pos_2 = [data.loc[j, 'X'], data.loc[j, 'Y']]
                         distinct = not ((pos_1[0] - pos_2[0]) ** 2 + (pos_1[1] - pos_2[1]) ** 2 <= dist_max ** 2)
                         if not distinct:
                             bypass_col += ['X', 'Y', id_col]
-                            if j not in drop_idx:
-                                for c in range(len(cols)-1):
-                                    if cols[c] not in bypass_col:
-                                        if data.iloc[i, c] == data.iloc[j, c]:  # all values (str, numeric) are equals
-                                            same = True
-                                        # numeric values
-                                        elif data.iloc[i, c] != data.iloc[j, c] and \
-                                                re.search('int|float', data[cols[c]].dtype.name):
-                                            a = data.iloc[i, c]
-                                            b = data.iloc[j, c]
-                                            for tol, tol_cols in error_max_dict.items():
-                                                if cols[c] in tol_cols:
-                                                    tolerance_on_min = min(a, b) + min(a, b) * tol
-                                                    if tolerance_on_min < max(a, b):
-                                                        same = False
-                                                        if cols[c] in check_dict.keys():
-                                                            idxs = check_dict[cols[c]] + [j]
-                                                        else:
-                                                            idxs = [j]
-                                                        update_dict(check_dict, {cols[c]: idxs})
-                                                        if j not in check_idx:
-                                                            check_idx.append(j)
-                                                    else:
-                                                        same = True
-
-                                        else:  # str values
-                                            same = False
-                                            if cols[c] in check_dict.keys():
-                                                idxs = check_dict[cols[c]] + [j]
-                                            else:
-                                                idxs = [j]
-                                            update_dict(check_dict, {cols[c]: idxs})
-                                            if j not in check_idx:
-                                                check_idx.append(j)
-                                if same:
-                                    drop_dict.update({j: data.loc[j, :].isnull().sum()})  # count NaN values on row
-
-                # keep the best row based on less NaN values
-                best_row = [k for k, v in drop_dict.items() if v == min(drop_dict.values())]
-                # print(i, best_row, drop_dict, data.loc[i, id_col])
-                if len(best_row) == 0 or (data.loc[i, :].isnull().sum() < drop_dict[best_row[0]]):
-                    best_row = [i]
-                else:
-                    drop_dict.update({i: data.loc[i, :].isnull().sum()})
-                if best_row[0] in drop_dict.keys():
-                    drop_dict.pop(best_row[0])
-                    drop_idx = drop_idx + list(drop_dict.keys())
-
-        else:  # without position XY, use ID
-            if uid not in id_list and len(tmp) >= 2:
-                id_list.append(uid)
-                drop_dict = {}
-                for j in tmp.index:
-                    if j != i:
+                    else:
                         bypass_col += ['X', 'Y', id_col]
-                        if j not in drop_idx:
-                            for c in range(len(data.columns)-1):
-                                if cols[c] not in bypass_col:
-                                    if data.iloc[i, c] == data.iloc[j, c]:
-                                        same = True
-                                    elif data.iloc[i, c] != data.iloc[j, c] and re.search('int|float', data[cols[c]].dtype.name):
-                                        a = data.iloc[i, c]
-                                        b = data.iloc[j, c]
-                                        for tol, tol_cols in error_max_dict.items():
-                                            if cols[c] in tol_cols:
-                                                tolerance_on_min = min(a, b) + min(a, b) * tol
-                                                if tolerance_on_min < max(a, b):
-                                                    same = False
-                                                    if cols[c] in check_dict.keys():
-                                                        idxs = check_dict[cols[c]] + [j]
-                                                    else:
-                                                        idxs = [j]
-                                                    update_dict(check_dict, {cols[c]: idxs})
-                                                    if j not in check_idx: check_idx.append(j)
+                    if j not in drop_idx:
+                        same_state_list = []
+                        same = False
+                        for c in range(len(data.columns) - 1):
+                            if cols[c] not in bypass_col:
+                                if data.iloc[i, c] == data.iloc[j, c]:  # all values (str, numeric) are equals
+                                    same = True
+                                # numeric values
+                                elif data.iloc[i, c] != data.iloc[j, c] and re.search('int|float',
+                                                                        data[cols[c]].dtype.name):
+                                    a = data.iloc[i, c]
+                                    b = data.iloc[j, c]
+                                    for tol, tol_cols in error_max_dict.items():
+                                        if cols[c] in tol_cols:
+                                            tolerance_on_min = min(a, b) + min(a, b) * tol
+                                            if tolerance_on_min < max(a, b):
+                                                same = False
+                                                if cols[c] in check_dict.keys():
+                                                    idxs = check_dict[cols[c]] + [j]
                                                 else:
-                                                    same = True
+                                                    idxs = [j]
+                                                update_dict(check_dict, {cols[c]: idxs})
+                                                if j not in check_idx: check_idx.append(j)
+                                            else:
+                                                same = True
 
-                                else:
-                                        same = False
-                                        if cols[c] in check_dict.keys():
-                                            idxs = check_dict[cols[c]] + [j]
-                                        else:
-                                            idxs = [j]
-                                        update_dict(check_dict, {cols[c]: idxs})
-                                        if j not in check_idx: check_idx.append(j)
-                            if same:
-                                drop_dict.update({j: data.loc[j, :].isnull().sum()})  # count NaN values on row
+                                else:  # str values
+                                    same = False
+                                    if cols[c] in check_dict.keys():
+                                        idxs = check_dict[cols[c]] + [j]
+                                    else:
+                                        idxs = [j]
+                                    update_dict(check_dict, {cols[c]: idxs})
+                                    if j not in check_idx: check_idx.append(j)
 
-                # keep the best row based on less NaN values
-                best_row = [k for k, v in drop_dict.items() if v == min(drop_dict.values())]
-                # print(i, best_row, drop_dict, data.loc[i, 'ID'])
-                if len(best_row) == 0 or (data.loc[i, :].isnull().sum() < drop_dict[best_row[0]]):
-                    best_row = [i]
-                else:
-                    drop_dict.update({i: data.loc[i, :].isnull().sum()})
-                if best_row[0] in drop_dict.keys():
-                    drop_dict.pop(best_row[0])
-                    drop_idx = drop_idx + list(drop_dict.keys())
+                            same_state_list.append(same)
+                    if False not in same_state_list:
+                        if j not in drop_idx:
+                            drop_idx.append(j)
+                        # count NaN values on row
+                        # drop_dict.update({j: data.loc[j, :].isnull().sum()})
+            """
+            # keep the best row based on less NaN values
+            best_row = [k for k, v in drop_dict.items() if v == min(drop_dict.values())]
+            # print(i, best_row, drop_dict, data.loc[i, 'ID'])
+            if len(best_row) == 0 or (data.loc[i, :].isnull().sum() < drop_dict[best_row[0]]):
+                best_row = [i]
+            else:
+                drop_dict.update({i: data.loc[i, :].isnull().sum()})
+            if best_row[0] in drop_dict.keys():
+                drop_dict.pop(best_row[0])
+                drop_idx = drop_idx + list(drop_dict.keys())
+            """
 
     check_data = data.loc[check_idx, [id_col] + list(check_dict.keys())]
     check_data.insert(0, 'Check_col', '')

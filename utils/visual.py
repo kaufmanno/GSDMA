@@ -11,7 +11,7 @@ import numpy as np
 from striplog.utils import hex_to_rgb
 import core.visual
 from utils.config import DEFAULT_ATTRIB_VALUE, WORDS_WITH_S
-from utils.lexicon.lexicon_memoris import lexicon_memoris, pollutants_memoris, CONTAMINATION_LEVELS_MEMORIS
+from utils.lexicon.lexicon_memoris import pollutants_memoris, CONTAMINATION_LEVELS_MEMORIS
 
 
 def striplog_legend_to_omf_legend(legend, alpha=1.):
@@ -94,6 +94,7 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
     synth_legend_cmap = {}  # synthetic legend/cmap dict basis on all boreholes data
 
     for attr in repr_attrib_list:
+        attr = attr.lower()
         if verbose and verb in verbose:
             print(f'BLCMap for : {attr}\n---------------------------------------')
 
@@ -232,7 +233,7 @@ def find_component_from_attrib(intv, attrib, verbose=False):
     j = None
     for i in range(len(intv.components)):
         values.update({i: intv.components[i][attrib]})
-        if attrib in intv.components[i].keys():
+        if attrib.lower() in intv.components[i].keys():
             pos.append(i)
             j = pos[0]  # take the first one if 2 components match for the attribute
             # print(f'j: {j} --> {intv.components[i][attrib]}')
