@@ -26,8 +26,9 @@ def create_bh3d_from_bhorm(bh_orm, legend_dict=None, verbose=False):
     if verbose:
         print(bh_orm.id, " added")
 
-    bh_3d = Borehole3D(name=bh_orm.id, diam=bh_orm.diameter, length=bh_orm.length,
-                      legend_dict=legend_dict, intervals=list_of_intervals)
+    bh_3d = Borehole3D(name=bh_orm.id, date=bh_orm.date, diam=bh_orm.diameter,
+                       length=bh_orm.length, legend_dict=legend_dict,
+                       intervals=list_of_intervals)
     return bh_3d
 
 
@@ -61,9 +62,9 @@ def get_interval_list(bh_orm):
     return interval_list, max(depth)
 
 
-def boreholes_from_dataframe(df, symbols=None, attributes=None, intv_top=None,
+def boreholes_from_dataframe(df, symbols=None, attributes=None, id_col='ID', intv_top=None,
                              intv_base=None, diameter='Diameter', thickness='Length',
-                             verbose=False, use_default=True):
+                             date_col='Date', verbose=False, use_default=True):
     """ Creates a list of BoreholeORM objects from a dataframe
 
     Parameters
@@ -114,14 +115,18 @@ def boreholes_from_dataframe(df, symbols=None, attributes=None, intv_top=None,
         diam = pd.Series([DEFAULT_BOREHOLE_DIAMETER] * len(df))
 
     for idx, row in df.iterrows():
-        bh_name = row['ID']
+        bh_name = row[id_col]
+        if date_col not in df.columns:
+            bh_date = None
+        else:
+            bh_date = row[date_col]
 
         if bh_name not in bh_id_list:
             bh_id_list.append(bh_name)
-            boreholes_orm.append(BoreholeOrm(id=bh_name))
+            boreholes_orm.append(BoreholeOrm(id=bh_name, date=bh_date))
             interval_number = 0
 
-            bh_selection = df['ID'] == f"{bh_name}"
+            bh_selection = df[id_col] == f"{bh_name}"
             tmp = df[bh_selection].copy()
             tmp.reset_index(drop=True, inplace=True)
             striplog_dict = striplog_from_dataframe(df=tmp, bh_name=bh_name,
@@ -130,7 +135,6 @@ def boreholes_from_dataframe(df, symbols=None, attributes=None, intv_top=None,
                                                     intv_top=intv_top, intv_base=intv_base,
                                                     use_default=use_default, query=False)
             for strip in striplog_dict.values():
-                # print('strip:', v)
                 for c in get_components(strip):
                     if c not in component_dict.keys():
                         component_dict.update({c: comp_id})

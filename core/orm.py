@@ -27,6 +27,7 @@ class BoreholeOrm(Base):
     __tablename__ = 'Boreholes'
     
     id = Column(String(32), primary_key=True)
+    date = Column(String(32))
     length = Column(Float(64), default=0.)
     diameter = Column(Float(64), default=0.)
     intervals = relationship('IntervalOrm', collection_class=attribute_mapped_collection('id'),

@@ -140,7 +140,7 @@ def read_geodf_file(filename=None, epsg=None, to_epsg=None, interact=False):  # 
     """
 
     if filename is None:
-        filename = str(input("File name and extension (.json, .gpkg, .csv) ? : "))
+        filename = str(input("File name and extension (.shp, .json, .gpkg, .csv) ? : "))
 
     # if file_dir is None :
     #   file_dir = ROOT_DIR + '/playground/TFE_test/tmp_files/'
@@ -148,11 +148,7 @@ def read_geodf_file(filename=None, epsg=None, to_epsg=None, interact=False):  # 
 
     gdf = gpd.GeoDataFrame()
 
-    if re.compile(r".+\.json").match(filename):
-        with open(filename, 'r'):
-            gdf = gpd.read_file(filename)
-
-    if re.compile(r".+\.gpkg").match(filename):
+    if re.compile(r".+\.json|.+\.gpkg|.+\.shp").match(filename):
         with open(filename, 'r'):
             gdf = gpd.read_file(filename)
 
@@ -376,13 +372,15 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=No
     distinct_objects_to_add = {}
     idx_distinct_obj = 0
 
-    mdf = gdf1.merge(gdf2, how=how, on=on)
+    mdf = pd.merge(gdf1, gdf2, how=how, on=on)
     mdf.reset_index(drop=True, inplace=True)
     mdf.replace('nan', np.nan, inplace=True)
     k = 0
-    for idx in mdf.query(f'{on}!={on}').index:
-        mdf.loc[idx, 'ID'] = f'?{k}'
-        k += 1
+
+    if not isinstance(on, list):
+        for idx in mdf.query(f'{on}!={on}').index:
+            mdf.loc[idx, 'ID'] = f'?{k}'
+            k += 1
 
     gdf = mdf.copy()
     gdf_conflict = pd.DataFrame()
@@ -556,7 +554,22 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=No
     gdf.loc[gdf['split_distinct'] == True, 'index'] = np.nan
     gdf.drop('split_distinct', axis='columns', inplace=True)
 
-    gdf.insert(0, on, gdf.pop(on))
+    if not isinstance(on, list):
+        on = [on]
+    a = 0
+    for c in on:
+        gdf.insert(a, c, gdf.pop(c))
+        a += 1
+
+    if conflict:
+        gdf_conflict = mdf.loc[conflict_row, on + conflict_col]
+        for r, c in conflict_idx_col.items():
+            gdf_conflict.loc[r, 'Check_col'] = str(c).strip('"[]').replace("'", "")
+        gdf_conflict.insert(0, 'Check_col', gdf_conflict.pop('Check_col'))
+        print('Conflict values present. Please resolve this manually !')
+    else:
+        gdf.drop(['index'], axis='columns', inplace=True)
+
     if crit_2nd_col is not None and crit_2nd_col in gdf.columns:
         col_pos = 1
         gdf.insert(col_pos, crit_2nd_col, gdf.pop(crit_2nd_col))
@@ -565,15 +578,6 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=No
     if 'X' in gdf.columns: gdf.insert(col_pos+1, 'X', gdf.pop('X'))
     if 'Y' in gdf.columns: gdf.insert(col_pos+2, 'Y', gdf.pop('Y'))
     if 'Z' in gdf.columns: gdf.insert(col_pos+3, 'Z', gdf.pop('Z'))
-
-    if conflict:
-        gdf_conflict = mdf.loc[conflict_row, [on] + conflict_col]
-        for r, c in conflict_idx_col.items():
-            gdf_conflict.loc[r, 'Check_col'] = str(c).strip('"[]').replace("'", "")
-        gdf_conflict.insert(0, 'Check_col', gdf_conflict.pop('Check_col'))
-        print('Conflict values present. Please resolve this manually !')
-    else:
-        gdf.drop(['index'], axis='columns', inplace=True)
 
     if drop_skip_col is not None:
         idx_to_drop = []
@@ -637,7 +641,7 @@ def data_validation(overall_data, conflict_data, valid_dict=None, index_col='ind
     for i, r in conflict_data.iterrows():
         rem_cols = []  # removed cols
         cols = r['Check_col'].split(', ')
-        if len(cols) > 1:
+        if len(cols) >= 1:
             for col in cols:
                 if r[col + '_x'] == r[col + '_y']:
                     cols.remove(col)
@@ -646,14 +650,16 @@ def data_validation(overall_data, conflict_data, valid_dict=None, index_col='ind
                     # update check_col column values
                     conflict_data.loc[i, 'Check_col'] = ', '.join(cols)
 
+    for i, r in conflict_data.iterrows():
         # drop a row if all its validations are done
-        if sum(x == 'Done' for x in r) == 2 * len(conflict_data.loc[i, 'Check_col'].split(',') + rem_cols):
+        if sum(x == 'Done' for x in r) == 2 * len(r['Check_col'].split(',') + rem_cols):
             conflict_data.drop(index=i, inplace=True)
-        if len(r['Check_col']) == 1 and r['Check_col'] == pass_col:
+        if len(r['Check_col']) < 1 or r['Check_col'] == pass_col:
             conflict_data.drop(index=i, inplace=True)
 
     if len(conflict_data) == 0:
         overall_data.drop(columns=index_col, inplace=True)
+        conflict_data.drop(columns=list(conflict_data.columns), inplace=True)
         print("all conflicts have been fixed!")
     else:
         print(f"Validation done, but conflicts remain!")
@@ -841,7 +847,9 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
                                     if j not in check_idx: check_idx.append(j)
 
                             same_state_list.append(same)
+
                     if False not in same_state_list:
+                        print('AA')
                         if j not in drop_idx:
                             drop_idx.append(j)
                         # count NaN values on row

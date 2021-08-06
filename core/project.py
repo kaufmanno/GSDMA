@@ -165,9 +165,9 @@ class Project:
 
         return synth_leg, detail_leg
 
-    def plot3d(self, plotter=None, repr_attribute='lithology', repr_legend_dict=None, labels_size=15,
-               labels_color=None, bg_color=("royalblue", "aliceblue"),x3d=False, window_size=None,
-               verbose=False):
+    def plot3d(self, plotter=None, repr_attribute='lithology', repr_legend_dict=None,
+               labels_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"),
+               x3d=False, window_size=None, verbose=False):
         """
         Returns an interactive 3D representation of all boreholes in the project
         

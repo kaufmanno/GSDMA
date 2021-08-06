@@ -166,7 +166,7 @@ def striplog_from_dataframe(df, bh_name, attributes, symbols=None, intv_top=None
                         print(f"Error : No value matching with '{val}' in given lexicon")
                     else:
                         iv_components.append(Component.from_text(val, lexicon))
-                print(f'components: {iv_components}')
+                #print(f'components: {iv_components}')
 
                 # length/thickness processing --------------------------------------
                 if thick_cdt and not pd.isnull(tmp.loc[j, thickness]):

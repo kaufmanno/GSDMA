@@ -39,7 +39,7 @@ class Borehole3D(Striplog):
     """
 
     def __init__(self, intervals=None, repr_attribute='lithology', name='BH3D',
-                 diam=0.5, length=0, x_collar=0., y_collar=0., z_collar=None,
+                 diam=0.5, length=0, date=None, x_collar=0., y_collar=0., z_collar=None,
                  legend_dict=None, compute_all_legend=True, verbose=False):
         """
         build a Borehole3D object from Striplog.Intervals list
@@ -70,6 +70,7 @@ class Borehole3D(Striplog):
         self.y_collar = y_collar
         self.z_collar = z_collar
         self.diameter = diam
+        self.date = date
         self.length = length
         self.legend_dict = deepcopy(legend_dict)  # not alter given legend_dict
         self._repr_attribute = repr_attribute  # given repr_attribute
@@ -103,7 +104,8 @@ class Borehole3D(Striplog):
         Striplog.__init__(self, list_of_Intervals=self.intervals)
 
         # create object legend
-        build_bh3d_legend_cmap(bh3d_list=[self], legend_dict=self.legend_dict, verbose=self.__verbose__,
+        build_bh3d_legend_cmap(bh3d_list=[self], legend_dict=self.legend_dict,
+                               verbose=self.__verbose__,
                                compute_all=compute_all_legend, update_bh3d_legend=True)
 
         self.omf_legend = striplog_legend_to_omf_legend(self.legend_dict[repr_attribute]['legend'])[0]
