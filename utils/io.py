@@ -355,7 +355,8 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=No
     dist_max: float
         maximum distance between 2 objects
     crit_2nd_col: str
-        column that contains dates as secondary criteria to distinguish objects
+        column that contains dates as secondary criteria to distinguish objects.
+        Effective when data have coordinates, otherwise better to give a list of columns to parameter 'on'
     drop_skip_col: list
         list of columns to ignore when drop duplicates
     error_tol_dict : dict
@@ -378,9 +379,12 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=No
     k = 0
 
     if not isinstance(on, list):
+        id_col = on
         for idx in mdf.query(f'{on}!={on}').index:
             mdf.loc[idx, 'ID'] = f'?{k}'
             k += 1
+    else:
+        id_col = on[0]  # use for ID column when we create a new line (see below)
 
     gdf = mdf.copy()
     gdf_conflict = pd.DataFrame()
@@ -413,6 +417,12 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=No
         if 'X' in dble_cols:  # coordinates in both dataframes
             # compute distance between the points coming from each dataframe
             if not pd.isnull(mdf.loc[idx, 'X_x']) and not pd.isnull(mdf.loc[idx, 'X_y']):
+                for t in ['X_x', 'X_y', 'Y_x', 'Y_y']:
+                    if isinstance(mdf.loc[idx, t], str) and re.search(',', mdf.loc[idx, t]):
+                        mdf.loc[idx, t] = float(re.sub(',', '.', mdf.loc[idx, t]))
+                    elif isinstance(mdf.loc[idx, t], str):
+                        mdf.loc[idx, t] = float(mdf.loc[idx, t])
+
                 dist = (mdf.loc[idx, 'X_x'] - mdf.loc[idx, 'X_y']) ** 2 + (
                         mdf.loc[idx, 'Y_x'] - mdf.loc[idx, 'Y_y']) ** 2
             else:
@@ -537,7 +547,7 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=No
         else:
             if verbose: print('2A')
             distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
-            distinct_objects_to_add[idx_distinct_obj][on] = '_' + str(distinct_objects_to_add[idx_distinct_obj][on]) + '_'
+            distinct_objects_to_add[idx_distinct_obj][id_col] = '_' + str(distinct_objects_to_add[idx_distinct_obj][id_col]) + '_'
             update_dict(distinct_objects_to_add, {idx_distinct_obj: {i: mdf.loc[idx, i+'_x'] for i in dble_cols}})
             idx_distinct_obj += 1
             distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
@@ -592,7 +602,7 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=No
     return gdf, gdf_conflict
 
 
-def data_validation(overall_data, conflict_data, valid_dict=None, index_col='index', pass_col='Origin_ID',
+def data_validation(overall_data, conflict_data, valid_dict=None, index_col='index', pass_col=['Origin_ID'],
                     valid_all=False, verbose=False):
     """
     Validate correct data in a conflictual dataframe after merging
@@ -609,8 +619,11 @@ def data_validation(overall_data, conflict_data, valid_dict=None, index_col='ind
         use it when all conflict values are correct. this creates new rows to add values_y
     """
 
+    check_cols = []
+    conflict_cols_list = pd.unique(', '.join([x for x in pd.unique(conflict_data['Check_col'])]).split(', '))
     # add a new line when suppose no real conflict
     if valid_all:
+        check_cols = [c for c in list(conflict_data.columns[2:])]
         id_col = conflict_data.columns[1]
         idx1 = conflict_data.index
         idx2 = pd.Index([len(overall_data)+i for i in range(len(idx1))])
@@ -623,42 +636,44 @@ def data_validation(overall_data, conflict_data, valid_dict=None, index_col='ind
             overall_data.loc[idx2, c] = [v for v in conflict_data[c + '_y']]
             overall_data.loc[idx1, c] = [v for v in conflict_data[c + '_x']]
         # print('x1:', overall_data.loc[idx2, cols], '\n\ny1:', overall_data.loc[idx1, cols])
-        conflict_data.loc[:, 2:] = 'Done'
+        conflict_data.loc[:, check_cols] = 'Done'
 
     # change conflictual values
     elif valid_dict is not None:
         for valid_col, idx in valid_dict.items():
             col = re.sub("_x|_y", "", valid_col)
+            check_cols = check_cols + [col+'_x', col+'_y']
             q_idx = list(overall_data.query(f'{index_col}=={idx}').index)
             if verbose:
-                print(q_idx, idx, '---', overall_data.loc[q_idx, col], conflict_data.loc[idx, valid_col])
+                print(f'{valid_col} : {idx}\n{col} : {q_idx}')
             overall_data.loc[q_idx, col] = conflict_data.loc[idx, valid_col]
-            conflict_data.loc[idx, [col + '_x', col + '_y']] = 'Done'
+            conflict_data.loc[idx, [col+'_x', col+'_y']] = 'Done'
     else:
-        raise(ValueError('valid_dict cannot be None if valid_all not set True!'))
+        raise(ValueError('"valid_dict" cannot be None if "valid_all" not set True!'))
 
     # conflict_data cleaning after validation
     for i, r in conflict_data.iterrows():
-        rem_cols = []  # removed cols
         cols = r['Check_col'].split(', ')
         if len(cols) >= 1:
             for col in cols:
                 if r[col + '_x'] == r[col + '_y']:
                     cols.remove(col)
-                    if col not in rem_cols:
-                        rem_cols.append(col)
                     # update check_col column values
                     conflict_data.loc[i, 'Check_col'] = ', '.join(cols)
 
-    for i, r in conflict_data.iterrows():
-        # drop a row if all its validations are done
-        if sum(x == 'Done' for x in r) == 2 * len(r['Check_col'].split(',') + rem_cols):
-            conflict_data.drop(index=i, inplace=True)
-        if len(r['Check_col']) < 1 or r['Check_col'] == pass_col:
-            conflict_data.drop(index=i, inplace=True)
+    v_cols = []
+    for l in conflict_cols_list:
+        v_cols = v_cols + [l + '_x', l + '_y']
+    # indices of rows where all correction have been done
+    indices = conflict_data[conflict_data.loc[:, v_cols].isin(['Done']).all(axis=1)].index
+    conflict_data.loc[indices, 'Check_col'] = ''
+
+    index_to_drop = conflict_data.query('Check_col==""').index
+    conflict_data.drop(index=index_to_drop, inplace=True)
 
     if len(conflict_data) == 0:
-        overall_data.drop(columns=index_col, inplace=True)
+        if index_col in overall_data.columns:
+            overall_data.drop(columns=index_col, inplace=True)
         conflict_data.drop(columns=list(conflict_data.columns), inplace=True)
         print("all conflicts have been fixed!")
     else:

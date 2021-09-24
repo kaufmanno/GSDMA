@@ -275,15 +275,16 @@ class Project:
         ch1 = fm.FeatureGroup(name='Boreholes')
 
         for idx, row in bhs.iterrows():
-            fm.CircleMarker([row.geometry.y, row.geometry.x], popup=row.Name, radius=0.2,
-                            color='red', fill_color='red',
+            fm.CircleMarker([row.geometry.y, row.geometry.x], popup=row.Name,
+                            radius=0.2, color='red', fill_color='red',
                             opacity=0.9).add_to(ch1)
+            # fm.map.Marker([row.geometry.y, row.geometry.x], popup=row.Name).add_to(ch1)
 
         mini_map = plugins.MiniMap(toggle_display=True, zoom_level_offset=-6)
 
         # adding features to the base_map
-        fm.TileLayer(name=tile['name'], tiles=tile['url'], attr=tile['attributes'], max_zoom=25,
-                     control=True).add_to(bhs_map)
+        fm.TileLayer(name=tile['name'], tiles=tile['url'], attr=tile['attributes'],
+                     max_zoom=25, control=True).add_to(bhs_map)
         ch1.add_to(bhs_map)
         fm.LayerControl().add_to(bhs_map)
         bhs_map.add_child(mini_map)
