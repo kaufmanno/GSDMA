@@ -1,4 +1,4 @@
-from striplog import Lexicon, Striplog, Legend, Interval, Decor, Component
+from striplog import Striplog, Legend, Interval, Decor, Component
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -7,23 +7,24 @@ import re
 import omfvista as ov
 import pyvista as pv
 import omf
-from vtk import vtkX3DExporter # NOQA
+from vtk import vtkX3DExporter  # NOQA
 from IPython.display import HTML
-from utils.config import DEFAULT_ATTRIB_VALUE
+from utils.config import DEFAULT_ATTRIB_VALUE, DEFAULT_LITHO_LEXICON, SAMP_TYPE_KW
 from utils.visual import find_component_from_attrib, plot_from_striplog, striplog_legend_to_omf_legend, build_bh3d_legend_cmap
+from utils.utils import dict_repr_html
 
 
 class Borehole3D(Striplog):
     """
-    Borehole object based on striplog object that can be displayed in a 3D environment
-    
+    Borehole object based on striplog.Striplog object that can be displayed in a 3D environment
+
     Attributes
     -----------
     name : str
     intervals : list
     geometry : list of omf.lineset.LineSetGeometry objects
-    legend : Striplog Legend object
-    omf_legend : list of omf.data.Legend 
+    legend : Striplog.Legend object
+    omf_legend : list of omf.data.Legend
     omf_cmap : list of matplotlib colormap
     x_collar : float
     y_collar : float
@@ -43,7 +44,7 @@ class Borehole3D(Striplog):
                  legend_dict=None, compute_all_legend=True, verbose=False):
         """
         build a Borehole3D object from Striplog.Intervals list
-        
+
         Parameters
         -----------
         intervals : list
@@ -85,7 +86,7 @@ class Borehole3D(Striplog):
             if length <= 0.:
                 raise (ValueError("Cannot create a borehole without length and interval !"))
             else:
-                lexicon = Lexicon.default()
+                lexicon = DEFAULT_LITHO_LEXICON
                 intervals = [Interval(top=0, base=length, lexicon=lexicon,
                                       description=DEFAULT_ATTRIB_VALUE)]
                 print(f"No intervals given, default interval is used, "
@@ -98,6 +99,7 @@ class Borehole3D(Striplog):
 
         if legend_dict is None or not isinstance(legend_dict[repr_attribute]['legend'], Legend):
             print("No given legend or incorrect format ! Default is used")
+            self.legend_dict = {repr_attribute: {'lexicon': None, 'legend': None}}
             self.legend_dict[repr_attribute]['legend'] = Legend.default()
 
         # instantiation with supers properties
@@ -202,7 +204,8 @@ class Borehole3D(Striplog):
             indices.append(comp_list.index(i.components[j][repr_attribute]))
 
             if verbose and verb in verbose:
-                print(f'get_comp | uniq_comp_list: {comp_list}, n_intv:{incr}, ind_val: {j}, comp: {i.components[j][repr_attribute]}')
+                print(
+                    f'get_comp | uniq_comp_list: {comp_list}, n_intv:{incr}, ind_val: {j}, comp: {i.components[j][repr_attribute]}')
 
             incr += 1
 
@@ -276,7 +279,7 @@ class Borehole3D(Striplog):
     def vtk(self, radius=None, res=50):
         """ build a vtk tube of given radius based on the borehole geometry """
         if radius is None:
-            radius = self.diameter/2 * 5  # multiply for visibility
+            radius = self.diameter / 2 * 5  # multiply for visibility
             vtk_obj = ov.line_set_to_vtk(self.geometry).tube(radius=radius, n_sides=res)
             vtk_obj.set_active_scalars(self.repr_attribute.lower())
             self._vtk = vtk_obj
@@ -288,7 +291,7 @@ class Borehole3D(Striplog):
         """
         self.z_collar = max([i.top.z for i in self.intervals])
 
-    def log_plot(self, figsize=(6, 6), repr_legend=None, text_size=15, width=3,
+    def plot_log(self, figsize=(6, 6), repr_legend=None, text_size=15, width=3,
                  repr_attribute='lithology', verbose=False):
         """
         Plot a 2D log for the attribute
@@ -346,11 +349,11 @@ class Borehole3D(Striplog):
         ax[1].set_title('Legend', size=text_size, color='r')
         plot_legend.plot(ax=ax[1])
 
-    def plot3d(self, plotter=None, repr_legend_dict=None, repr_attribute='lithology',
-               repr_cmap=None, repr_uniq_val=None, x3d=False, diam=None,
-               bg_color=["royalblue", "aliceblue"], update_vtk=False,
-               update_cmap=False, custom_legend=False, str_annotations=True,
-               scalar_bar_args=None, verbose=False):
+    def plot_3d(self, plotter=None, repr_legend_dict=None, repr_attribute='lithology',
+                repr_cmap=None, repr_uniq_val=None, x3d=False, diam=None,
+                bg_color=["royalblue", "aliceblue"], update_vtk=False,
+                update_cmap=False, custom_legend=False, str_annotations=True,
+                scalar_bar_args=None, verbose=False):
         """
         Returns an interactive 3D representation of all boreholes in the project
 
@@ -382,7 +385,7 @@ class Borehole3D(Striplog):
             diam = self.diameter
 
         if update_vtk or diam is not None:
-            seg = self.vtk(radius=(diam/2)*2)
+            seg = self.vtk(radius=(diam / 2) * 2)
         else:
             seg = self._vtk
         seg.set_active_scalars(repr_attribute.lower())
@@ -393,8 +396,8 @@ class Borehole3D(Striplog):
                     or 'values' not in repr_legend_dict[repr_attribute].keys():
                 print('Colormap computing and unique values searching ...')
                 synth_legend = build_bh3d_legend_cmap(bh3d_list=[self],
-                        repr_attrib_list=[repr_attribute], legend_dict=repr_legend_dict,
-                        update_bh3d_legend=update_cmap)[0]
+                                                      repr_attrib_list=[repr_attribute], legend_dict=repr_legend_dict,
+                                                      update_bh3d_legend=update_cmap)[0]
                 plot_cmap = synth_legend[repr_attribute]['cmap']
                 uniq_attr_val = synth_legend[repr_attribute]['values']
             else:
@@ -414,20 +417,20 @@ class Borehole3D(Striplog):
             n_col = len(plot_cmap.colors)
             if scalar_bar_args is None:  # scalar_bar properties
                 scalar_bar_args = dict(title=f"{repr_attribute}", title_font_size=25,
-                        label_font_size=6, n_labels=n_col, fmt='', font_family='arial',
-                        color='k', italic=False, bold=False, interactive=True,
-                        vertical=False, shadow=False)
-            incr = (len(uniq_attr_val) - 1)/n_col  # increment
+                                       label_font_size=6, n_labels=n_col, fmt='', font_family='arial',
+                                       color='k', italic=False, bold=False, interactive=True,
+                                       vertical=False, shadow=False)
+            incr = (len(uniq_attr_val) - 1) / n_col  # increment
             # print(f'{self.name}... {incr}, {uniq_attr_val}')
 
             bounds = [0]  # cmap colors limits
             next_bound = 0
-            for i in range(n_col+1):
+            for i in range(n_col + 1):
                 if i < n_col:
                     next_bound += incr
                     bounds.append(bounds[0] + next_bound)
             bounds.append(n_col)  # add cmap last value (limit)
-            centers = [(bounds[i] + bounds[i + 1])/2 for i in range(n_col)]
+            centers = [(bounds[i] + bounds[i + 1]) / 2 for i in range(n_col)]
             str_annot = {k: v.capitalize() for k, v in zip(centers, uniq_attr_val)}
         else:  # numeric values for the legend
             scalar_bar_args = None
@@ -435,16 +438,16 @@ class Borehole3D(Striplog):
 
         if verbose:
             print(f'plot3d | n_colors: {n_col} | incr: {incr}| unique: {uniq_attr_val}'
-              f'\nannotations: {str_annot}')
+                  f'\nannotations: {str_annot}')
 
         plotter.add_mesh(seg, cmap=plot_cmap, scalar_bar_args=scalar_bar_args,
                          show_scalar_bar=not custom_legend, annotations=str_annot)
 
         if custom_legend:
             plotter.add_scalar_bar(title=repr_attribute, title_font_size=25,
-                        n_labels=0, label_font_size=8, fmt='', font_family='arial',
-                        color='k', italic=False, bold=False, interactive=True,
-                        vertical=True, shadow=False)
+                                   n_labels=0, label_font_size=8, fmt='', font_family='arial',
+                                   color='k', italic=False, bold=False, interactive=True,
+                                   vertical=True, shadow=False)
 
         # set background color for the render (None : pyvista default background color)
         if bg_color is not None:
@@ -455,7 +458,7 @@ class Borehole3D(Striplog):
                 top_c = None
                 btm_c = bg_color
             else:
-                raise(ValueError('bg_color must be a color string or a list of 2 colors strings !'))
+                raise (ValueError('bg_color must be a color string or a list of 2 colors strings !'))
 
             plotter.set_background(color=btm_c, top=top_c)
 
@@ -470,8 +473,8 @@ class Borehole3D(Striplog):
             writer.Write()
             x3d_html = f'<html>\n<head>\n    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>\n' \
                        '<title>X3D scene</title>\n <p>' \
-                       '<script type=\'text/javascript\' src=\'http://www.x3dom.org/download/x3dom.js\'> </script>\n'\
-                       '<link rel=\'stylesheet\' type=\'text/css\' href=\'http://www.x3dom.org/download/x3dom.css\'/>\n'\
+                       '<script type=\'text/javascript\' src=\'http://www.x3dom.org/download/x3dom.js\'> </script>\n' \
+                       '<link rel=\'stylesheet\' type=\'text/css\' href=\'http://www.x3dom.org/download/x3dom.css\'/>\n' \
                        '</head>\n<body>\n<p>\n For interaction, click in the view and press "a" or "i" to see the whole scene, ' \
                        '"d" to display info, "space" for shortcuts. For more info col interaction,' \
                        ' please read  <a href="https://doc.x3dom.org/tutorials/animationInteraction/' \
@@ -481,5 +484,85 @@ class Borehole3D(Striplog):
                        ' orientation="0.98276 -0.08411 -0.16462 1.15299">' \
                        '</viewpoint>\n <Inline nameSpaceName="Borehole" ' \
                        'mapDEFToID="true" url="' + filename + '" />' \
-                       '\n</scene>\n</x3d>\n</body>\n</html>\n'
+                                                              '\n</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
+
+
+class Sample3D(Interval):
+    """
+    Sample object based on striplog.Interval object that can be displayed in a 3D environment
+
+    Attributes
+    -----------
+    top : float
+    base : float
+    components : list of striplog.Component objects
+    description : str
+    max_comp : int
+    lexicon : Striplog.Lexicon object
+
+    Methods
+    --------
+    get_components_indices()
+    build_geometry()
+    commit()
+    add_components(components)
+    plot3d(x3d=False)
+    """
+
+    def __init__(self, top, base, s_type, name='', date=None, components=None, description=None, max_comp=1, lexicon=None):
+        if s_type.lower() in SAMP_TYPE_KW:
+            self.type = s_type.lower()
+        else:
+            raise (TypeError(f"'samp_type' value must be in {SAMP_TYPE_KW}'"))
+        self.name = name
+        self.date = date
+        self.top = top
+        self.base = base
+        self.components = components
+        self.description = description
+        if lexicon is None:
+            lexicon = DEFAULT_LITHO_LEXICON
+        self.lexicon = lexicon
+
+        # instantiation with supers properties
+        Interval.__init__(self, top=self.top, base=self.base, lexicon=self.lexicon,
+                          components=self.components, description=self.description,
+                          max_component=max_comp)
+
+    def _repr_html_(self):
+        """
+        Jupyter Notebook magic repr function.
+        """
+        items = ['name', 'type', 'top', 'base', 'primary', 'summary', 'description', 'data']
+        rows = ''
+        row = '<tr>{row1}<td><strong>{e}</strong></td><td>{v}</td></tr>'
+        style = 'width:2em; background-color:#DDDDDD'
+        extra = '<td style="{}" rowspan="{}"></td>'
+        for i, e in enumerate(items):
+            row1 = extra.format(style, len(items)) if not i else ''
+            v = getattr(self, e)
+            v = v._repr_html_() if (v and (e == 'primary')) else v
+            v = self.summary() if e == 'summary' else v
+            v = dict_repr_html(self.data) if e == 'data' else v
+            v = v.z if e in ['top', 'base'] else v
+            rows += row.format(row1=row1, e=e, v=v)
+
+        html = '<table>{}</table>'.format(rows)
+        return html
+
+
+# class Component3D(Component):
+#     """
+#     properties : dict
+#     comp_type : str
+#     """
+#
+#     def __init__(self, properties, comp_type):
+#         if comp_type.lower() in COMP_TYPE_KW:
+#             self.type = comp_type.lower()
+#         else:
+#             raise (TypeError(f"'comp_type' value must be in {COMP_TYPE_KW}'"))
+#
+#         # instantiation with supers properties
+#         Component.__init__(self, properties=properties)

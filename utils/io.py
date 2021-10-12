@@ -7,7 +7,7 @@ import geopandas as gpd
 import pandas as pd
 from shapely import wkt
 from ipywidgets import interact, IntSlider
-from IPython.display import display
+from IPython.display import HTML, display
 
 
 def df_from_sources(search_dir, filename, columns=None, verbose=False):
@@ -1162,3 +1162,15 @@ def update_dict(d, u):
         else:
             d[k] = v
     return d
+
+
+def dict_viewer(dictionary):
+    """
+    Jupyter Notebook magic repr function for dictionaries.
+    """
+    rows = ''
+    s = '<tr><td><strong>{k}</strong></td><td>{v}</td></tr>'
+    for k, v in dictionary.items():
+        rows += s.format(k=k, v=v)
+    html = '<table>{}</table>'.format(rows)
+    return display(HTML(html))

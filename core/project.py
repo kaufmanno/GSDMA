@@ -2,8 +2,9 @@ from core.orm import BoreholeOrm, ComponentOrm, LinkIntervalComponentOrm
 from utils.orm import create_bh3d_from_bhorm
 from vtk import vtkX3DExporter, vtkPolyDataMapper # NOQA
 from IPython.display import HTML
-from striplog import Lexicon, Legend
+from striplog import Legend
 from utils.visual import build_bh3d_legend_cmap
+from utils.config import DEFAULT_LITHO_LEXICON
 import numpy as np
 import pyvista as pv
 import folium as fm
@@ -55,7 +56,7 @@ class Project:
         if legend_dict is None:
             legend_dict = {'lithology': {'legend': Legend.default()}}
         if lexicon is None:
-            lexicon = Lexicon.default()
+            lexicon = DEFAULT_LITHO_LEXICON
 
         self.legend_dict = legend_dict
         self.lexicon = lexicon
@@ -83,14 +84,15 @@ class Project:
     def commit(self):
         """Validate all modifications done in the project"""
         self.session.commit()
+        print('Boreholes in the project : ', len(self.boreholes_orm))
         
-    def add_borehole(self, bh, verbose=False):
+    def add_borehole(self, bh_orm_list, verbose=False):
         """
         Add a list of Boreholes to the project
         
         Parameters
         -----------
-        bh : list
+        bh_orm_list : list
             list of BoreholeOrm objects
             
         See Also
@@ -99,10 +101,10 @@ class Project:
         Borehole3D : Striplog/OMF borehole object
         """
         
-        self.session.add(bh)
+        self.session.add(bh_orm_list)
         self.commit()
         self.refresh()
-        self.boreholes_3d.append(create_bh3d_from_bhorm(bh, verbose=verbose, legend_dict=self.legend_dict))
+        self.boreholes_3d.append(create_bh3d_from_bhorm(bh_orm_list, verbose=verbose, legend_dict=self.legend_dict))
             
     def add_components(self, components):
         """
@@ -144,8 +146,8 @@ class Project:
         self.refresh()
 
     def update_legend_cmap(self, repr_attribute_list=None, legend_dict=None, width=3,
-                update_all_attrib=False, update_bh3d_legend=False, update_project_legend=True,
-                verbose=False):
+                           compute_all_attrib=False, update_bh3d_legend=False,
+                           update_project_legend=True, verbose=False):
         """Update the project cmap based on all boreholes in the project"""
 
         if repr_attribute_list is None:
@@ -154,20 +156,18 @@ class Project:
         if legend_dict is None:
             legend_dict = self.legend_dict
 
-        synth_leg, detail_leg = build_bh3d_legend_cmap(bh3d_list=self.boreholes_3d, legend_dict=legend_dict,
-                        repr_attrib_list=repr_attribute_list, width=width, compute_all=update_all_attrib,
-                        update_bh3d_legend=update_bh3d_legend, update_given_legend=update_project_legend,
-                        verbose=verbose)
+        synth_leg, detail_leg = build_bh3d_legend_cmap(bh3d_list=self.boreholes_3d, legend_dict=legend_dict, repr_attrib_list=repr_attribute_list, width=width, compute_all=compute_all_attrib, update_bh3d_legend=update_bh3d_legend, update_given_legend=update_project_legend, verbose=verbose)
 
         if update_project_legend:
             # print('-----------\n', legend_dict)
             self.legend_dict = legend_dict
 
-        return synth_leg, detail_leg
+        if not update_project_legend:
+            return synth_leg, detail_leg
 
-    def plot3d(self, plotter=None, repr_attribute='lithology', repr_legend_dict=None,
-               labels_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"),
-               x3d=False, window_size=None, verbose=False):
+    def plot_3d(self, plotter=None, repr_attribute='lithology', repr_legend_dict=None,
+                labels_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"),
+                x3d=False, window_size=None, verbose=False):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -197,13 +197,13 @@ class Project:
 
         for bh in self.boreholes_3d:
             bh_val_un = bh.legend_dict[repr_attribute]['values']
-            bh.plot3d(plotter=pl,  repr_attribute=repr_attribute,
-                      bg_color=bg_color,
-                      repr_legend_dict=repr_legend_dict, repr_cmap=plot_cmap,
-                      repr_uniq_val=uniq_attr_val, custom_legend=custom_legend)
+            bh.plot_3d(plotter=pl, repr_attribute=repr_attribute,
+                       bg_color=bg_color,
+                       repr_legend_dict=repr_legend_dict, repr_cmap=plot_cmap,
+                       repr_uniq_val=uniq_attr_val, custom_legend=custom_legend)
             name_pts.update({bh.name: bh._vtk.center[:2]+[bh.z_collar]})
             if verbose:
-                print(f'Borehole "{bh.name}": {len(bh_val_un)} --> {bh_val_un}')
+                print(f'Borehole "{bh.name}" | attribute values -> {bh_val_un}')
 
         if labels_color is None:
             labels_color = 'black'
@@ -235,7 +235,7 @@ class Project:
                        '</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
 
-    def plot2d(self, tile=None, epsg=31370, save_as=None):
+    def plot_map(self, tile=None, epsg=31370, save_as=None, radius=0.2, opacity=0.1, zoom_start=15, max_zoom=25, control_scale=True, marker_color='red'):
         """2D Plot of all boreholes in the project
 
         parameters
@@ -269,22 +269,22 @@ class Project:
                     'attributes': "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
                     'url': "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"}
 
-        bhs_map = fm.Map(location=center, tiles='OpenStreetMap', zoom_start=15,
-                         max_zoom=25, control_scale=True)
+        bhs_map = fm.Map(location=center, tiles='OpenStreetMap', zoom_start=zoom_start,
+                         max_zoom=max_zoom, control_scale=control_scale)
 
         ch1 = fm.FeatureGroup(name='Boreholes')
 
         for idx, row in bhs.iterrows():
             fm.CircleMarker([row.geometry.y, row.geometry.x], popup=row.Name,
-                            radius=0.2, color='red', fill_color='red',
-                            opacity=0.9).add_to(ch1)
+                            radius=radius, color=marker_color, fill_color=marker_color,
+                            opacity=opacity).add_to(ch1)
             # fm.map.Marker([row.geometry.y, row.geometry.x], popup=row.Name).add_to(ch1)
 
         mini_map = plugins.MiniMap(toggle_display=True, zoom_level_offset=-6)
 
         # adding features to the base_map
         fm.TileLayer(name=tile['name'], tiles=tile['url'], attr=tile['attributes'],
-                     max_zoom=25, control=True).add_to(bhs_map)
+                     max_zoom=max_zoom, control=True).add_to(bhs_map)
         ch1.add_to(bhs_map)
         fm.LayerControl().add_to(bhs_map)
         bhs_map.add_child(mini_map)

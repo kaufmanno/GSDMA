@@ -9,9 +9,9 @@ import re
 from striplog import Legend, Component
 import numpy as np
 from striplog.utils import hex_to_rgb
-import core.visual
-from utils.config import DEFAULT_ATTRIB_VALUE, WORDS_WITH_S
-from utils.lexicon.lexicon_memoris import pollutants_memoris, CONTAMINATION_LEVELS_MEMORIS
+import core.visual as cv
+from utils.config import DEFAULT_ATTRIB_VALUE, WORDS_WITH_S, DEFAULT_POL_LEXICON
+from utils.lexicon.lexicon_memoris import LEG_CONTAMINATION_LEV
 
 
 def striplog_legend_to_omf_legend(legend, alpha=1.):
@@ -100,12 +100,12 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
 
         r = attr.replace('(', '\(').replace(')', '\)')
         reg_attr = re.compile("^{:s}$".format(r), flags=re.I)
-        rgx = list(filter(reg_attr.match, pollutants_memoris.pollutant))
+        rgx = list(filter(reg_attr.match, DEFAULT_POL_LEXICON.pollutant))
         # print('-->', attr, '--- regex:', rgx)
 
         if rgx and legend_dict[attr]['legend'] is None:
             # create default legend for pollutant
-            legend_dict[attr]['legend'] = Legend.from_csv(text=CONTAMINATION_LEVELS_MEMORIS.format(attr))
+            legend_dict[attr]['legend'] = Legend.from_csv(text=LEG_CONTAMINATION_LEV.format(attr))
 
         if not isinstance(legend_dict[attr]['legend'], Legend):
             raise (TypeError('legend must be a Striplog.Legend object. Check the docstring!'))
@@ -115,7 +115,7 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
         for bh3d in bh3d_list:
             if verbose and verb in verbose:
                 print('|-> BH:', bh3d.name)
-            if not isinstance(bh3d, core.visual.Borehole3D):
+            if not isinstance(bh3d, cv.Borehole3D):
                 raise (TypeError('Element in borehole3d must be a Borehole3D object'))
 
             legend_copy = deepcopy(legend_dict[attr]['legend'])
@@ -212,7 +212,6 @@ def legend_from_attributes(attributes):
 
 def get_components(strip):
     """retrieve all components of a Striplog object"""
-
     return list(pd.unique([comp for iv in strip._Striplog__list for comp in iv.components]))
 
 
@@ -439,3 +438,4 @@ def plot_axis_from_striplog(striplog, ax, legend, ladder=False, default_width=1,
         cb.outline.set_linewidth(0)
 
     return ax
+

@@ -3,25 +3,26 @@ Definition de mots clés pour les descriptions de cuttings de forages.
 :copyright: 2021  Y. N'DEPO & O. Kaufmann 
 """
 
-from striplog import Lexicon, Legend
 import numpy as np
 
-#==================== LEXIQUE ================================
+# ==================== LEXIQUES ================================
 
-POLLUTANTS_MEMORIS = {'pollutant': ['arsenic', 'cadmium', 'chrome', 'chrome vi', 'cuivre', 'mercure', 'plomb', 'nickel', 'zinc', 'cyanure (libre)', 'cyanure (totaux)', 'cyanure (ape)', 'cyanure complex', 'thiocyanate', 'benzène', 'toluène', 'éthylbenzène', 'orthoxylène', 'para- et métaxylène', 'xylènes', 'styrène', 'btex totaux', 'phénol', 'indice phénol', 'naphtalène', 'acénaphtylène', 'acénaphtène', 'fluorène', 'phénanthrène', 'anthracène', 'fluoranthène', 'pyrène', 'benzo(a)anthracène', 'chrysène', 'benzo(b)fluoranthène', 'benzo(k)fluoranthène', 'benzo(a)pyrène', 'dibenzo(ah)anthracène', 'benzo(ghi)pérylène', 'indéno(1,2,3-cd)pyrène', 'hap totaux (16) - epa', '1,1-dichloroéthane', '1,2-dichloroéthane', '1,1-dichloroéthène', 'cis-1,2-dichloroéthène', 'trans 1,2-dichloroéthylène', 'dichlorométhane', 'totaux (cis,trans) 1,2-dichloroéthènes', '1,2-dichloropropane', 'tétrachloroéthylène', 'tétrachlorométhane', '1,1,1-trichloroéthane', '1,1,2-trichloroéthane', 'trichloroéthylène', 'chloroforme', 'chlorure de vinyle', 'eox (****)', 'fraction aromat. >c6-c7', 'fraction aromat. >c7-c8', 'fraction aromat. >c8-c10', 'fraction aliphat. c5-c6', 'fraction aliphat. >c6-c8', 'fraction aliphat. >c8-c10', 'fraction c5 - c8', 'fraction c8 - c10', 'fraction c10-c12', 'fraction c12-c16', 'fraction c16 - c21', 'fraction c21 - c35', 'fraction c35 - c40', 'hydrocarbures totaux c10-c35', 'hydrocarbures totaux c10-c40', 'mtbe', 'pcb 28', 'pcb 52', 'pcb 101', 'pcb 118', 'pcb 138', 'pcb 153', 'pcb 180', 'pcb totaux (7)', 'chlorures', 'soufre total', 'sulfites', 'sulfate', 'chrome total', 'cobalt', 'benzene', 'toluene', 'ethylbenzene', 'xylene sum', 'styrene', 'phenol', 'naphtalene', 'acenaphtylene', 'acenaphtene', 'fluorene', 'phenanthrene', 'anthracene', 'fluoranthene', 'pyrene', 'benzo(a)anthracene', 'chrysene', 'benzo(b)fluoranthene', 'benzo(k)fluoranthene', 'benzo(a)pyrene', 'dibenzo(ah)anthracene', 'benzo(ghi)perylene', 'indeno(1.2.3-cd)pyrene', '1.1-dichloroethane', '1.2-dichloroethane', 'cis 1.2 dichloroethene', 'trans 1.2 dichloroethene', 'dichloromethane', '1.2 dichloroethene sum', '1.2-dichloropropane', 'tetrachloroethene', 'tetrachloromethane', '1.1.1-trichloroethane', '1.1.2-trichloroethane', 'trichloroethene', 'trichloromethane (chloroforme)', 'chlorure de vinyle (chloroethene)', 'cyanures libres', 'methyl-tert-butyl-ether', 'fraction 5-8', 'fraction ec 8-10', 'fraction ec 10-12', 'fraction ec 12-16', 'fraction ec 16-21', 'fraction ec 21-35'],
+# pollutants lexicon
+LEX_POL_MEMORIS = {'pollutant': ['arsenic', 'cadmium', 'chrome', 'chrome vi', 'cuivre', 'mercure', 'plomb', 'nickel', 'zinc', 'cyanure (libre)', 'cyanure (totaux)', 'cyanure (ape)', 'cyanure complex', 'thiocyanate', 'benzène', 'toluène', 'éthylbenzène', 'orthoxylène', 'para- et métaxylène', 'xylènes', 'styrène', 'btex totaux', 'phénol', 'indice phénol', 'naphtalène', 'acénaphtylène', 'acénaphtène', 'fluorène', 'phénanthrène', 'anthracène', 'fluoranthène', 'pyrène', 'benzo(a)anthracène', 'chrysène', 'benzo(b)fluoranthène', 'benzo(k)fluoranthène', 'benzo(a)pyrène', 'dibenzo(ah)anthracène', 'benzo(ghi)pérylène', 'indéno(1,2,3-cd)pyrène', 'hap totaux (16) - epa', '1,1-dichloroéthane', '1,2-dichloroéthane', '1,1-dichloroéthène', 'cis-1,2-dichloroéthène', 'trans 1,2-dichloroéthylène', 'dichlorométhane', 'totaux (cis,trans) 1,2-dichloroéthènes', '1,2-dichloropropane', 'tétrachloroéthylène', 'tétrachlorométhane', '1,1,1-trichloroéthane', '1,1,2-trichloroéthane', 'trichloroéthylène', 'chloroforme', 'chlorure de vinyle', 'eox (****)', 'fraction aromat. >c6-c7', 'fraction aromat. >c7-c8', 'fraction aromat. >c8-c10', 'fraction aliphat. c5-c6', 'fraction aliphat. >c6-c8', 'fraction aliphat. >c8-c10', 'fraction c5 - c8', 'fraction c8 - c10', 'fraction c10-c12', 'fraction c12-c16', 'fraction c16 - c21', 'fraction c21 - c35', 'fraction c35 - c40', 'hydrocarbures totaux c10-c35', 'hydrocarbures totaux c10-c40', 'mtbe', 'pcb 28', 'pcb 52', 'pcb 101', 'pcb 118', 'pcb 138', 'pcb 153', 'pcb 180', 'pcb totaux (7)', 'chlorures', 'soufre total', 'sulfites', 'sulfate', 'chrome total', 'cobalt', 'benzene', 'toluene', 'ethylbenzene', 'xylene sum', 'styrene', 'phenol', 'naphtalene', 'acenaphtylene', 'acenaphtene', 'fluorene', 'phenanthrene', 'anthracene', 'fluoranthene', 'pyrene', 'benzo(a)anthracene', 'chrysene', 'benzo(b)fluoranthene', 'benzo(k)fluoranthene', 'benzo(a)pyrene', 'dibenzo(ah)anthracene', 'benzo(ghi)perylene', 'indeno(1.2.3-cd)pyrene', '1.1-dichloroethane', '1.2-dichloroethane', 'cis 1.2 dichloroethene', 'trans 1.2 dichloroethene', 'dichloromethane', '1.2 dichloroethene sum', '1.2-dichloropropane', 'tetrachloroethene', 'tetrachloromethane', '1.1.1-trichloroethane', '1.1.2-trichloroethane', 'trichloroethene', 'trichloromethane (chloroforme)', 'chlorure de vinyle (chloroethene)', 'cyanures libres', 'methyl-tert-butyl-ether', 'fraction 5-8', 'fraction ec 8-10', 'fraction ec 10-12', 'fraction ec 12-16', 'fraction ec 16-21', 'fraction ec 21-35'],
                       'Level': ['VR', 'VS', 'VI', 'Inconnu'],
                       'Units': ['mg/l', 'µg/l', 'mg/kg MS'],
                       'abbreviations': {'As': 'arsenic', 'Cd': 'cadmium', 'Cr': 'chrome', 'Cr_VI': 'chrome vi', 'Cu': 'cuivre', 'Hg': 'mercure', 'Pb': 'plomb', 'Ni': 'nickel', 'Zn': 'zinc', 'CN_libre': 'cyanure (libre)', 'CN_tot': 'cyanure (totaux)', 'CN_APE': 'cyanure (ape)', 'CN_cplx': 'cyanure complex', 'thioCN': 'thiocyanate', 'Bnz': 'benzène', 'Toln': 'toluène', 'EthylBnz': 'éthylbenzène', 'O-Xyl': 'orthoxylène', 'P-M-Xyl': 'para- et métaxylène', 'Xyl': 'xylènes', 'Styr': 'styrène', 'BTEX_tot': 'btex totaux', 'Phenol': 'phénol', 'Idc_Phenol': 'indice phénol', 'Naphta': 'naphtalène', 'Acenaphtyl': 'acénaphtylène', 'Acenaphtn': 'acénaphtène', 'Fluorene': 'fluorène', 'Phenanthr': 'phénanthrène', 'Anthrc': 'anthracène', 'Flranth': 'fluoranthène', 'Pyr': 'pyrène', 'Bnz(a)anthrc': 'benzo(a)anthracène', 'Chrys': 'chrysène', 'Bnz(b)flranth': 'benzo(b)fluoranthène', 'Bnz(k)flranth': 'benzo(k)fluoranthène', 'Bnz(a)pyr': 'benzo(a)pyrène', 'Dibnz(ah)anthrc': 'dibenzo(ah)anthracène', 'Bnz(ghi)peryl': 'benzo(ghi)pérylène', 'Indeno(1,2,3-cd)pyr': 'indéno(1,2,3-cd)pyrène', 'HAP_tot_EPA': 'hap totaux (16) - epa', '1,1-DCE': '1,1-dichloroéthane', '1,2-DCE': '1,2-dichloroéthane', '1,1-DCEn': '1,1-dichloroéthène', 'Cis-1,2-DCEn': 'cis-1,2-dichloroéthène', 'Trans 1,2-DCEyl': 'trans 1,2-dichloroéthylène', 'DCM': 'dichlorométhane', '(cis,trans) 1,2-DCE_tot': 'totaux (cis,trans) 1,2-dichloroéthènes', '1,2-DCP': '1,2-dichloropropane', 'TetraCEyn': 'tétrachloroéthylène', 'TCM': 'tétrachlorométhane', '1,1,1-TCE': '1,1,1-trichloroéthane', '1,1,2-TCE': '1,1,2-trichloroéthane', 'TCEyn': 'trichloroéthylène', 'Chloroforme': 'chloroforme', 'CVinyl': 'chlorure de vinyle', 'EOX': 'eox (****)', 'Arom_C6C7': 'fraction aromat. >c6-c7', 'Arom_C7C8': 'fraction aromat. >c7-c8', 'Arom_C8C10': 'fraction aromat. >c8-c10', 'Aliphat_C5C6': 'fraction aliphat. c5-c6', 'Aliphat_C6C8': 'fraction aliphat. >c6-c8', 'Aliphat_C8C10': 'fraction aliphat. >c8-c10', 'Fract_C5C8': 'fraction c5 - c8', 'Fract_C8C10': 'fraction c8 - c10', 'Fract_C10C12': 'fraction c10-c12', 'Fract_C12C16': 'fraction c12-c16', 'Fract_C16C21': 'fraction c16 - c21', 'Fract_C21C35': 'fraction c21 - c35', 'Fract_C35C40': 'fraction c35 - c40', 'HC_tot_C10C35': 'hydrocarbures totaux c10-c35', 'HC_tot_C10C40': 'hydrocarbures totaux c10-c40', 'MTBE': 'mtbe', 'PCB_28': 'pcb 28', 'PCB_52': 'pcb 52', 'PCB_101': 'pcb 101', 'PCB_118': 'pcb 118', 'PCB_138': 'pcb 138', 'PCB_153': 'pcb 153', 'PCB_180': 'pcb 180', 'PCB_tot': 'pcb totaux (7)', 'Cl': 'chlorures', 'S_tot': 'soufre total'}}
 
-pollutants_memoris = Lexicon(POLLUTANTS_MEMORIS)
 
-soil_standards = {'unit': 'mg/kg MS',
+# industrial sites pollution Norm (soil and water)
+LEX_SOIL_NORM = {'unit': 'mg/kg MS',
                   'pollutants': {'arsenic': {'VR': 12, 'VS': 50, 'VI': 300}, 'cadmium': {'VR': 0.2, 'VS': 15, 'VI': 50}, 'chrome': {'VR': 34, 'VS': 165, 'VI': 700}, 'chrome vi': {'VR': 2.5, 'VS': 13, 'VI': 130}, 'cuivre': {'VR': 14, 'VS': 120, 'VI': 500}, 'mercure': {'VR': 0.05, 'VS': 5, 'VI': 50}, 'plomb': {'VR': 25, 'VS': 385, 'VI': 1360}, 'nickel': {'VR': 24, 'VS': 210, 'VI': 500}, 'zinc': {'VR': 67, 'VS': 320, 'VI': 1300}, 'cyanure (libre)': {'VR': 0.05, 'VS': 1, 'VI': 5}, 'benzène': {'VR': 0.1, 'VS': 0.2, 'VI': 0.8}, 'toluène': {'VR': 0.2, 'VS': 12, 'VI': 120}, 'éthylbenzène': {'VR': 0.2, 'VS': 17, 'VI': 116}, 'xylènes': {'VR': 0.2, 'VS': 3, 'VI': 25}, 'styrène': {'VR': 0.2, 'VS': 2, 'VI': 10}, 'phénol': {'VR': 0.1, 'VS': 1.4, 'VI': 13}, 'indice phénol': {'VR': np.nan, 'VS': np.nan, 'VI': 2}, 'naphtalène': {'VR': 0.1, 'VS': 2.5, 'VI': 25}, 'acénaphtylène': {'VR': 0.01, 'VS': 43, 'VI': 410}, 'acénaphtène': {'VR': 0.01, 'VS': 6, 'VI': 56}, 'fluorène': {'VR': 0.01, 'VS': 16, 'VI': 163}, 'phénp.nanthrène': {'VR': 0.1, 'VS': 16, 'VI': 164}, 'anthracène': {'VR': 0.01, 'VS': 1.3, 'VI': 13.3}, 'fluoranthène': {'VR': 0.01, 'VS': 47, 'VI': 475}, 'pyrène': {'VR': 0.01, 'VS': 6.4, 'VI': 64}, 'benzo(a)anthracène': {'VR': 0.01, 'VS': 1.5, 'VI': 15}, 'chrysène': {'VR': 0.01, 'VS': 6, 'VI': 60}, 'benzo(b)fluoranthène': {'VR': 0.01, 'VS': 1.3, 'VI': 13}, 'benzo(k)fluoranthène': {'VR': 0.01, 'VS': 4.7, 'VI': 47}, 'benzo(a)pyrène': {'VR': 0.01, 'VS': 1.3, 'VI': 13}, 'dibenzo(ah)anthracène': {'VR': 0.01, 'VS': 1.4, 'VI': 14}, 'benzo(ghi)pérylène': {'VR': 0.01, 'VS': 5, 'VI': 46}, 'indéno(1,2,3-cd)pyrène': {'VR': 0.01, 'VS': 1.5, 'VI': 15}, '1,2-dichloroéthane': {'VR': 0.05, 'VS': 0.3, 'VI': 1.4}, 'dichlorométhane': {'VR': 0.05, 'VS': 0.2, 'VI': 0.8}, 'totaux (cis,trans) 1,2-dichloroéthènes': {'VR': 0.05, 'VS': 0.6, 'VI': 2.5}, 'tétrachloroéthylène': {'VR': 0.05, 'VS': 1.7, 'VI': 11}, 'tétrachlorométhane': {'VR': 0.05, 'VS': 0.1, 'VI': 0.2}, '1,1,1-trichloroéthane': {'VR': 0.05, 'VS': 6, 'VI': 58}, '1,1,2-trichloroéthane': {'VR': 0.05, 'VS': 0.2, 'VI': 0.8}, 'trichloroéthylène': {'VR': 0.05, 'VS': 2, 'VI': 9}, 'chloroforme': {'VR': 0.05, 'VS': 3, 'VI': 12}, 'chlorure de vinyle': {'VR': 0.05, 'VS': 0.1, 'VI': 0.4}, 'eox (****)': {'VR': np.nan, 'VS': np.nan, 'VI': 3}, 'fraction c5 - c8': {'VR': 2, 'VS': 9, 'VI': 20}, 'fraction c8 - c10': {'VR': 2, 'VS': 80, 'VI': 320}, 'fraction c10-c12': {'VR': 2.5, 'VS': 130, 'VI': 160}, 'fraction c12-c16': {'VR': 15, 'VS': 130, 'VI': 520}, 'fraction c16 - c21': {'VR': 15, 'VS': 1250, 'VI': 2500}, 'fraction c21 - c35': {'VR': 15, 'VS': 1250, 'VI': 2500}, 'mtbe': {'VR': 0.05, 'VS': 2, 'VI': 8}}}
 
-water_standards = {'unit': 'µg/l',
+LEX_WATER_NORM = {'unit': 'µg/l',
                    'pollutants': {'arsenic': {'VR': 1, 'VS': 10, 'VI': 40}, 'cadmium': {'VR': 0.25, 'VS': 5, 'VI': 20}, 'chrome': {'VR': 2.5, 'VS': 50, 'VI': 100}, 'chrome vi': {'VR': 2.5, 'VS': 9, 'VI': 90}, 'cuivre': {'VR': 15, 'VS': 100, 'VI': 200}, 'mercure': {'VR': 0.1, 'VS': 1, 'VI': 4}, 'plomb': {'VR': 2.5, 'VS': 10, 'VI': 40}, 'nickel': {'VR': 10, 'VS': 20, 'VI': 80}, 'zinc': {'VR': 90, 'VS': 200, 'VI': 400}, 'cyanures (libres)': {'VR': 2, 'VS': 70, 'VI': 140}, 'benzène': {'VR': 0.25, 'VS': 10, 'VI': 40}, 'toluène': {'VR': 2, 'VS': 700, 'VI': 5850}, 'éthylbenzène': {'VR': 2, 'VS': 300, 'VI': 1520}, 'xylènes': {'VR': 4, 'VS': 500, 'VI': 2175}, 'styrène': {'VR': 2, 'VS': 20, 'VI': 110}, 'phénol': {'VR': 0.2, 'VS': 120, 'VI': 1115}, 'indice phénol': {'VR': np.nan, 'VS': np.nan, 'VI': 5}, 'naphtalène': {'VR': 0.05, 'VS': 60, 'VI': 410}, 'acénaphtylène': {'VR': 0.05, 'VS': 70, 'VI': 660}, 'acénaphtène': {'VR': 0.05, 'VS': 180, 'VI': 1800}, 'fluorène': {'VR': 0.05, 'VS': 120, 'VI': 1200}, 'phénp.nanthrène': {'VR': 0.05, 'VS': 120, 'VI': 240}, 'anthracène': {'VR': 0.05, 'VS': 75, 'VI': 150}, 'fluoranthène': {'VR': 0.05, 'VS': 4, 'VI': 60}, 'pyrène': {'VR': 0.05, 'VS': 90, 'VI': 900}, 'benzo(a)anthracène': {'VR': 0.05, 'VS': 0.7, 'VI': 7}, 'chrysène': {'VR': 0.05, 'VS': 1.5, 'VI': 3}, 'benzo(b)fluoranthène': {'VR': 0.05, 'VS': 1.5, 'VI': 69}, 'benzo(k)fluoranthène': {'VR': 0.05, 'VS': 0.8, 'VI': 1.6}, 'benzo(a)pyrène': {'VR': 0.05, 'VS': 0.7, 'VI': 1.4}, 'dibenzo(ah)anthracène': {'VR': 0.05, 'VS': 0.7, 'VI': 7}, 'benzo(ghi)pérylène': {'VR': 0.05, 'VS': 0.3, 'VI': 0.5}, 'indéno(1,2,3-cd)pyrène': {'VR': 0.05, 'VS': 0.22, 'VI': 0.44}, '1,2-dichloroéthane': {'VR': 2, 'VS': 30, 'VI': 125}, 'totaux (cis,trans) 1,2-dichloroéthènes': {'VR': 2, 'VS': 50, 'VI': 200}, 'dichlorométhane': {'VR': 1, 'VS': 20, 'VI': 90}, 'tétrachloroéthylène ': {'VR': 1, 'VS': 40, 'VI': 170}, 'tétrachlorométhane': {'VR': 1, 'VS': 2, 'VI': 8}, '1,1,1-trichloroéthane': {'VR': 2, 'VS': 500, 'VI': 8450}, '1,1,2-trichloroéthane': {'VR': 2, 'VS': 12, 'VI': 50}, 'trichloroéthylène': {'VR': 1, 'VS': 70, 'VI': 290}, 'chloroforme': {'VR': 1, 'VS': 200, 'VI': 815}, 'chlorure de vinyle': {'VR': 1, 'VS': 5, 'VI': 20}, 'fraction c5 - c8': {'VR': 30, 'VS': 60, 'VI': 120}, 'fraction c8 - c10': {'VR': 30, 'VS': 200, 'VI': 400}, 'fraction c10-c12': {'VR': 40, 'VS': 200, 'VI': 400}, 'fraction c12-c16': {'VR': 5, 'VS': 200, 'VI': 400}, 'fraction c16 - c21': {'VR': 15, 'VS': 300, 'VI': 600}, 'fraction c21 - c35': {'VR': 15, 'VS': 300, 'VI': 600}, 'mtbe': {'VR': 2, 'VS': 300, 'VI': 1235}}}
 
-LEXICON_MEMORIS = {'lithology': ['Boue(?:s)?', 'laitier', 'béton', 'scorie(?:s)?', 'Ballast(?:s)?', 'Laitier', 'Briquaille(?:s)?', 'Caillasse(?:s)?', 'Anthracite(?:s)?', 'Porphyre(?:s)?', 'Houille(?:s)?', 'Diorite(?:s)?', 'Cargneule(?:s)?', 'Molasse(?:s)?', 'Jaspe(?:s)?', 'Gravier(?:s)?', 'Leptynite(?:s)?', 'Pyroxénite(?:s)?', 'Pierre coquillière(?:s)?', 'Grès(?:s)?', 'Obsidienne(?:s)?', 'Basalte(?:s)?', 'Charbon(?:s)?', 'Anhydrite(?:s)?', 'Andésite(?:s)?', 'Ardoise(?:s)?', 'Carbonatite(?:s)?', 'Dolérite(?:s)?', 'Cendres(?:s)?', 'Poudingue(?:s)?', 'Alios(?:s)?', 'Quartzite(?:s)?', 'Calcaire(?:s)?', 'Gypse(?:s)?', 'Limon(?:s)?', 'Phonolite(?:s)?', 'Arkose(?:s)?', 'Pegmatite(?:s)?', 'Bauxite(?:s)?', 'Pierre coquillère(?:s)?', 'Gneiss', 'Mort-terrain(?:s)?', 'Silcrète(?:s)?', 'Lignite(?:s)?', 'Conglomérat(?:s)?', 'Glauconie(?:s)?', 'Ponce(?:s)?', 'Péridotite(?:s)?', 'Combarbalite(?:s)?', 'Glauconite(?:s)?', 'Anatexite(?:s)?', 'Amphibolite(?:s)?', 'Greisen(?:s)?', 'Tuffeau(?:s)?', 'Granite(?:s)?', 'Gr(?:è|e|é)s', 'Brèche(?:s)?', 'Dolomie(?:s)?', 'Tuf volcanique(?:s)?', 'Halite(?:s)?', "Granite d'anatexie(?:s)?", 'Ignimbrite(?:s)?', 'Bentonite(?:s)?', 'Monzonite(?:s)?', 'Rhyolite(?:s)?', 'Monazite(?:s)?', 'Silex', 'Gabbro(?:s)?', 'Argile(?:s)?', 'Syénite(?:s)?', 'Kimberlite(?:s)?', 'Cendre(?:s)?', 'Cinérite(?:s)?', 'Tourbe(?:s)?', 'Aplite(?:s)?', 'Grè(?:s)?', 'Marne(?:s)?', 'Dacite(?:s)?', 'Micaschiste(?:s)?', 'Molasse (?:s)?', 'Tillite(?:s)?', 'Schiste(?:s)?', 'Granodiorite(?:s)?', 'Phtanite(?:s)?', 'Tuf(?:s)?', 'Sable(?:s)?', 'Trachyte(?:s)?', 'Remblai(?:s)?', 'Alluvion(?:s)?', 'Marbre(?:s)?', 'Ophite(?:s)?', 'Éclogite(?:s)?', 'Cipolin(?:s)?', 'Kersantite(?:s)?', 'Lapillis(?:s)?', 'Diatomite(?:s)?', 'Craie(?:s)?'],
+# lithologies lexicon
+LEX_LITHO_MEMORIS = {'lithology': ['Boue(?:s)?', 'laitier', 'béton', 'scorie(?:s)?', 'Ballast(?:s)?', 'Laitier', 'Briquaille(?:s)?', 'Caillasse(?:s)?', 'Anthracite(?:s)?', 'Porphyre(?:s)?', 'Houille(?:s)?', 'Diorite(?:s)?', 'Cargneule(?:s)?', 'Molasse(?:s)?', 'Jaspe(?:s)?', 'Gravier(?:s)?', 'Leptynite(?:s)?', 'Pyroxénite(?:s)?', 'Pierre coquillière(?:s)?', 'Grès(?:s)?', 'Obsidienne(?:s)?', 'Basalte(?:s)?', 'Charbon(?:s)?', 'Anhydrite(?:s)?', 'Andésite(?:s)?', 'Ardoise(?:s)?', 'Carbonatite(?:s)?', 'Dolérite(?:s)?', 'Cendres(?:s)?', 'Poudingue(?:s)?', 'Alios(?:s)?', 'Quartzite(?:s)?', 'Calcaire(?:s)?', 'Gypse(?:s)?', 'Limon(?:s)?', 'Phonolite(?:s)?', 'Arkose(?:s)?', 'Pegmatite(?:s)?', 'Bauxite(?:s)?', 'Pierre coquillère(?:s)?', 'Gneiss', 'Mort-terrain(?:s)?', 'Silcrète(?:s)?', 'Lignite(?:s)?', 'Conglomérat(?:s)?', 'Glauconie(?:s)?', 'Ponce(?:s)?', 'Péridotite(?:s)?', 'Combarbalite(?:s)?', 'Glauconite(?:s)?', 'Anatexite(?:s)?', 'Amphibolite(?:s)?', 'Greisen(?:s)?', 'Tuffeau(?:s)?', 'Granite(?:s)?', 'Gr(?:è|e|é)s', 'Brèche(?:s)?', 'Dolomie(?:s)?', 'Tuf volcanique(?:s)?', 'Halite(?:s)?', "Granite d'anatexie(?:s)?", 'Ignimbrite(?:s)?', 'Bentonite(?:s)?', 'Monzonite(?:s)?', 'Rhyolite(?:s)?', 'Monazite(?:s)?', 'Silex', 'Gabbro(?:s)?', 'Argile(?:s)?', 'Syénite(?:s)?', 'Kimberlite(?:s)?', 'Cendre(?:s)?', 'Cinérite(?:s)?', 'Tourbe(?:s)?', 'Aplite(?:s)?', 'Grè(?:s)?', 'Marne(?:s)?', 'Dacite(?:s)?', 'Micaschiste(?:s)?', 'Molasse (?:s)?', 'Tillite(?:s)?', 'Schiste(?:s)?', 'Granodiorite(?:s)?', 'Phtanite(?:s)?', 'Tuf(?:s)?', 'Sable(?:s)?', 'Trachyte(?:s)?', 'Remblai(?:s)?', 'Alluvion(?:s)?', 'Marbre(?:s)?', 'Ophite(?:s)?', 'Éclogite(?:s)?', 'Cipolin(?:s)?', 'Kersantite(?:s)?', 'Lapillis(?:s)?', 'Diatomite(?:s)?', 'Craie(?:s)?'],
 
                    'synonyms': {'mort-terrain': ['terre'], 'Anhydrite': ['Gypse'], 'Sel': ['Halite', 'Sylvite']},
 
@@ -30,21 +31,17 @@ LEXICON_MEMORIS = {'lithology': ['Boue(?:s)?', 'laitier', 'béton', 'scorie(?:s)
                    'parts_of_speech': {'noun': ['lithology'], 'adjective': ['colour', 'grainsize', 'modifier'], 'subordinate': ['quantity']},
 
                    'abbreviations': {'Argilo':'Argile', 'Sablo':'sable'},
-                   }
+                     }
 
-lexicon_memoris = Lexicon(LEXICON_MEMORIS)
-
-#======================= LEGENDES ============================
-CONTAMINATION_LEVELS_MEMORIS = """colour,width,component {:}
+# ======================= LEGENDES ============================
+LEG_CONTAMINATION_LEV = """colour,width,component {:}
 #00FF00, None, VR,
 #FFA500, None, VS,
 #FF0000, None, VI,
 #FFFFFF, None, Inconnu
 """
 
-# contamination_memoris = Legend.from_csv(text=CONTAMINATION_LEVELS_MEMORIS)
-
-LITHOLOGY_MEMORIS = """colour,width, hatch, component lithology
+LEG_LITHO_MEMORIS = """colour,width, hatch, component lithology
 #FFFFE9, None, None, Matériau(?:x)? meuble(?:s)?,
 #FFF497, None, '....', Alluvion,
 #331100, None, None, Boue,
@@ -76,30 +73,28 @@ LITHOLOGY_MEMORIS = """colour,width, hatch, component lithology
 #7BA1A8, None, None, Marne,
 #FFFFFF, None, None, Inconnu
 """
-lithology_memoris = Legend.from_csv(text=LITHOLOGY_MEMORIS)
 
 
-#======================= COULEURS ============================ 
-
+# ======================= COULEURS ============================
 COLOURS = {
 'abricot': '#E67E30',
-'acajou': '#88421D', 
-'aigue-marine': '#79F8F8', 
-'aile de corbeau': '#000000', 
-'albâtre': '#FEFEFE', 
-'alezan': '#A76726', 
-'amarante': '#91283B', 
-'ambre': '#F0C300', 
+'acajou': '#88421D',
+'aigue-marine': '#79F8F8',
+'aile de corbeau': '#000000',
+'albâtre': '#FEFEFE',
+'alezan': '#A76726',
+'amarante': '#91283B',
+'ambre': '#F0C300',
 'améthyste': '#884DA7',
 'argent': '#CECECE',
-'asperge': '#7BA05B', 
-'aubergine': '#370028', 
-'auburn': '#9D3E0C', 
-'aurore': '#FFCB60', 
-'azur': '#1E7FCB', 
-'azur brume': '#F0FFFF', 
-'azur clair': '#74D0F1', 
-'azurin': '#A9EAFE', 
+'asperge': '#7BA05B',
+'aubergine': '#370028',
+'auburn': '#9D3E0C',
+'aurore': '#FFCB60',
+'azur': '#1E7FCB',
+'azur brume': '#F0FFFF',
+'azur clair': '#74D0F1',
+'azurin': '#A9EAFE',
 'basané': '#8B6C42', 
 'beige': '#C8AD7F', 
 'beige clair': '#F5F5DC', 
