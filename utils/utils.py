@@ -1,20 +1,32 @@
 import re
 import pandas as pd
 from striplog import Component, Interval, Striplog, Lexicon
-import warnings
+# import warnings
 from utils.config import DEFAULT_CONTAM_LEVELS, DEFAULT_LITHO_LEXICON, DEFAULT_POL_LEXICON, WARNING_TEXT_CONFIG
-from utils.lexicon.lexicon_memoris import LEX_SOIL_NORM
+from utils.lexicon.lexicon_memoris import LEX_SOIL_NORM, LEX_WATER_NORM
 from difflib import get_close_matches
 
 
-def get_contam_level_from_df(df, verbose=False):
+def get_contam_level_from_df(df, samp_type_col='Type_ech', verbose=False):
     abbr_keys = list(DEFAULT_POL_LEXICON.abbreviations.keys())
     abbr_values = list(DEFAULT_POL_LEXICON.abbreviations.values())
     pollutants = [p for p in df.columns if p in DEFAULT_POL_LEXICON.abbreviations.keys() or p in DEFAULT_POL_LEXICON.abbreviations.values()]
+    samp_type_cdt = True  # a sample always has a type (soil, water)
+    if samp_type_col not in df.columns:
+        samp_type_cdt = False
 
     result = {}
     for i in df.index:
         col_levels = {}
+
+        if samp_type_cdt:
+            if re.search('sol|soil', df.loc[i, samp_type_col], re.I):
+                level_norm = LEX_SOIL_NORM['pollutants']
+            elif re.search('eau|water', df.loc[i, samp_type_col], re.I):
+                level_norm = LEX_WATER_NORM['pollutants']
+        else:  # assert all samples type as 'soil'
+            level_norm = LEX_SOIL_NORM['pollutants']
+
         for c in df.columns:
             level = 'Inconnu'
             if c in pollutants:
@@ -24,20 +36,21 @@ def get_contam_level_from_df(df, verbose=False):
                 elif c in abbr_values:
                     pol_name = c
                 else:
-                    raise (NameError('Pollutant not found in lexicon!'))
+                    raise (NameError(f'Pollutant "{c}" not found in lexicon!'))
 
-                if pol_name in LEX_SOIL_NORM['pollutants'].keys():
-                    d = LEX_SOIL_NORM['pollutants'][pol_name]
+                if pol_name in level_norm.keys():
+                    d = level_norm[pol_name]
                     for lv in list(d.keys()):
                         if verbose: print(f"-------- {val} ? {d[lv]}")
                         if val >= d[lv]:
                             level = list(d.keys())[list(d.values()).index(d[lv])]
 
                 col_levels.update({c: level})
-                if verbose: print(f"{i} {pol_name}: {level} - {val}")
+                if verbose: print(f"{i} {pol_name}: {val} --> {level}")
 
         result.update({i: col_levels})
     return result
+
 
 
 def get_contam_level_from_value(value, pollutant, pol_lexicon=None, verbose=False):
