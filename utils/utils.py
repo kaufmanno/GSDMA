@@ -52,8 +52,7 @@ def get_contam_level_from_df(df, samp_type_col='Type_ech', verbose=False):
     return result
 
 
-
-def get_contam_level_from_value(value, pollutant, pol_lexicon=None, verbose=False):
+def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=None, verbose=False):
     """ assign a contamination level according to a value and pollutant,
     based on standard (e.g: soil pollutants standard for industrial sites)
     Parameters
@@ -84,19 +83,31 @@ def get_contam_level_from_value(value, pollutant, pol_lexicon=None, verbose=Fals
         else:
             raise (NameError(f'Pollutant "{pollutant}" not found in lexicon!'))
 
-    if pol_name in LEX_SOIL_NORM['pollutants'].keys():
-        d = LEX_SOIL_NORM['pollutants'][pol_name]
+    if sample_type is not None:
+        if re.search('sol|soil', sample_type, re.I):
+            level_norm = LEX_SOIL_NORM
+        elif re.search('eau|water', sample_type, re.I):
+            level_norm = LEX_WATER_NORM
+    else:  # assert all samples type as 'soil'
+        level_norm = LEX_SOIL_NORM
+
+    unit = level_norm['unit']
+
+    if pol_name in level_norm['pollutants'].keys():
+        d = level_norm['pollutants'][pol_name]
         for lv in list(d.keys()):
             if verbose: print(f"-------- {value} ? {d[lv]}")
             if value >= d[lv]:
                 level = list(d.keys())[list(d.values()).index(d[lv])]
 
-    if verbose: print(f"{pol_name}: {level} - {value}")
+    if verbose: print(f"{pol_name}: {value} {unit} --> {level}")
+    # TODO: find a way to return and store value and unit in the database
     return pol_name, level
 
 
 def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
-                            intv_top=None, intv_base=None, thickness='Thickness', query=True):
+                            intv_top=None, intv_base=None, intv_type=None,
+                            thickness=None, query=True):
     """
     creates a Striplog object from a dataframe
 
@@ -156,7 +167,7 @@ def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
                 tmp = df
 
             intervals = intervals_from_dataframe(tmp, attributes, symbols, thickness,
-                                                 intv_top, intv_base)
+                                                 intv_top, intv_base, intv_type)
             if len(intervals) != 0:
                 strip.update({bh_id: Striplog(list_of_Intervals=intervals)})
             else:
@@ -172,18 +183,20 @@ def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
 
 
 def intervals_from_dataframe(df, attributes=None, symbols=None, thickness=None,
-                             intv_top=None, intv_base=None):
+                             intv_top=None, intv_base=None, intv_type=None):
 
     pollutants = list(DEFAULT_POL_LEXICON.abbreviations.keys()) + \
                  list(DEFAULT_POL_LEXICON.abbreviations.values())
 
     attrib_cdt, attrib_top_cdt = False, False
-    thick_cdt, color_cdt = False, False
+    thick_cdt, color_cdt, samp_type_cdt = False, False, False
 
     if thickness is not None and thickness in list(df.columns):
         thick_cdt = True
     if intv_top is not None and intv_top in list(df.columns):
         attrib_top_cdt = True
+    if intv_type is not None and intv_type in list(df.columns):
+        samp_type_cdt = True
 
     intervals = []
     top, base, thick, val = 0, 0, 0, 0
@@ -193,12 +206,17 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thickness=None,
         iv_components = []
         for attrib in attributes:
             val = df.loc[j, attrib]
+            if samp_type_cdt:
+                samp_type = df.loc[j, intv_type]
+            else:
+                samp_type = None
+
             # retrieve contamination level
             if attrib in pollutants or attrib.lower() in pollutants:
                 if isinstance(val, str):
                     val = val.replace(',', '.')
                 val = float(val)
-                attrib, val = get_contam_level_from_value(val, attrib)
+                attrib, val = get_contam_level_from_value(val, attrib, samp_type)
 
             if attrib.lower() in DEFAULT_POL_LEXICON.pollutant:
                 # default lexicon for contaminant
@@ -215,7 +233,7 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thickness=None,
             else:
                 iv_components.append(Component.from_text(val, lexicon))
 
-            print(val, '\n', Component.from_text(val, lexicon))
+            # print(val, '\n', Component.from_text(val, lexicon))
 
         # intervals top, base and thickness processing -----------------------
         if attrib_top_cdt:
