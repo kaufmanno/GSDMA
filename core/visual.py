@@ -39,7 +39,7 @@ class Borehole3D(Striplog):
     plot3d(x3d=False)
     """
 
-    def __init__(self, intervals=None, repr_attribute='lithology', name='BH3D',
+    def __init__(self, intervals_dict={}, repr_attribute='lithology', name='BH3D',
                  diam=0.5, length=0, date=None, x_collar=0., y_collar=0., z_collar=None,
                  legend_dict=None, compute_all_legend=True, verbose=False):
         """
@@ -47,11 +47,11 @@ class Borehole3D(Striplog):
 
         Parameters
         -----------
-        intervals : list
-            list of Striplog.Interval objects (default = None)
-
+        intervals_dict : dict
+            dictionary containing list of Striplog.Interval objects (default = None)
         name : str
-        legend : Striplog Legend object (default = None)
+        legend_dict : dict
+            dictionary of Striplog Legend objects (default = None)
         x_collar : float
             X coordinate of the borehole (default = 0)
         y_collar : float
@@ -75,6 +75,7 @@ class Borehole3D(Striplog):
         self.length = length
         self.legend_dict = deepcopy(legend_dict)  # not alter given legend_dict
         self._repr_attribute = repr_attribute  # given repr_attribute
+        self._intervals_dict = intervals_dict
         self.geometry = None
         self._vtk = None
         self.__verbose__ = verbose  # checking outputs
@@ -82,17 +83,23 @@ class Borehole3D(Striplog):
         if self.__verbose__:
             print(f'\n************************ CREATION OF {self.name} *************************')
 
-        if intervals is None:
+        if repr_attribute != 'lithology':
+            repr_attrib_type = 'sample'
+        else:
+            repr_attrib_type = 'lithology'
+
+        if self._intervals_dict[repr_attrib_type] is None:
             if length <= 0.:
                 raise (ValueError("Cannot create a borehole without length and interval !"))
             else:
                 lexicon = DEFAULT_LITHO_LEXICON
-                intervals = [Interval(top=0, base=length, lexicon=lexicon,
-                                      description=DEFAULT_ATTRIB_VALUE)]
+                self._intervals_dict[repr_attrib_type] = [Interval(top=0, base=length,
+                                                                   lexicon=lexicon, description=DEFAULT_ATTRIB_VALUE)]
                 print(f"No intervals given, default interval is used, "
                       f"with lithology ({DEFAULT_ATTRIB_VALUE})!\n")
 
-        self.intervals = intervals
+        # self.intervals = intervals  # old line
+        self.intervals = self._intervals_dict[repr_attrib_type]
 
         if self.z_collar is None and self.intervals is not None:
             self.update_z_collar()
@@ -416,7 +423,7 @@ class Borehole3D(Striplog):
         if str_annotations:
             n_col = len(plot_cmap.colors)
             if scalar_bar_args is None:  # scalar_bar properties
-                scalar_bar_args = dict(title=f"{repr_attribute}", title_font_size=25,
+                scalar_bar_args = dict(title=f"{repr_attribute.upper()}", title_font_size=25,
                                        label_font_size=6, n_labels=n_col, fmt='', font_family='arial',
                                        color='k', italic=False, bold=False, interactive=True,
                                        vertical=False, shadow=False)

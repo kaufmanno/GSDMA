@@ -2,7 +2,7 @@ import pandas as pd
 from striplog import Position, Component, Interval
 from core.orm import BoreholeOrm, PositionOrm, SampleOrm
 from core.visual import Borehole3D
-from utils.config import DEFAULT_BOREHOLE_DIAMETER
+from utils.config import DEFAULT_BOREHOLE_DIAMETER, WARNING_TEXT_CONFIG
 from utils.utils import striplog_from_dataframe, intervals_from_dataframe
 from utils.visual import get_components
 
@@ -27,7 +27,7 @@ def create_bh3d_from_bhorm(bh_orm, legend_dict=None, verbose=False):
 
     bh_3d = Borehole3D(name=bh_orm.id, date=bh_orm.date, diam=bh_orm.diameter,
                        length=bh_orm.length, legend_dict=legend_dict,
-                       intervals=list_of_intervals)
+                       intervals_dict={'lithology': list_of_intervals})
     return bh_3d
 
 
@@ -65,13 +65,13 @@ def get_interval_list(bh_orm):
 def boreholes_from_dataframe(df, symbols=None, attributes=None, id_col='ID',
                              intv_top=None, intv_base=None, diameter='Diameter',
                              thickness=None, average_z=None, date_col='Date',
-                             verbose=False, use_default=True):
+                             verbose=False):
     """ Creates a list of BoreholeORM objects from a dataframe
 
     Parameters
     ----------
     df: pandas.DataFrame
-        A dataframe of borehole intervals
+        A dataframe of borehole intervals (samples data)
     symbols: dict
         A dict e.g. {attribute_1: {'legend': striplog.Legend, 'lexicon': striplog.Lexicon}, ...}
     attributes : list
@@ -101,12 +101,14 @@ def boreholes_from_dataframe(df, symbols=None, attributes=None, id_col='ID',
 
     print(f'\nDataframe processing...\n================================')
     bh_id_list = []  #
+    bh_counter = 0
     bh_idx = 0  # borehole index in the current dataframe
 
     if diameter not in df.columns:
-        print(f"Warning : -- No borehole diameter column found or check given column's name.\n"
+        print(f"{WARNING_TEXT_CONFIG['blue']}"
+              f"Warning : -- No borehole diameter column found or check given column's name.\n"
               f'To continue, default diameter column has been created with value: '
-              f'{DEFAULT_BOREHOLE_DIAMETER}')
+              f'{DEFAULT_BOREHOLE_DIAMETER}{WARNING_TEXT_CONFIG["off"]}')
         df[diameter] = pd.Series([DEFAULT_BOREHOLE_DIAMETER] * len(df))
 
     for idx, row in df.iterrows():
@@ -118,93 +120,90 @@ def boreholes_from_dataframe(df, symbols=None, attributes=None, id_col='ID',
 
         if bh_name not in bh_id_list:
             bh_id_list.append(bh_name)
-            boreholes_orm.append(BoreholeOrm(id=bh_name, date=bh_date))
-            interval_number = 0
-
             bh_selection = df[id_col] == f"{bh_name}"
             tmp = df[bh_selection].copy()
             tmp.reset_index(drop=True, inplace=True)
             striplog_dict = striplog_from_dataframe(df=tmp, bh_name=bh_name,
-                                                    attributes=attributes,
-                                                    symbols=symbols, thickness=thickness,
+                                                    attributes=attributes, symbols=symbols,
+                                                    id_col=id_col,
                                                     intv_top=intv_top, intv_base=intv_base,
-                                                    use_default=use_default, query=False)
+                                                    thickness=thickness, query=False)
+            if striplog_dict is not None:
+                bh_counter += 1
+                interval_number = 0
+                boreholes_orm.append(BoreholeOrm(id=bh_name, date=bh_date))
+                for strip in striplog_dict.values():
+                    for c in get_components(strip):
+                        if c not in component_dict.keys():
+                            component_dict.update({c: comp_id})
+                            comp_id += 1
+                            # comp_id = list(component_dict.keys()).index(c)
+                        # print(f'component: {c}, component_id: {comp_id}')
 
-            for strip in striplog_dict.values():
-                for c in get_components(strip):
-                    if c not in component_dict.keys():
-                        component_dict.update({c: comp_id})
-                        comp_id += 1
-                        # comp_id = list(component_dict.keys()).index(c)
-                    # print(f'component: {c}, component_id: {comp_id}')
-
-                # ORM processing
-                interval_dict = {}
-                for intv in strip:
-                    if average_z is not None and (row['Z'] is None or pd.isnull(row['Z'])):
-                        if isinstance(average_z, int) or isinstance(average_z, float):
-                            z_val = average_z  # average Z coordinate of boreholes heads
-                            print(f'Z coordinate not found, default one is used: {average_z}')
+                    # ORM processing
+                    interval_dict = {}
+                    for intv in strip:
+                        if average_z is not None and (row['Z'] is None or pd.isnull(row['Z'])):
+                            if isinstance(average_z, int) or isinstance(average_z, float):
+                                z_val = average_z  # average Z coordinate of boreholes heads
+                                print(f'Z coordinate not found, default one is used: {average_z}')
+                            else:
+                                raise(TypeError("default_Z value must be int or float"))
                         else:
-                            raise(TypeError("default_Z value must be int or float"))
-                    else:
-                        z_val = row['Z']
-                    # print('test1:', idx, bh_name, z_val)
+                            z_val = row['Z']
+                        # print('test1:', idx, bh_name, z_val)
 
-                    top = PositionOrm(id=pos_id, upper=z_val - intv.top.upper,
-                                      middle=z_val - intv.top.middle,
-                                      lower=z_val - intv.top.lower,
-                                      x=row['X'], y=row['Y']
-                                      )
+                        top = PositionOrm(id=pos_id, upper=z_val - intv.top.upper,
+                                          middle=z_val - intv.top.middle,
+                                          lower=z_val - intv.top.lower,
+                                          x=row['X'], y=row['Y']
+                                          )
 
-                    base = PositionOrm(id=pos_id + 1, upper=z_val - intv.base.upper,
-                                       middle=z_val - intv.base.middle,
-                                       lower=z_val - intv.base.lower,
-                                       x=row['X'], y=row['Y']
-                                       )
+                        base = PositionOrm(id=pos_id + 1, upper=z_val - intv.base.upper,
+                                           middle=z_val - intv.base.middle,
+                                           lower=z_val - intv.base.lower,
+                                           x=row['X'], y=row['Y']
+                                           )
 
-                    desc = ', '.join([c.json() for c in intv.components])
-                    # print('description:', desc)
-                    interval_dict.update({int_id: {'description': desc,
-                                       'interval_number': interval_number,
-                                       'top': top, 'base': base}})
+                        desc = ', '.join([c.json() for c in intv.components])
+                        # print('description:', desc)
+                        interval_dict.update({int_id: {'description': desc,
+                                           'interval_number': interval_number,
+                                           'top': top, 'base': base}})
 
-                    for cmp in intv.components:
-                        if cmp != Component({}):
-                            if verbose:
-                                print(f'comp_dict: {component_dict}')
-                            link_intv_comp_dict.update({
-                                (int_id, component_dict[cmp]): {'extra_data': ''}})
+                        for cmp in intv.components:
+                            if cmp != Component({}):
+                                if verbose:
+                                    print(f'comp_dict: {component_dict}')
+                                link_intv_comp_dict.update({
+                                    (int_id, component_dict[cmp]): {'extra_data': ''}})
 
-                    interval_number += 1
-                    int_id += 1
-                    pos_id += 2
+                        interval_number += 1
+                        int_id += 1
+                        pos_id += 2
 
-                if verbose:
-                    print(f'{interval_dict}\n')
-                if bh_idx < len(boreholes_orm):
-                    boreholes_orm[bh_idx].intervals_values = interval_dict
-                    if thickness is not None:
-                        boreholes_orm[bh_idx].length = tmp[thickness].cumsum().max()
-                    elif intv_base is not None:
-                        boreholes_orm[bh_idx].length = tmp[intv_base].max()
+                    if verbose:
+                        print(f'{interval_dict}\n')
+                    if bh_idx < len(boreholes_orm):
+                        boreholes_orm[bh_idx].intervals_values = interval_dict
+                        if thickness is not None:
+                            boreholes_orm[bh_idx].length = tmp[thickness].cumsum().max()
+                        elif intv_base is not None:
+                            boreholes_orm[bh_idx].length = tmp[intv_base].max()
 
-                    diam_val = tmp[diameter][0]
-                    if diam_val is not None and not pd.isnull(diam_val):
-                        boreholes_orm[bh_idx].diameter = diam_val
-                    else:
-                        boreholes_orm[bh_idx].diameter = DEFAULT_BOREHOLE_DIAMETER
-                        print(f'No diameter value found, using default: '
-                              f'{DEFAULT_BOREHOLE_DIAMETER}')
+                        diam_val = tmp[diameter][0]
+                        if diam_val is not None and not pd.isnull(diam_val):
+                            boreholes_orm[bh_idx].diameter = diam_val
+                        else:
+                            boreholes_orm[bh_idx].diameter = DEFAULT_BOREHOLE_DIAMETER
+                            print(f'No diameter value found, using default: '
+                                  f'{DEFAULT_BOREHOLE_DIAMETER}')
 
-                bh_idx += 1
-        else:
-            # already processed
-            pass
+                    bh_idx += 1
 
         components_dict = {v: k for k, v in component_dict.items()}
 
-    print(f"\nEnd of the process : {len(bh_id_list)} boreholes found")
+    print(f"\nEnd of the process : {bh_counter} boreholes created successfully")
 
     return boreholes_orm, components_dict, link_intv_comp_dict
 

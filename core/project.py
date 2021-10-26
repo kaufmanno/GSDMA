@@ -86,14 +86,13 @@ class Project:
         self.session.commit()
         print('Boreholes in the project : ', len(self.boreholes_orm))
         
-    def add_borehole(self, bh_orm_list, verbose=False):
+    def add_borehole(self, bh_orm, verbose=False):
         """
-        Add a list of Boreholes to the project
+        Add a Borehole to the project
         
         Parameters
         -----------
-        bh_orm_list : list
-            list of BoreholeOrm objects
+        bh_orm : BoreholeOrm object
             
         See Also
         ---------
@@ -101,10 +100,10 @@ class Project:
         Borehole3D : Striplog/OMF borehole object
         """
         
-        self.session.add(bh_orm_list)
+        self.session.add(bh_orm)
         self.commit()
         self.refresh()
-        self.boreholes_3d.append(create_bh3d_from_bhorm(bh_orm_list, verbose=verbose, legend_dict=self.legend_dict))
+        self.boreholes_3d.append(create_bh3d_from_bhorm(bh_orm, verbose=verbose, legend_dict=self.legend_dict))
             
     def add_components(self, components):
         """
@@ -112,7 +111,7 @@ class Project:
         
         Parameters
         -----------
-        Components : dict
+        components : dict
             dict of Component objects
             
         See Also

@@ -179,12 +179,12 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
 
 def legend_from_attributes(attributes):
     """
-    Generate a legend dict (attribute:Legend) from a list of attributes string and/or
+    Generate a legend dictionary ({attribute:Legend}) from a list of attributes string and/or
     tuples of attribute and associated legend
 
     Parameter
     ------------
-    attributes: str
+    attributes: list
 
     return
     -----------
@@ -197,7 +197,16 @@ def legend_from_attributes(attributes):
             k = [i for i, j in enumerate(attr) if isinstance(j, str)][0]
             attribute = attr[k]
             legend = attr[v]
-        elif isinstance(attr, str):
+        elif isinstance(attr, str):  # to generate a legend for a pollutant
+            abbr_names = list(DEFAULT_POL_LEXICON.abbreviations.keys())
+            abbr_names_lowercase = [n.lower() for n in abbr_names]
+            full_names = list(DEFAULT_POL_LEXICON.abbreviations.values())
+
+            if attr in abbr_names or attr.lower() in abbr_names_lowercase:
+                attr = DEFAULT_POL_LEXICON.abbreviations[attr].lower()
+            elif attr.lower() in full_names:
+                attr = attr.lower()
+
             attribute = attr
             # default contamination level for pollutants
             legend_text = f"colour,width,component {attr}\n#00FF00, None, VR,\n#FFA500, None, VS,\n#FF0000, None, VI,\n#FFFFFF, None, Inconnu\n"

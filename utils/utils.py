@@ -1,9 +1,8 @@
 import re
 import pandas as pd
 from striplog import Component, Interval, Striplog, Lexicon
-import core.visual as cv
-from core.orm import SampleOrm
-from utils.config import DEFAULT_BOREHOLE_LENGTH, DEFAULT_CONTAM_LEVELS, DEFAULT_LITHO_LEXICON, DEFAULT_POL_LEXICON
+import warnings
+from utils.config import DEFAULT_CONTAM_LEVELS, DEFAULT_LITHO_LEXICON, DEFAULT_POL_LEXICON, WARNING_TEXT_CONFIG
 from utils.lexicon.lexicon_memoris import LEX_SOIL_NORM
 from difflib import get_close_matches
 
@@ -68,7 +67,7 @@ def get_contam_level_from_value(value, pollutant, pol_lexicon=None, verbose=Fals
         pollutant = get_close_matches(pollutant, full_names)
         if len(pollutant)>0:
             pollutant = pollutant[0]
-            print(f'No matching! Equivalent closest pollutant name found is {pollutant}\n')
+            print(f"{WARNING_TEXT_CONFIG['blue']}No matching! Equivalent closest pollutant name found is {pollutant}{WARNING_TEXT_CONFIG['off']}\n")
         else:
             raise (NameError(f'Pollutant "{pollutant}" not found in lexicon!'))
 
@@ -84,8 +83,7 @@ def get_contam_level_from_value(value, pollutant, pol_lexicon=None, verbose=Fals
 
 
 def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
-                            intv_top=None,intv_base=None, thickness='Thickness',
-                            use_default=False, query=True):
+                            intv_top=None, intv_base=None, thickness='Thickness', query=True):
     """
     creates a Striplog object from a dataframe
 
@@ -129,7 +127,7 @@ def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
     bh_list = []
 
     for j in df.index:
-        if bh_name is not None and bh_name in df.columns:
+        if bh_name is not None:  # and bh_name in df.columns:  # hum... !!!
             bh_id = bh_name
         else:
             bh_id = df.loc[j, id_col]
@@ -144,23 +142,24 @@ def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
             else:
                 tmp = df
 
-            intervals = intervals_from_dataframe(tmp, attributes, symbols,
-                                                 intv_top, intv_base, thickness,
-                                                 sample_prop=None)
+            intervals = intervals_from_dataframe(tmp, attributes, symbols, thickness,
+                                                 intv_top, intv_base)
             if len(intervals) != 0:
                 strip.update({bh_id: Striplog(list_of_Intervals=intervals)})
             else:
-                print(f"Error : -- Cannot create a striplog, no interval (length or base = 0)")
+                print(f"{WARNING_TEXT_CONFIG['red']}"
+                      f"\nWARNING : Cannot create a striplog, no interval !"
+                      f"{WARNING_TEXT_CONFIG['off']}")
 
-    print(f"Summary : {strip.values()}")
+    if len(list(strip.values())) != 0:
+        print(f"Summary : {strip.values()}")
+        return strip
+    else:
+        return None
 
-    return strip
 
-
-def intervals_from_dataframe(df, attributes=None, symbols=None,
-                             intv_top=None, intv_base=None,
-                             thickness=None, sample_prop=None,
-                             use_default=False):
+def intervals_from_dataframe(df, attributes=None, symbols=None, thickness=None,
+                             intv_top=None, intv_base=None):
 
     pollutants = list(DEFAULT_POL_LEXICON.abbreviations.keys()) + \
                  list(DEFAULT_POL_LEXICON.abbreviations.values())
@@ -173,7 +172,7 @@ def intervals_from_dataframe(df, attributes=None, symbols=None,
     if intv_top is not None and intv_top in list(df.columns):
         attrib_top_cdt = True
 
-    intervals, samples_orm = [], []
+    intervals = []
     top, base, thick, val = 0, 0, 0, 0
     lexicon = ''
     for j in df.index:
@@ -195,28 +194,23 @@ def intervals_from_dataframe(df, attributes=None, symbols=None,
                 lexicon = symbols[attrib.lower()]['lexicon']
             else:
                 lexicon = symbols[attrib]['lexicon']
+
             if Component.from_text(val, lexicon) == Component({}):
-                print(f"Error : No value matches with '{val}' in given lexicon")
+                print(f"{WARNING_TEXT_CONFIG['blue']}"
+                      f"\nWARNING : No value matches with '{val}' in given lexicon !"
+                      f"{WARNING_TEXT_CONFIG['off']}")
             else:
                 iv_components.append(Component.from_text(val, lexicon))
 
-        # length/thickness processing --------------------------------------
-        if thick_cdt and not pd.isnull(df.loc[j, thickness]):
-            thick = df.loc[j, thickness]
-        # else:
-        #     if use_default:
-        #         print(f'Warning : ++ No thickness provided, default is used '
-        #               f'(length={DEFAULT_BOREHOLE_LENGTH})')
-        #         thick = DEFAULT_BOREHOLE_LENGTH
-        #     else:
-        #         raise (ValueError('Cannot create interval with null thickness !'))
+            print(val, '\n', Component.from_text(val, lexicon))
 
-        # intervals processing ----------------------------------------------
+        # intervals top, base and thickness processing -----------------------
         if attrib_top_cdt:
             top = df.loc[j, intv_top]
             base = df.loc[j, intv_base]
-        elif thick_cdt:
+        elif thick_cdt and not pd.isnull(df.loc[j, thickness]):
             thick = df.loc[j, thickness]
+            print(f'enter in thick_cdt : thick= {thick}')
             if j == df.index[0]:
                 top = 0
                 base = top + thick
@@ -227,31 +221,20 @@ def intervals_from_dataframe(df, attributes=None, symbols=None,
         else:
             raise (ValueError("Cannot retrieve or compute interval's top values. provide thickness or top/base values!"))
 
+        warn_msg = 'WARNING : Interval skipped because top/base are null!!'
         if base != 0. or base != 0:
-            if sample_prop is not None:  # to use when intervals are based on samples
-                assert isinstance(sample_prop, dict)
-                if 'id_col' in sample_prop.keys() and 'type_col' in sample_prop.keys():
-                    s_type = df.loc[j, sample_prop['type_col']]
-                    s_name = df.loc[j, sample_prop['id_col']]
-                else:
-                    raise(KeyError("sample_prop dict must contain at least 2 keys : 'id_col', 'type_col'"))
-                if 'date_col' not in sample_prop.keys():
-                    s_date = None
-                elif sample_prop['date_col'] is None:
-                    s_date = None
-                else:
-                    s_date = df.loc[j, sample_prop['date_col']]
-
-                intervals = intervals + [cv.Sample3D(top=top, base=base, s_type=s_type,
-                                                     date=s_date, components=iv_components,
-                                                     name=s_name, description=val,
-                                                     lexicon=lexicon)]
-            else:
+            # add interval only when top and base exist
+            if not pd.isnull(top) and not pd.isnull(base):
                 intervals = intervals + [Interval(top=top, base=base,
                                         description=val, lexicon=lexicon,
                                         components=iv_components)]
+                print(f'interval top={top}, base={base}')
+            else:
+                print(f"{WARNING_TEXT_CONFIG['green']}{warn_msg}{WARNING_TEXT_CONFIG['off']}")
+                # warnings.simplefilter('always', UserWarning)
+                #warnings.warn(warn_msg, UserWarning)
         else:
-            raise(ValueError('Interval base value cannot be : 0 !'))
+            print(f"{WARNING_TEXT_CONFIG['green']}\n{warn_msg}{WARNING_TEXT_CONFIG['off']}")
 
     return intervals
 

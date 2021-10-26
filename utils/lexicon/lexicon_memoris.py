@@ -26,7 +26,7 @@ LEX_LITHO_MEMORIS = {'lithology': ['Boue(?:s)?', 'laitier', 'béton', 'scorie(?:
 
                    'synonyms': {'mort-terrain': ['terre'], 'Anhydrite': ['Gypse'], 'Sel': ['Halite', 'Sylvite']},
 
-                   'splitters': [' avec ', ' de ', ' cont(?:ient|enant) ', '\\. '],
+                   'splitters': [' et ', ' avec ', ' de ', ' cont(?:ient|enant) ', '\\. '],
 
                    'parts_of_speech': {'noun': ['lithology'], 'adjective': ['colour', 'grainsize', 'modifier'], 'subordinate': ['quantity']},
 
@@ -44,7 +44,7 @@ LEG_CONTAMINATION_LEV = """colour,width,component {:}
 LEG_LITHO_MEMORIS = """colour,width, hatch, component lithology
 #FFFFE9, None, None, Matériau(?:x)? meuble(?:s)?,
 #FFF497, None, '....', Alluvion,
-#331100, None, None, Boue,
+#B54500, None, None, Boue,
 #D3B798, None, 'v', Remblai,
 #a5c7c9, None, 't', B[é|e]ton,
 #8da3c9, None, 't', Scorie,

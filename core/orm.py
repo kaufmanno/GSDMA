@@ -30,7 +30,8 @@ class BoreholeOrm(Base):
     date = Column(String(32))
     length = Column(Float(64), default=0.)
     diameter = Column(Float(64), default=0.)
-    intervals = relationship('IntervalOrm', collection_class=attribute_mapped_collection('id'),
+    intervals = relationship('IntervalOrm',
+                             collection_class=attribute_mapped_collection('id'),
                              cascade='all, delete-orphan')
 
     intervals_values = association_proxy('intervals', 'description',
@@ -123,7 +124,7 @@ class IntervalOrm(Base):
     id = Column(Integer, primary_key=True)
     borehole = Column(String(32), ForeignKey('Boreholes.id'))
     interval_number = Column(Integer)
-    samples = relationship('SampleOrm', secondary='Linkintervalsample')
+    # samples = relationship('SampleOrm', secondary='Linkintervalsample')
     components = relationship('ComponentOrm', secondary='Linkintervalcomponent')
     description = Column(String(32))
     top_id = Column(Integer, ForeignKey('Positions.id'))
