@@ -13,6 +13,8 @@ DEFAULT_LITHO_LEXICON = Lexicon(LEX_LITHO_MEMORIS)  # or Lexicon.default()
 DEFAULT_POL_LEXICON = Lexicon(LEX_POL_MEMORIS)
 DEFAULT_LITHO_LEGEND = Legend.from_csv(text=LEG_LITHO_MEMORIS)
 
+# text color configuration : "\033[text_style; text_color; text_background_color m"
+# visit https://ozzmaker.com/add-colour-to-text-in-python/
 WARNING_TEXT_CONFIG = {
     'white':    "\033[1;37m",
     'yellow':   "\033[1;33m",

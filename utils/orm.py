@@ -1,9 +1,10 @@
 import pandas as pd
+import re
 from striplog import Position, Component, Interval
-from core.orm import BoreholeOrm, PositionOrm, SampleOrm
+from core.orm import BoreholeOrm, PositionOrm
 from core.visual import Borehole3D
 from utils.config import DEFAULT_BOREHOLE_DIAMETER, WARNING_TEXT_CONFIG
-from utils.utils import striplog_from_dataframe, intervals_from_dataframe
+from utils.utils import striplog_from_dataframe
 from utils.visual import get_components
 
 
@@ -28,6 +29,8 @@ def create_bh3d_from_bhorm(bh_orm, legend_dict=None, verbose=False):
     bh_3d = Borehole3D(name=bh_orm.id, date=bh_orm.date, diam=bh_orm.diameter,
                        length=bh_orm.length, legend_dict=legend_dict,
                        intervals_dict={'lithology': list_of_intervals})
+    # TODO: find a way to use intervals_dict with other attributes, not only 'lithology'
+
     return bh_3d
 
 
@@ -62,24 +65,23 @@ def get_interval_list(bh_orm):
     return interval_list, max(depth)
 
 
-def boreholes_from_dataframe(df, symbols=None, attributes=None, id_col='ID',
-                             intv_top=None, intv_base=None, intv_type=None,
-                             diameter='Diameter', thickness=None, average_z=None,
-                             date_col='Date', verbose=False):
+def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='ID',
+                             diameter_col='Diameter', average_z=None, date_col='Date',
+                             sample_type_col=None, verbose=False):
     """ Creates a list of BoreholeORM objects from a dataframe
 
     Parameters
     ----------
-    df: pandas.DataFrame
-        A dataframe of borehole intervals (samples data)
+    data_dict: dict
+        A dictionary of pandas.DataFrame containing borehole intervals data, based on the type of
+        these intervals (lithology or samples). e.g: {'lithology': df_1, 'sample': df2}
     symbols: dict
         A dict e.g. {attribute_1: {'legend': striplog.Legend, 'lexicon': striplog.Lexicon}, ...}
     attributes : list
         List of dataframe's columns of interest, linked to attributes to represent like 'lithology'
     verbose : Bool
         allow verbose option if set = True
-    use_default : Bool
-        allow use default when values not available if set = True
+
     Returns
     -------
     boreholes: list
@@ -97,37 +99,74 @@ def boreholes_from_dataframe(df, symbols=None, attributes=None, id_col='ID',
     component_dict = {}
     link_intv_comp_dict = {}  # link between intervals and components (<-> junction table)
 
-    assert isinstance(df, pd.DataFrame)
+    if len(data_dict.keys()) > 2:
+        raise(KeyError("The data dictionary keys cannot be more than 2 keys"))
+    if len(list(filter(re.compile('litho|sample|poll', re.I).match, data_dict.keys()))) < 1:
+        raise(KeyError("data_dict keys must contain at least 'lithology', 'sample' or 'pollutant' as keywords. e.g: {'lithology_data': df_litho, 'sample_data': df_samples}"))
 
-    print(f'\nDataframe processing...\n================================')
+    # data concatenation
+    df_list = []
+    for k, v in data_dict.items():
+        assert isinstance(v, pd.DataFrame)
+
+        df = v.copy()
+        if re.search('litho', k, re.I):
+            df['_intv'] = 'lithology'
+        elif re.search('sample|poll', k, re.I):
+            df['_intv'] = 'sample'
+
+        # columns' name standardization
+        for col in df.columns:
+            if re.search('top|toit', col, re.I):
+                df.rename(columns={col: 'Top_intv'}, inplace=True)
+            elif re.search('base|mur|assise', col, re.I):
+                df.rename(columns={col: 'Base_intv'}, inplace=True)
+            elif re.search('thick|epais', col, re.I):
+                df.rename(columns={col: 'Thick_intv'}, inplace=True)
+            elif re.search('desc', col, re.I):
+                df.rename(columns={col: 'Desc_intv'}, inplace=True)
+
+        df.insert(list(df.columns).index('Thick_intv') + 1, 'Type_intv', df.pop('_intv'))
+        df_list.append(df)
+
+    final_df = df_list[0].append(df_list[1])
+
+    # data exploitation
+    print(f'\nData Processing...\n================================')
     bh_id_list = []  #
     bh_counter = 0
     bh_idx = 0  # borehole index in the current dataframe
 
-    if diameter not in df.columns:
+    if diameter_col not in final_df.columns:
         print(f"{WARNING_TEXT_CONFIG['blue']}"
               f"Warning : -- No borehole diameter column found or check given column's name.\n"
               f'To continue, default diameter column has been created with value: '
               f'{DEFAULT_BOREHOLE_DIAMETER}{WARNING_TEXT_CONFIG["off"]}')
-        df[diameter] = pd.Series([DEFAULT_BOREHOLE_DIAMETER] * len(df))
+        final_df[diameter_col] = pd.Series([DEFAULT_BOREHOLE_DIAMETER] * len(final_df))
 
-    for idx, row in df.iterrows():
+    top_col, base_col, desc_col = 'Top_intv', 'Base_intv', 'Desc_intv'
+    thick_col, intv_type_col = 'Thick_intv', 'Type_intv'
+
+    for idx, row in final_df.iterrows():
         bh_name = row[id_col]
-        if date_col not in df.columns:
+        intv_type = row[intv_type_col]
+
+        if date_col not in final_df.columns:
             bh_date = None
         else:
             bh_date = row[date_col]
 
         if bh_name not in bh_id_list:
             bh_id_list.append(bh_name)
-            bh_selection = df[id_col] == f"{bh_name}"
-            tmp = df[bh_selection].copy()
+            bh_selection = final_df[id_col] == f"{bh_name}"
+            tmp = final_df[bh_selection].copy()
             tmp.reset_index(drop=True, inplace=True)
             striplog_dict = striplog_from_dataframe(df=tmp, bh_name=bh_name,
                                                     attributes=attributes, symbols=symbols,
-                                                    id_col=id_col, thickness=thickness,
-                                                    intv_top=intv_top, intv_base=intv_base,
-                                                    intv_type=intv_type, query=False)
+                                                    id_col=id_col, thickness=thick_col,
+                                                    intv_top=top_col, intv_base=base_col,
+                                                    intv_desc=desc_col, intv_type=intv_type_col,
+                                                    query=False)
             if striplog_dict is not None:
                 bh_counter += 1
                 interval_number = 0
@@ -169,6 +208,7 @@ def boreholes_from_dataframe(df, symbols=None, attributes=None, id_col='ID',
                         # print('description:', desc)
                         interval_dict.update({int_id: {'description': desc,
                                            'interval_number': interval_number,
+                                           'interval_type': intv_type,
                                            'top': top, 'base': base}})
 
                         for cmp in intv.components:
@@ -186,12 +226,12 @@ def boreholes_from_dataframe(df, symbols=None, attributes=None, id_col='ID',
                         print(f'{interval_dict}\n')
                     if bh_idx < len(boreholes_orm):
                         boreholes_orm[bh_idx].intervals_values = interval_dict
-                        if thickness is not None:
-                            boreholes_orm[bh_idx].length = tmp[thickness].cumsum().max()
-                        elif intv_base is not None:
-                            boreholes_orm[bh_idx].length = tmp[intv_base].max()
+                        if thick_col in final_df.columns:
+                            boreholes_orm[bh_idx].length = tmp[thick_col].cumsum().max()
+                        elif base_col in final_df.columns:
+                            boreholes_orm[bh_idx].length = tmp[base_col].max()
 
-                        diam_val = tmp[diameter][0]
+                        diam_val = tmp[diameter_col][0]
                         if diam_val is not None and not pd.isnull(diam_val):
                             boreholes_orm[bh_idx].diameter = diam_val
                         else:
