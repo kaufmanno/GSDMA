@@ -47,54 +47,6 @@ class BoreholeOrm(Base):
                f"Diameter={self.diameter}, Intervals={len(self.intervals)})"
 
 
-class SampleOrm(Base):
-    """The Sample table
-
-    Attributes
-    ----------
-    id : str
-        The name of the sample
-    interval_id : str
-        The id of the interval that contains the sample
-    sample_number : int
-        The number the sample in the interval
-    description : str
-        The name of the main component in the sample
-    top_id : int
-        The id of the top position of the sample, linked to the position id in the PositionOrm table.
-    base_id : int
-        The id of the base position of the sample, linked to the position id in the PositionOrm table.
-
-    See Also
-    --------
-    ComponentOrm : Relationship many to many with the Samples table using the intermediate LinkIntervalComponentOrm table.
-    PositionOrm : Relationship many to one with the Intervals table
-
-    """
-    __tablename__ = 'Samples'
-
-    id = Column(String(32), primary_key=True)
-    type = Column(String(32))
-    date = Column(String(32))
-    borehole = Column(String(32), ForeignKey('Boreholes.id'))
-    interval = Column(Integer, ForeignKey('Intervals.id'))
-    sample_number = Column(Integer)
-    components = relationship('ComponentOrm', secondary='Linksamplecomponent')
-    description = Column(String(32))
-    top_id = Column(Integer, ForeignKey('Positions.id'))
-    top = relationship('PositionOrm', foreign_keys=[top_id])
-    base_id = Column(Integer, ForeignKey('Positions.id'))
-    base = relationship('PositionOrm', foreign_keys=[base_id])
-    data_id = Column(Integer, ForeignKey('OtherData.id'))
-    data = relationship('OtherDataOrm', foreign_keys=[data_id])
-
-    def __repr__(self):
-        obj_class = str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}>(Id={self.id}, Borehole={self.borehole}, " \
-               f"top={self.top}, base={self.base}, Description={self.description}, " \
-               f"Components={self.components}, Other data={self.data})"
-
-
 class IntervalOrm(Base):
     """The Interval table
 
@@ -124,9 +76,9 @@ class IntervalOrm(Base):
     id = Column(Integer, primary_key=True)
     borehole = Column(String(32), ForeignKey('Boreholes.id'))
     interval_number = Column(Integer)
-    # samples = relationship('SampleOrm', secondary='Linkintervalsample')
-    components = relationship('ComponentOrm', secondary='Linkintervalcomponent')
+    type = Column(String(32))
     description = Column(String(32))
+    components = relationship('ComponentOrm', secondary='Linkintervalcomponent')
     top_id = Column(Integer, ForeignKey('Positions.id'))
     top = relationship('PositionOrm', foreign_keys=[top_id])
     base_id = Column(Integer, ForeignKey('Positions.id'))
@@ -136,9 +88,9 @@ class IntervalOrm(Base):
 
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}>(Id={self.id}, Borehole={self.borehole}, " \
-               f"top={self.top}, base={self.base}, Description={self.description}, " \
-               f"Samples={self.samples}, Components={self.components})"
+        return f"<{obj_class}>(Id={self.id}, Borehole={self.borehole}, top={self.top}, " \
+               f"base={self.base}, type={self.type}, Description={self.description}, " \
+               f"Components={self.components})"
 
 
 class ComponentOrm(Base):
@@ -167,27 +119,6 @@ class ComponentOrm(Base):
         return f"<{obj_class}>(Id={self.id}, Description={self.description})"
 
 
-# not yet ready
-class LinkIntervalSampleOrm(Base):
-    """The junction table between sample and interval
-
-    Attributes
-    ----------
-    id : int
-        The id of the interval, different for each borehole interval.
-    description : str
-         The name of the sample.
-
-    """
-    __tablename__ = 'Linkintervalsample'
-
-    intv_id = Column(Integer, ForeignKey('Intervals.id'), primary_key=True)
-    samp_id = Column(Integer, ForeignKey('Samples.id'), primary_key=True)
-    # extra_data = Column(String(256))
-    sample = relationship('SampleOrm', backref=backref("sample_assoc"))
-    interval = relationship('IntervalOrm', backref=backref("interval_assoc_1"))
-
-
 class LinkIntervalComponentOrm(Base):
     """The junction table between component and interval
 
@@ -205,24 +136,7 @@ class LinkIntervalComponentOrm(Base):
     comp_id = Column(Integer, ForeignKey('Components.id'), primary_key=True)
     extra_data = Column(String(256))
     component = relationship('ComponentOrm', backref=backref("component_assoc"))
-    interval = relationship('IntervalOrm', backref=backref("interval_assoc_2"))
-
-
-# not yet ready
-class LinkSampleComponentOrm(Base):
-    """The junction table between component and sample
-
-    Attributes
-    ----------
-
-    """
-    __tablename__ = 'Linksamplecomponent'
-
-    samp_id = Column(Integer, ForeignKey('Samples.id'), primary_key=True)
-    comp_id = Column(Integer, ForeignKey('Components.id'), primary_key=True)
-    extra_data = Column(String(256))
-    component = relationship('ComponentOrm', backref=backref("component_assoc_2"))
-    interval = relationship('SampleOrm', backref=backref("sample_assoc_2"))
+    interval = relationship('IntervalOrm', backref=backref("interval_assoc"))
 
 
 class PositionOrm(Base):

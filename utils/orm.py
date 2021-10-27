@@ -3,7 +3,7 @@ import re
 from striplog import Position, Component, Interval
 from core.orm import BoreholeOrm, PositionOrm
 from core.visual import Borehole3D
-from utils.config import DEFAULT_BOREHOLE_DIAMETER, WARNING_TEXT_CONFIG
+from utils.config import DEFAULT_BOREHOLE_DIAMETER, WARNING_TEXT_CONFIG, WORDS_WITH_S
 from utils.utils import striplog_from_dataframe
 from utils.visual import get_components
 
@@ -149,7 +149,7 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
 
     for idx, row in final_df.iterrows():
         bh_name = row[id_col]
-        intv_type = row[intv_type_col]
+        # intv_type = row[intv_type_col]
 
         if date_col not in final_df.columns:
             bh_date = None
@@ -172,83 +172,96 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
                 bh_counter += 1
                 interval_number = 0
                 boreholes_orm.append(BoreholeOrm(id=bh_name, date=bh_date))
-                for strip in striplog_dict.values():
-                    for c in get_components(strip):
-                        if c not in component_dict.keys():
-                            component_dict.update({c: comp_id})
-                            comp_id += 1
-                            # comp_id = list(component_dict.keys()).index(c)
-                        # print(f'component: {c}, component_id: {comp_id}')
 
-                    # ORM processing
-                    interval_dict = {}
-                    use_def_z = False
-                    for intv in strip:
-                        if average_z is not None and (row['Z'] is None or pd.isnull(row['Z'])):
-                            if isinstance(average_z, int) or isinstance(average_z, float):
-                                z_val = average_z  # average Z coordinate of boreholes heads
-                                if not use_def_z:
-                                    print(f"{WARNING_TEXT_CONFIG['blue']}"
-                                          f"WARNING: Borehole's Z coordinate not found, use"
-                                          f" default one: {average_z} [m]"
-                                          f"{WARNING_TEXT_CONFIG['off']}")
-                                    use_def_z = True
+                for iv_type, strip_dict in striplog_dict.items():
+                    for strip in strip_dict.values():
+                        for c in get_components(strip):
+                            # remove 's' for plural words
+                            c_key = list(c.keys())[0]
+                            c_val = c[c_key]
+                            if c_val not in WORDS_WITH_S:
+                                c_val = c_val.rstrip('s')
+                            c = Component({c_key: c_val})
+                            if c not in component_dict.keys():
+                                component_dict.update({c: comp_id})
+                                comp_id += 1
+                                # comp_id = list(component_dict.keys()).index(c)
+
+                        # ORM processing
+                        interval_dict = {}
+                        use_def_z = False
+                        for intv in strip:
+                            if average_z is not None and (row['Z'] is None or pd.isnull(row['Z'])):
+                                if isinstance(average_z, int) or isinstance(average_z, float):
+                                    z_val = average_z  # average Z coordinate of boreholes heads
+                                    if not use_def_z:
+                                        print(f"{WARNING_TEXT_CONFIG['blue']}"
+                                              f"WARNING: Borehole's Z coordinate not found, use"
+                                              f" default one: {average_z} [m]"
+                                              f"{WARNING_TEXT_CONFIG['off']}")
+                                        use_def_z = True
+                                else:
+                                    raise(TypeError("default_Z value must be int or float"))
                             else:
-                                raise(TypeError("default_Z value must be int or float"))
-                        else:
-                            z_val = row['Z']
-                        # print('test1:', idx, bh_name, z_val)
+                                z_val = row['Z']
+                            # print('test1:', idx, bh_name, z_val)
 
-                        top = PositionOrm(id=pos_id, upper=z_val - intv.top.upper,
-                                          middle=z_val - intv.top.middle,
-                                          lower=z_val - intv.top.lower,
-                                          x=row['X'], y=row['Y']
-                                          )
+                            top = PositionOrm(id=pos_id, upper=z_val - intv.top.upper,
+                                              middle=z_val - intv.top.middle,
+                                              lower=z_val - intv.top.lower,
+                                              x=row['X'], y=row['Y']
+                                              )
 
-                        base = PositionOrm(id=pos_id + 1, upper=z_val - intv.base.upper,
-                                           middle=z_val - intv.base.middle,
-                                           lower=z_val - intv.base.lower,
-                                           x=row['X'], y=row['Y']
-                                           )
+                            base = PositionOrm(id=pos_id + 1, upper=z_val - intv.base.upper,
+                                               middle=z_val - intv.base.middle,
+                                               lower=z_val - intv.base.lower,
+                                               x=row['X'], y=row['Y']
+                                               )
 
-                        desc = ', '.join([c.json() for c in intv.components])
-                        # print('description:', desc)
-                        interval_dict.update({int_id: {'description': desc,
-                                           'interval_number': interval_number,
-                                           'interval_type': intv_type,
-                                           'top': top, 'base': base}})
+                            desc = ', '.join([c.json() for c in intv.components])
+                            # print('description:', desc)
+                            interval_dict.update({int_id: {'description': desc,
+                                               'interval_number': interval_number,
+                                               'type': iv_type,
+                                               'top': top, 'base': base}})
 
-                        for cmp in intv.components:
-                            if cmp != Component({}):
-                                if verbose:
-                                    print(f'comp_dict: {component_dict}')
-                                link_intv_comp_dict.update({
-                                    (int_id, component_dict[cmp]): {'extra_data': ''}})
+                            for cmp in intv.components:
 
-                        interval_number += 1
-                        int_id += 1
-                        pos_id += 2
+                                if cmp != Component({}):
+                                    # remove 's' for plural words
+                                    c_key = list(cmp.keys())[0]
+                                    c_val = cmp[c_key]
+                                    if c_val not in WORDS_WITH_S:
+                                        c_val = c_val.rstrip('s')
+                                    cmp = Component({c_key: c_val})
 
-                    if verbose:
-                        print(f'{interval_dict}\n')
-                    if bh_idx < len(boreholes_orm):
-                        boreholes_orm[bh_idx].intervals_values = interval_dict
-                        if thick_col in final_df.columns:
-                            boreholes_orm[bh_idx].length = tmp[thick_col].cumsum().max()
-                        elif base_col in final_df.columns:
-                            boreholes_orm[bh_idx].length = tmp[base_col].max()
+                                    link_intv_comp_dict.update({
+                                        (int_id, component_dict[cmp]): {'extra_data': ''}})
 
-                        diam_val = tmp[diameter_col][0]
-                        if diam_val is not None and not pd.isnull(diam_val):
-                            boreholes_orm[bh_idx].diameter = diam_val
-                        else:
-                            boreholes_orm[bh_idx].diameter = DEFAULT_BOREHOLE_DIAMETER
-                            print(f'No diameter value found, using default: '
-                                  f'{DEFAULT_BOREHOLE_DIAMETER}')
+                            interval_number += 1
+                            int_id += 1
+                            pos_id += 2
 
-                    bh_idx += 1
+                        if verbose:
+                            print(f'{interval_dict}\n')
+                        if bh_idx < len(boreholes_orm):
+                            boreholes_orm[bh_idx].intervals_values = interval_dict
+                            if thick_col in final_df.columns:
+                                boreholes_orm[bh_idx].length = tmp[thick_col].cumsum().max()
+                            elif base_col in final_df.columns:
+                                boreholes_orm[bh_idx].length = tmp[base_col].max()
 
-        components_dict = {v: k for k, v in component_dict.items()}
+                            diam_val = tmp[diameter_col][0]
+                            if diam_val is not None and not pd.isnull(diam_val):
+                                boreholes_orm[bh_idx].diameter = diam_val
+                            else:
+                                boreholes_orm[bh_idx].diameter = DEFAULT_BOREHOLE_DIAMETER
+                                print(f'No diameter value found, using default: '
+                                      f'{DEFAULT_BOREHOLE_DIAMETER}')
+
+                        bh_idx += 1
+
+            components_dict = {v: k for k, v in component_dict.items()}
 
     print(f"\nEnd of the process : {bh_counter} boreholes created successfully")
 

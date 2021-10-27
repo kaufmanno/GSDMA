@@ -4,6 +4,7 @@ from striplog import Component, Interval, Striplog, Lexicon
 # import warnings
 from utils.config import DEFAULT_CONTAM_LEVELS, DEFAULT_LITHO_LEXICON, DEFAULT_POL_LEXICON, SAMP_TYPE_KW, WARNING_TEXT_CONFIG
 from utils.lexicon.lexicon_memoris import LEX_SOIL_NORM, LEX_WATER_NORM
+from utils.io import update_dict
 from difflib import get_close_matches
 
 
@@ -130,16 +131,18 @@ def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
                                                  intv_base=intv_base, intv_desc=intv_desc,
                                                  intv_type=intv_type, verbose=verbose)
 
-            intervals = intervals_dict['lithology'] + intervals_dict['sample']
-            # TODO: add intervals in corresponding striplog because the borehole has 2 striplogs
-            #  such as {'lithology':strip_litho, 'sample':strip_sample}
-            if len(intervals) != 0:
-                strip.update({bh_id: Striplog(list_of_Intervals=intervals)})
-                # strip.update({bh_id: {'lithology'Striplog(list_of_Intervals=intervals)})
+            warn_msg = lambda iv_type: f"{WARNING_TEXT_CONFIG['red']}\nWARNING : No interval, " \
+                            f"cannot create a striplog for {iv_type}!{WARNING_TEXT_CONFIG['off']}"
+
+            if len(intervals_dict['lithology']) != 0:
+                update_dict(strip, {bh_id: {'lithology': Striplog(intervals_dict['lithology'])}})
             else:
-                print(f"{WARNING_TEXT_CONFIG['red']}"
-                      f"\nWARNING : Cannot create a striplog, no interval !"
-                      f"{WARNING_TEXT_CONFIG['off']}")
+                print(warn_msg('lithology'))
+
+            if len(intervals_dict['sample']) != 0:
+                update_dict(strip, {bh_id: {'sample': Striplog(intervals_dict['sample'])}})
+            else:
+                print(warn_msg('sample'))
 
     if len(list(strip.values())) != 0:
         print(f"\033[1;40;47m Summary : {strip}\033[0;0;0m")
@@ -240,7 +243,7 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thickness=None,
 
         warn_msg = 'WARNING : Interval skipped because top/base are null!!'
         if base != 0. or base != 0:
-            # add interval only when top and base exist
+            # only add interval when top and base exist
             if not pd.isnull(top) and not pd.isnull(base):
                 if re.search('litho', iv_type, re.I):
                     litho_intervals.append(Interval(top=top, base=base, components=iv_components))
