@@ -141,7 +141,7 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
         print(f"{WARNING_TEXT_CONFIG['blue']}"
               f"Warning : -- No borehole diameter column found or check given column's name.\n"
               f'To continue, default diameter column has been created with value: '
-              f'{DEFAULT_BOREHOLE_DIAMETER}{WARNING_TEXT_CONFIG["off"]}')
+              f'{DEFAULT_BOREHOLE_DIAMETER} [m]{WARNING_TEXT_CONFIG["off"]}')
         final_df[diameter_col] = pd.Series([DEFAULT_BOREHOLE_DIAMETER] * len(final_df))
 
     top_col, base_col, desc_col = 'Top_intv', 'Base_intv', 'Desc_intv'
@@ -166,7 +166,8 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
                                                     id_col=id_col, thickness=thick_col,
                                                     intv_top=top_col, intv_base=base_col,
                                                     intv_desc=desc_col, intv_type=intv_type_col,
-                                                    query=False)
+                                                    query=False, verbose=verbose)
+
             if striplog_dict is not None:
                 bh_counter += 1
                 interval_number = 0
@@ -181,11 +182,17 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
 
                     # ORM processing
                     interval_dict = {}
+                    use_def_z = False
                     for intv in strip:
                         if average_z is not None and (row['Z'] is None or pd.isnull(row['Z'])):
                             if isinstance(average_z, int) or isinstance(average_z, float):
                                 z_val = average_z  # average Z coordinate of boreholes heads
-                                print(f'Z coordinate not found, default one is used: {average_z}')
+                                if not use_def_z:
+                                    print(f"{WARNING_TEXT_CONFIG['blue']}"
+                                          f"WARNING: Borehole's Z coordinate not found, use"
+                                          f" default one: {average_z} [m]"
+                                          f"{WARNING_TEXT_CONFIG['off']}")
+                                    use_def_z = True
                             else:
                                 raise(TypeError("default_Z value must be int or float"))
                         else:
