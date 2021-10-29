@@ -10,7 +10,7 @@ from striplog import Legend, Component
 import numpy as np
 from striplog.utils import hex_to_rgb
 import core.visual as cv
-from utils.config import DEFAULT_ATTRIB_VALUE, WORDS_WITH_S, DEFAULT_POL_LEXICON
+from utils.config import DEFAULT_ATTRIB_VALUE, WORDS_WITH_S, DEFAULT_POL_LEXICON, NOT_EXIST
 from utils.lexicon.lexicon_memoris import LEG_CONTAMINATION_LEV
 
 
@@ -37,6 +37,8 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
 
     for i in legend:
         omf_legend.append(i.colour)  # i.colour is in RGB format
+        if i.component[list(i.component.keys())[0]] == NOT_EXIST:
+            alpha = 0.8
         new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([alpha])]))
 
     return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), mcolors.ListedColormap(

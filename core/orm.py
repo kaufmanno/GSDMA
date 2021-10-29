@@ -38,8 +38,25 @@ class BoreholeOrm(Base):
                                          creator=lambda k, v: IntervalOrm(
                                              id=k, description=v['description'],
                                              interval_number=v['interval_number'],
+                                             type=v['type'],
                                              top=v['top'], base=v['base'])
                                          )
+
+    litho_intv_values = association_proxy('intervals', 'description',
+                                         creator=lambda k, v: IntervalOrm(
+                                             id=k, description=v['description'],
+                                             interval_number=v['interval_number'],
+                                             type=v['type'],
+                                             top=v['top'], base=v['base'])
+                                         )
+
+    sample_intv_values = association_proxy('intervals', 'description',
+                                          creator=lambda k, v: IntervalOrm(
+                                              id=k, description=v['description'],
+                                              interval_number=v['interval_number'],
+                                              type=v['type'],
+                                              top=v['top'], base=v['base'])
+                                          )
 
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
@@ -88,8 +105,8 @@ class IntervalOrm(Base):
 
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}>(Id={self.id}, Borehole={self.borehole}, top={self.top}, " \
-               f"base={self.base}, type={self.type}, Description={self.description}, " \
+        return f"<{obj_class}>(Id={self.id}, top={self.top}, base={self.base}, " \
+               f"type={self.type}, Description={self.description}, " \
                f"Components={self.components})"
 
 

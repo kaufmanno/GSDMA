@@ -1,8 +1,8 @@
 import re
 import pandas as pd
 from striplog import Component, Interval, Striplog, Lexicon
-# import warnings
-from utils.config import DEFAULT_CONTAM_LEVELS, DEFAULT_LITHO_LEXICON, DEFAULT_POL_LEXICON, SAMP_TYPE_KW, WARNING_TEXT_CONFIG
+from utils.config import DEFAULT_CONTAM_LEVELS, DEFAULT_LITHO_LEXICON, DEFAULT_POL_LEXICON,\
+    SAMP_TYPE_KW, WARNING_TEXT_CONFIG
 from utils.lexicon.lexicon_memoris import LEX_SOIL_NORM, LEX_WATER_NORM
 from utils.io import update_dict
 from difflib import get_close_matches
@@ -65,8 +65,8 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
 
 
 def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
-                            intv_top=None, intv_base=None, intv_desc=None,
-                            intv_type=None, thickness=None, query=True, verbose=False):
+                            top_col=None, base_col=None, desc_col=None, thick_col=None,
+                            intv_type_col=None, sample_type_col=None, query=True, verbose=False):
     """
     creates a Striplog object from a dataframe
 
@@ -84,13 +84,13 @@ def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
     symbols : dict of striplog.Lexicon, striplog.Legend objects
         Legend and/or Lexicon to use for attributes
 
-    intv_top : str
+    top_col : str
         Dataframe column that contains interval top
 
-    intv_base : str
+    base_col : str
         Dataframe column that contains interval base
 
-    thickness : str
+    thick_col : str
         Dataframe column that contains lithology thickness (default:None)
 
     query : bool
@@ -126,34 +126,35 @@ def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
                 tmp = df
 
             intervals_dict = intervals_from_dataframe(tmp, attributes=attributes,
-                                                 symbols=symbols,
-                                                 thickness=thickness, intv_top=intv_top,
-                                                 intv_base=intv_base, intv_desc=intv_desc,
-                                                 intv_type=intv_type, verbose=verbose)
+                                                      symbols=symbols,
+                                                      thick_col=thick_col, top_col=top_col,
+                                                      base_col=base_col, desc_col=desc_col,
+                                                      intv_type_col=intv_type_col, verbose=verbose)
 
             warn_msg = lambda iv_type: f"{WARNING_TEXT_CONFIG['red']}\nWARNING : No interval, " \
                             f"cannot create a striplog for {iv_type}!{WARNING_TEXT_CONFIG['off']}"
 
-            if len(intervals_dict['lithology']) != 0:
+            if intervals_dict['lithology']:
                 update_dict(strip, {bh_id: {'lithology': Striplog(intervals_dict['lithology'])}})
             else:
                 print(warn_msg('lithology'))
 
-            if len(intervals_dict['sample']) != 0:
+            if intervals_dict['sample']:
                 update_dict(strip, {bh_id: {'sample': Striplog(intervals_dict['sample'])}})
             else:
                 print(warn_msg('sample'))
 
-    if len(list(strip.values())) != 0:
+    if list(strip.values()):
         print(f"\033[1;40;47m Summary : {strip}\033[0;0;0m")
         return strip
     else:
         return None
 
 
-def intervals_from_dataframe(df, attributes=None, symbols=None, thickness=None,
-                             intv_top=None, intv_base=None, intv_desc=None,
-                             intv_type=None, sample_type=None, verbose=False):
+def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
+                             top_col=None, base_col=None, desc_col=None,
+                             intv_type_col=None, sample_type_col=None, sample_id_col=None,
+                             verbose=False):
 
     pollutants = list(DEFAULT_POL_LEXICON.abbreviations.keys()) + \
                  list(DEFAULT_POL_LEXICON.abbreviations.values())
@@ -161,18 +162,18 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thickness=None,
     attrib_cdt, attrib_top_cdt = False, False
     thick_cdt, color_cdt, samp_type_cdt = False, False, False
 
-    if thickness is not None and thickness in list(df.columns):
+    if thick_col is not None and thick_col in list(df.columns):
         thick_cdt = True
-    if intv_top is not None and intv_top in list(df.columns):
+    if top_col is not None and top_col in list(df.columns):
         attrib_top_cdt = True
-    if sample_type is not None and sample_type in list(df.columns):
+    if sample_type_col is not None and sample_type_col in list(df.columns):
         samp_type_cdt = True
 
     intervals_dict = {}
     litho_intervals, sample_intervals = [], []
     top, base, thick, val = 0, 0, 0, 0
     for j in df.index:
-        iv_type = df.loc[j, intv_type]
+        iv_type = df.loc[j, intv_type_col]
         if re.search('litho', iv_type, re.I):
             create_litho = True
         else:
@@ -183,15 +184,18 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thickness=None,
         for attrib in attributes:
             num_val, unit = None, None
             if re.search('litho', attrib, re.I):
-                coi = intv_desc  # column of interest
+                coi = desc_col  # column of interest
             else:
                 coi = attrib
             val = df.loc[j, coi]
 
             if not create_litho and samp_type_cdt:
-                samp_type = df.loc[j, sample_type]
+                samp_type = df.loc[j, sample_type_col]
+                if sample_id_col is not None:
+                    samp_name = df.loc[j, sample_id_col]
             else:
                 samp_type = None
+                samp_name = None
 
             # retrieve contamination level
             if attrib in pollutants or attrib.lower() in pollutants:
@@ -226,16 +230,16 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thickness=None,
 
         # intervals top, base and thickness processing -----------------------
         if attrib_top_cdt:
-            top = df.loc[j, intv_top]
-            base = df.loc[j, intv_base]
-        elif thick_cdt and not pd.isnull(df.loc[j, thickness]):
-            thick = df.loc[j, thickness]
+            top = df.loc[j, top_col]
+            base = df.loc[j, base_col]
+        elif thick_cdt and not pd.isnull(df.loc[j, thick_col]):
+            thick = df.loc[j, thick_col]
             print(f'enter in thick_cdt : thick= {thick}')
             if j == df.index[0]:
                 top = 0
                 base = top + thick
             else:
-                prev_thick = df.loc[j-1, thickness]
+                prev_thick = df.loc[j - 1, thick_col]
                 top += prev_thick
                 base = top + thick
         else:
@@ -249,12 +253,13 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thickness=None,
                     litho_intervals.append(Interval(top=top, base=base, components=iv_components))
                     print(f'{j}- Interval top={top}, base={base}, type={iv_type}')
                 elif re.search('samp', iv_type, re.I):
-                    sample_intervals.append(Interval(top=top, base=base, components=iv_components))
+                    sample_intervals.append(Interval(top=top, base=base, components=iv_components,
+                                                     data={'sample_ID': samp_name,
+                                                           'sample_type': samp_type}))
+
                     print(f'{j}- Interval top={top}, base={base}, type={iv_type}')
             else:
                 print(f"{WARNING_TEXT_CONFIG['red']}{warn_msg}{WARNING_TEXT_CONFIG['off']}")
-                # warnings.simplefilter('always', UserWarning)
-                #warnings.warn(warn_msg, UserWarning)
         else:
             print(f"{WARNING_TEXT_CONFIG['green']}\n{warn_msg}{WARNING_TEXT_CONFIG['off']}")
 

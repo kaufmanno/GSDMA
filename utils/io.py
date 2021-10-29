@@ -696,7 +696,7 @@ def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
         if data[c].notnull().sum() < col_non_na:
             drop_cols.append(c)
 
-    if drop and len(drop_cols) != 0:
+    if drop and not drop_cols:
         print(f'\nColumns dropped :{drop_cols}\n')
         data.drop(drop_cols, axis=1, inplace=True)
 
@@ -737,7 +737,7 @@ def fix_duplicates(df1, df2, id_col='ID', crit_2nd_col=None, x_gap=.8, y_gap=.8,
         q_idx = list(data2.query(f"X <= {x + x_gap} and X >= {x} and Y <= {y + y_gap} and Y >= {y}").index)
         same_obj = False
 
-        if len(q_idx) != 0:
+        if not q_idx:
             same_obj = True
             if crit_2nd_col is not None and data1.loc[idx, crit_2nd_col] != data2.loc[idx, crit_2nd_col]:
                 same_obj = False

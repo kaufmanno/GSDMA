@@ -1,4 +1,4 @@
-from striplog import Striplog, Legend, Interval, Decor, Component
+from striplog import Striplog, Legend, Interval, Component
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -9,9 +9,8 @@ import pyvista as pv
 import omf
 from vtk import vtkX3DExporter  # NOQA
 from IPython.display import HTML
-from utils.config import DEFAULT_ATTRIB_VALUE, DEFAULT_LITHO_LEXICON, SAMP_TYPE_KW
+from utils.config import DEFAULT_ATTRIB_VALUE, DEFAULT_LITHO_LEXICON, WARNING_TEXT_CONFIG, NOT_EXIST
 from utils.visual import find_component_from_attrib, plot_from_striplog, striplog_legend_to_omf_legend, build_bh3d_legend_cmap
-from utils.utils import dict_repr_html
 
 
 class Borehole3D(Striplog):
@@ -40,7 +39,7 @@ class Borehole3D(Striplog):
     """
 
     def __init__(self, intervals_dict={}, repr_attribute='lithology', name='BH3D',
-                 diam=0.5, length=0, date=None, x_collar=0., y_collar=0., z_collar=None,
+                 diam=0.5, length=None, date=None, x_collar=None, y_collar=None, z_collar=None,
                  legend_dict=None, compute_all_legend=True, verbose=False):
         """
         build a Borehole3D object from Striplog.Intervals list
@@ -48,7 +47,7 @@ class Borehole3D(Striplog):
         Parameters
         -----------
         intervals_dict : dict
-            dictionary containing list of Striplog.Interval objects (default = None)
+            dictionary containing list of Striplog.Interval objects for each type of intervals (lythology or sample)
         name : str
         legend_dict : dict
             dictionary of Striplog Legend objects (default = None)
@@ -60,8 +59,8 @@ class Borehole3D(Striplog):
             Z coordinate of the borehole (default = 0)
         diam : float
             diameter of the borehole (default = 0.5)
-        length : float
-            length of the borehole (default = 0)
+        length : float or dict
+            length of the borehole (default = None) or a dict containing length value for each type of intervals
         verbose : False or str ('geom', 'get_comp', 'build_leg', 'plot3d', 'plot2d')
         """
 
@@ -72,7 +71,6 @@ class Borehole3D(Striplog):
         self.z_collar = z_collar
         self.diameter = diam
         self.date = date
-        self.length = length
         self.legend_dict = deepcopy(legend_dict)  # not alter given legend_dict
         self._repr_attribute = repr_attribute  # given repr_attribute
         self._intervals_dict = intervals_dict
@@ -88,24 +86,35 @@ class Borehole3D(Striplog):
         else:
             repr_attrib_type = 'lithology'
 
-        if self._intervals_dict[repr_attrib_type] is None:
-            if length <= 0.:
-                raise (ValueError("Cannot create a borehole without length and interval !"))
-            else:
-                lexicon = DEFAULT_LITHO_LEXICON
-                self._intervals_dict[repr_attrib_type] = [Interval(top=0, base=length,
-                                                                   lexicon=lexicon, description=DEFAULT_ATTRIB_VALUE)]
-                print(f"No intervals given, default interval is used, "
-                      f"with lithology ({DEFAULT_ATTRIB_VALUE})!\n")
+        if isinstance(length, dict):
+            self.length = length[repr_attrib_type]
+        else:
+            self.length = length
 
-        # self.intervals = intervals  # old line
+        # if not self._intervals_dict[repr_attrib_type]:
+        #     if self.length <= 0. or self.length is None:
+        #         raise (ValueError("Cannot create a borehole without length and interval !"))
+        #     else:
+        #         lexicon = DEFAULT_LITHO_LEXICON
+        #         self._intervals_dict[repr_attrib_type] = [Interval(top=0, base=self.length,
+        #                                                     lexicon=lexicon,
+        #                                                     description=NOT_EXIST)
+        #                                                  ]
+        #         print(f"{WARNING_TEXT_CONFIG['blue']}"
+        #               f"No intervals given, default interval is used, "
+        #               f"with lithology ({DEFAULT_ATTRIB_VALUE})!"
+        #               f"{WARNING_TEXT_CONFIG['off']}\n")
+
         self.intervals = self._intervals_dict[repr_attrib_type]
+        print(f'\nintervals for {repr_attrib_type}========', self.intervals)
 
-        if self.z_collar is None and self.intervals is not None:
+        if self.z_collar is None and self.intervals:
             self.update_z_collar()
 
         if legend_dict is None or not isinstance(legend_dict[repr_attribute]['legend'], Legend):
-            print("No given legend or incorrect format ! Default is used")
+            print(f"{WARNING_TEXT_CONFIG['blue']}"
+                  f"No given legend or incorrect format ! use the default one"
+                  f"{WARNING_TEXT_CONFIG['off']}")
             self.legend_dict = {repr_attribute: {'lexicon': None, 'legend': None}}
             self.legend_dict[repr_attribute]['legend'] = Legend.default()
 

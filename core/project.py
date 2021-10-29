@@ -34,7 +34,7 @@ class Project:
         
     """
     
-    def __init__(self, session, legend_dict=None, lexicon=None, repr_attribute='lithology', name='new_project'):
+    def __init__(self, session, legend_dict=None, lexicon=None, name='new_project'):
         """
         Project class
         
@@ -51,7 +51,6 @@ class Project:
         self.boreholes_orm = None
         self.boreholes_3d = None
         self.__components_dict__ = None
-        self.repr_attribute = repr_attribute
 
         if legend_dict is None:
             legend_dict = {'lithology': {'legend': Legend.default()}}
@@ -120,8 +119,10 @@ class Project:
         """
         
         for comp_id in components.keys():
-            new_component = ComponentOrm(id=comp_id, description=components[comp_id].summary())
+            new_component = ComponentOrm(description=str(components[comp_id].__dict__),
+                                         id=comp_id)
             self.session.add(new_component)
+
         self.__components_dict__ = components
         self.commit()
         self.refresh()
@@ -150,7 +151,7 @@ class Project:
         """Update the project cmap based on all boreholes in the project"""
 
         if repr_attribute_list is None:
-            repr_attribute_list = [self.repr_attribute]
+            repr_attribute_list = ['lithology']
 
         if legend_dict is None:
             legend_dict = self.legend_dict
