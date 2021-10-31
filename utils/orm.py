@@ -59,8 +59,11 @@ def get_interval_list(bh_orm):
                         x=i.top.x, y=i.top.y)
 
         intv_comp_list = []
-        for c in i.description.split(', '):
-            intv_comp_list.append(Component(eval(c)))
+        for c in i.description.strip('{|}').split(', '):
+            attr_val = [t.strip("'") for t in c.split(': ')]
+            print('========', attr_val)
+            intv_comp_list.append(Component({attr_val[0]: attr_val[1]}))
+            # intv_comp_list.append(Component(eval(c))) # old code
 
         if re.search('litho', type, re.I):
             depth_l.append(i.base.middle)
@@ -246,7 +249,11 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
                                                x=row['X'], y=row['Y']
                                                )
 
-                            desc = ', '.join([c.json() for c in intv.components])
+                            # desc = ', '.join([c.json() for c in intv.components]) # old code
+                            desc = {}
+                            for c in intv.components:
+                                desc.update(c.__dict__)
+                            desc = str(desc)
 
                             interval_dict.update({int_id: {'interval_number': interval_number,
                                                     'top': top, 'base': base,
@@ -273,10 +280,10 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
                         if bh_idx < len(boreholes_orm):
                             # boreholes_orm[bh_idx].intervals_values = interval_dict
                             if re.search('litho', iv_type, re.I):
-                                print('litho_intv:', intv_type_dict['lithology'])
+                                # print('litho_intv:', intv_type_dict['lithology'])
                                 boreholes_orm[bh_idx].litho_intv_values = intv_type_dict['lithology']
                             elif re.search('samp', iv_type, re.I):
-                                print('sample_intv:', intv_type_dict['sample'])
+                                # print('sample_intv:', intv_type_dict['sample'])
                                 boreholes_orm[bh_idx].sample_intv_values = intv_type_dict['sample']
                             else:
                                 raise(TypeError(f'Unknown interval type: {iv_type}'))
