@@ -35,9 +35,10 @@ LEX_WATER_NORM = {'unit': 'µg/l',
 
 # ======================= LEGENDES ============================
 LEG_CONTAMINATION_LEV = """colour,width,component {:}
-#00FF00, None, VR,
-#FFA500, None, VS,
-#FF0000, None, VI,
+#00FF00, None, <VR,
+#FFA500, None, <VS,
+#FF0000, None, <VI,
+#FF0000, None, >VI,
 #FFFFFF, None, Inconnu
 """
 

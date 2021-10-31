@@ -47,7 +47,7 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
             level_norm = LEX_WATER_NORM
         else:
             raise(NameError(f"Sample type must be in {SAMP_TYPE_KW[:-1]}, not {sample_type}"))
-    else:  # assert all samples type as 'soil'
+    else:  # suppose sample type is 'soil'
         level_norm = LEX_SOIL_NORM
 
     unit = level_norm['unit']
@@ -55,9 +55,14 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
     if pol_name in level_norm['pollutants'].keys():
         d = level_norm['pollutants'][pol_name]
         for lv in list(d.keys()):
-            if verbose: print(f"-------- {value} ? {d[lv]}")
-            if value >= d[lv]:
-                level = list(d.keys())[list(d.values()).index(d[lv])]
+            if value <= d['VR']:
+                level = '<VR'
+            elif value <= d['VS']:
+                level = '<VS'
+            elif value <= d['VI']:
+                level = '<VI'
+            else:
+                level = '>VI'
 
     if verbose: print(f"{pol_name}: {value} {unit} --> {level}")
 
