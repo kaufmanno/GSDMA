@@ -6,12 +6,14 @@ DEFAULT_BOREHOLE_LENGTH = 0.1
 DEFAULT_BOREHOLE_DIAMETER = 0.1
 DEFAULT_ATTRIB_VALUE = 'Inconnu'
 NOT_EXIST = 'not_exist'
-DEFAULT_CONTAM_LEVELS = ['VR', 'VS', 'VI', 'Inconnu']
 WORDS_WITH_S = ['Gneiss', 'Silex', 'VS', 'vs']
 SAMP_TYPE_KW = ['soil', 'water', 'sol', 'eau', 'inconnu']
+
 DEFAULT_LITHO_LEXICON = Lexicon(LEX_LITHO_MEMORIS)  # or Lexicon.default()
-DEFAULT_POL_LEXICON = Lexicon(LEX_POL_MEMORIS)
 DEFAULT_LITHO_LEGEND = Legend.from_csv(text=LEG_LITHO_MEMORIS)
+
+DEFAULT_POL_LEXICON = Lexicon(LEX_POL_MEMORIS)
+DEFAULT_CONTAM_LEVELS = ['VR', 'VS', 'VI', 'Inconnu']
 
 # TEXT COLOR PROPERTIES : "\033[text_style; text_color; text_background_color m"
 # visit https://ozzmaker.com/add-colour-to-text-in-python/

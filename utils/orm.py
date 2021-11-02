@@ -3,7 +3,7 @@ import re
 from striplog import Position, Component, Interval
 from core.orm import BoreholeOrm, PositionOrm
 from core.visual import Borehole3D
-from utils.config import DEFAULT_BOREHOLE_DIAMETER, DEFAULT_BOREHOLE_LENGTH, WARNING_TEXT_CONFIG, WORDS_WITH_S, NOT_EXIST
+from utils.config import DEFAULT_BOREHOLE_DIAMETER, DEFAULT_BOREHOLE_LENGTH, DEFAULT_POL_LEXICON, WARNING_TEXT_CONFIG, WORDS_WITH_S, NOT_EXIST
 from utils.io import update_dict
 from utils.utils import striplog_from_dataframe
 from utils.visual import get_components
@@ -49,10 +49,13 @@ def get_interval_list(bh_orm):
                    
     """
 
+    # CONTAM_NAMES = list(DEFAULT_POL_LEXICON.abbreviations.values())
     litho_intervals, samp_intervals = [], []
     depth_l, depth_s = [], []
+    x, y = 0, 0
     for i in bh_orm.intervals.values():
         type = i.type
+        x, y = i.top.x, i.top.y
         top = Position(upper=i.top.upper, middle=i.top.middle, lower=i.top.lower,
                        x=i.top.x, y=i.top.y)
         base = Position(upper=i.base.upper, middle=i.base.middle, lower=i.base.lower,
@@ -60,10 +63,15 @@ def get_interval_list(bh_orm):
 
         intv_comp_list = []
         for c in i.description.strip('{|}').split(', '):
+            print('DESCRIPTIO********', c)
             attr_val = [t.strip("'") for t in c.split(': ')]
-            print('========', attr_val)
-            intv_comp_list.append(Component({attr_val[0]: attr_val[1]}))
-            # intv_comp_list.append(Component(eval(c))) # old code
+            # comp_type = 'pollutant' if attr_val[0] in CONTAM_NAMES else 'lithology'
+            # comp_val = attr_val[0] if comp_type == 'pollutant' else attr_val[1]
+            # comp_lev = attr_val[1] if comp_type == 'pollutant' else None
+            # intv_comp_list.append(Component({'type': comp_type, 'value': comp_val,
+            #                                  'level': comp_lev}))
+            # print('********', intv_comp_list)
+            intv_comp_list.append(Component({attr_val[0]: attr_val[1]})) # old
 
         if re.search('litho', type, re.I):
             depth_l.append(i.base.middle)
@@ -77,23 +85,25 @@ def get_interval_list(bh_orm):
 
     # set a default values if lists are empty
     warn_msg = lambda x: (f"{WARNING_TEXT_CONFIG['blue']}"
-                f"No {x} interval found, a default one is created!"
+                f"No {x} interval found, a default one is created for visualization !"
                 f"{WARNING_TEXT_CONFIG['off']}\n")
 
     if not litho_intervals:
         depth_l = [DEFAULT_BOREHOLE_LENGTH]
-        litho_intervals = [Interval(top=0, base=depth_l[0],
+        litho_intervals = [Interval(top=Position(x=x , y=y , middle=0),
+                                    base=Position(x=x , y=y , middle=depth_l[0]),
                                     components=[Component({'lithology': NOT_EXIST})])]
         print(warn_msg('lithology'))
     if not samp_intervals:
         depth_s = [DEFAULT_BOREHOLE_LENGTH]
-        samp_intervals = [Interval(top=0, base=depth_l[0],
-                                    components=[Component({'benzène': NOT_EXIST})])]
+        samp_intervals = [Interval(top=Position(x=x , y=y , middle=0),
+                                base=Position(x=x , y=y , middle=depth_l[0]),
+                                components=[Component({'benzène': NOT_EXIST})])]
         print(warn_msg('sample'))
 
     interval_dict = {'lithology': litho_intervals, 'sample': samp_intervals}
     depth_dict = {'lithology': max(depth_l), 'sample': max(depth_s)}
-    print(f'\n===INTERVAL_DICT: {interval_dict}')
+    # print(f'\n===INTERVAL_DICT: {interval_dict}')
 
     return interval_dict, depth_dict
 
@@ -131,6 +141,7 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
     comp_id = 0  # component id
     component_dict = {}
     link_intv_comp_dict = {}  # link between intervals and components (<-> junction table)
+    contam_names = list(DEFAULT_POL_LEXICON.abbreviations.values())
 
     if len(data_dict.keys()) > 2:
         raise(KeyError("The data dictionary keys cannot be more than 2 keys"))
@@ -208,12 +219,16 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
                     intv_type_dict = {}
                     for iv_type, strip in strip_dict.items():
                         for c in get_components(strip):
-                            # remove 's' for plural words
                             c_key = list(c.keys())[0]
-                            c_val = c[c_key]
+                            c_type = 'pollutant' if c_key in contam_names else 'lithology'
+                            c_val = c_key if c_type == 'pollutant' else c[c_key]
+                            # c_lev = c[c_key] if c_type == 'pollutant' else None
+
+                            # remove 's' for plural words
                             if c_val not in WORDS_WITH_S:
                                 c_val = c_val.rstrip('s')
-                            c = Component({c_key: c_val})
+                            c = Component({'type': c_type, 'value': c_val})
+                            # c = Component({c_key: c_val}) #old
                             if c not in component_dict.keys():
                                 component_dict.update({c: comp_id})
                                 comp_id += 1
@@ -249,11 +264,12 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
                                                x=row['X'], y=row['Y']
                                                )
 
-                            # desc = ', '.join([c.json() for c in intv.components]) # old code
+                            # todo: modify description below if the unique component idea is achieved
                             desc = {}
                             for c in intv.components:
                                 desc.update(c.__dict__)
                             desc = str(desc)
+
 
                             interval_dict.update({int_id: {'interval_number': interval_number,
                                                     'top': top, 'base': base,
@@ -261,23 +277,31 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
 
                             update_dict(intv_type_dict, {iv_type: interval_dict})
 
-                            for cmp in intv.components:
-                                if cmp != Component({}):
+                            for cp in intv.components:
+                                if cp != Component({}):
+                                    cp_key = list(cp.keys())[0]
+                                    cp_type = 'pollutant' if cp_key in contam_names else 'lithology'
+                                    cp_val = cp_key if cp_type == 'pollutant' else cp[cp_key]
+                                    cp_lev = cp[cp_key] if cp_type == 'pollutant' else None
+                                    unit = cp['unit'] if hasattr(cp, 'unit') else None
+                                    pol_conc = cp['concentration'] if hasattr(cp, 'concentration') else None
                                     # remove 's' for plural words
-                                    c_key = list(cmp.keys())[0]
-                                    c_val = cmp[c_key]
-                                    if c_val not in WORDS_WITH_S:
-                                        c_val = c_val.rstrip('s')
-                                    cmp = Component({c_key: c_val})
+                                    if cp_val not in WORDS_WITH_S:
+                                        cp_val = cp_val.rstrip('s')
+                                    cp = Component({'type': cp_type, 'value': cp_val})
 
-                                    link_intv_comp_dict.update({
-                                        (int_id, component_dict[cmp]): {'extra_data': ''}})
+                                    link_intv_comp_dict.update({(int_id, component_dict[cp]):
+                                        {'extra_data': str({'level': cp_lev,
+                                                            'concentration': pol_conc,
+                                                            'unit': unit})}
+                                                                })
 
                             interval_number += 1
                             int_id += 1
                             pos_id += 2
 
                         if bh_idx < len(boreholes_orm):
+                            # TODO : find a way to store differents type of intervals in ORM
                             # boreholes_orm[bh_idx].intervals_values = interval_dict
                             if re.search('litho', iv_type, re.I):
                                 # print('litho_intv:', intv_type_dict['lithology'])

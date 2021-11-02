@@ -106,7 +106,7 @@ class Borehole3D(Striplog):
         #               f"{WARNING_TEXT_CONFIG['off']}\n")
 
         self.intervals = self._intervals_dict[repr_attrib_type]
-        print(f'\nintervals for {repr_attrib_type}========', self.intervals)
+        # print(f'\nintervals for {repr_attrib_type}========', self.intervals)
 
         if self.z_collar is None and self.intervals:
             self.update_z_collar()
@@ -141,9 +141,9 @@ class Borehole3D(Striplog):
         self._repr_attribute = value
 
     @property
-    def attrib_components(self):
+    def attrib_components(self, attribute='lithology'):
         # components according to the repr_attribute
-        return self.get_attrib_components_dict(self.__verbose__)[self.repr_attribute]
+        return self.get_attrib_components_dict(self.__verbose__)[attribute]
 
     @property
     def components(self):
@@ -153,13 +153,18 @@ class Borehole3D(Striplog):
     # -------------------------------- Class Methods ------------------------------
     def __repr__(self):
         length = len(self._Striplog__list)
-        details = f"start={self.stop.z}, stop={self.start.z}"  # inverted
+        if self.start.z <= self.stop.z:
+            start = self.start.z
+            stop = self.stop.z
+        else:
+            stop = self.start.z
+            start = self.stop.z
+        details = f"start={start}, stop={stop}"
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}> Striplog({length} Intervals, {details})"
+        return f"<{obj_class}> Borehole with {length} Intervals | {details} | name: {self.name}"
 
     def get_attrib_components_dict(self, verbose=False):
         # compute a dict of components for all attributes found in legend_dict
-
         verb = False
         if verbose:
             verb = 'get_attrib'
@@ -173,8 +178,7 @@ class Borehole3D(Striplog):
                     attr_components.append(Component({attr: DEFAULT_ATTRIB_VALUE}))
                 else:
                     attr_components.append(i.components[j])
-            comp_attrib_dict.update({attr: [attr_components[i] for i in range(len(attr_components)) \
-                                            if attr in attr_components[i].keys()]})
+            comp_attrib_dict.update({attr: [attr_components[i] for i in range(len(attr_components)) if attr in attr_components[i].keys()]})
 
         return comp_attrib_dict
 
@@ -290,7 +294,7 @@ class Borehole3D(Striplog):
             name=self.name, geometry=omf.LineSetGeometry(vertices=vertices, segments=segments),
             data=data)
 
-        print("Borehole geometry created successfully !")
+        print("Borehole geometry created successfully !\n")
 
     def vtk(self, radius=None, res=50):
         """ build a vtk tube of given radius based on the borehole geometry """
@@ -308,13 +312,16 @@ class Borehole3D(Striplog):
         self.z_collar = max([i.top.z for i in self.intervals])
 
     def plot_log(self, figsize=(6, 6), repr_legend=None, text_size=15, width=3,
-                 repr_attribute='lithology', verbose=False):
+                 ticks=None, aspect=3, repr_attribute='lithology', verbose=False):
         """
         Plot a 2D log for the attribute
         """
         verb = False
         if verbose:
             verb = 'plot2d'
+
+        if ticks is None:
+            ticks = (self.length/5, self.length)
 
         if repr_legend is None:
             repr_legend = self.legend_dict[repr_attribute]['legend']
@@ -361,7 +368,7 @@ class Borehole3D(Striplog):
         fig, ax = plt.subplots(ncols=2, figsize=figsize)
         ax[0].set_title(self.name, size=text_size, color='b')
         plot_from_striplog(self, legend=plot_legend, match_only=[repr_attribute],
-                           ax=ax[0], verbose=verbose)
+                           ax=ax[0], ticks=ticks, aspect=aspect, verbose=verbose)
         ax[1].set_title('Legend', size=text_size, color='r')
         plot_legend.plot(ax=ax[1])
 

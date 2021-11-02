@@ -34,7 +34,7 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
         pol_name = pollutant.lower()
     else:
         pollutant = get_close_matches(pollutant, full_names)
-        if len(pollutant)>0:
+        if len(pollutant) > 0:
             pollutant = pollutant[0]
             print(f"{WARNING_TEXT_CONFIG['blue']}No matching! Equivalent closest pollutant name found is {pollutant}{WARNING_TEXT_CONFIG['off']}\n")
         else:
@@ -231,7 +231,12 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
             elif create_litho and val == 'Inconnu':
                 pass  # don't create lithology in this case
             else:
-                iv_components.append(Component.from_text(val, lexicon))
+                comp = Component.from_text(val, lexicon)
+                if num_val is not None:
+                    comp['concentration'] = num_val
+                if unit is not None:
+                    comp['unit'] = unit
+                iv_components.append(comp)
 
         # intervals top, base and thickness processing -----------------------
         if attrib_top_cdt:
@@ -284,51 +289,6 @@ def dict_repr_html(dictionary):
         rows += s.format(k=k, v=v)
     html = '<table>{}</table>'.format(rows)
     return html
-
-
-def get_contam_level_from_df(df, samp_type_col='Type_ech', verbose=False):
-    abbr_keys = list(DEFAULT_POL_LEXICON.abbreviations.keys())
-    abbr_values = list(DEFAULT_POL_LEXICON.abbreviations.values())
-    pollutants = [p for p in df.columns if p in DEFAULT_POL_LEXICON.abbreviations.keys() or p in DEFAULT_POL_LEXICON.abbreviations.values()]
-    samp_type_cdt = True  # a sample always has a type (soil, water)
-    if samp_type_col not in df.columns:
-        samp_type_cdt = False
-
-    result = {}
-    for i in df.index:
-        col_levels = {}
-
-        if samp_type_cdt:
-            if re.search('sol|soil', df.loc[i, samp_type_col], re.I):
-                level_norm = LEX_SOIL_NORM['pollutants']
-            elif re.search('eau|water', df.loc[i, samp_type_col], re.I):
-                level_norm = LEX_WATER_NORM['pollutants']
-        else:  # assert all samples type as 'soil'
-            level_norm = LEX_SOIL_NORM['pollutants']
-
-        for c in df.columns:
-            level = 'Inconnu'
-            if c in pollutants:
-                val = df.loc[i, c]
-                if c in abbr_keys:
-                    pol_name = DEFAULT_POL_LEXICON.abbreviations[c]
-                elif c in abbr_values:
-                    pol_name = c
-                else:
-                    raise (NameError(f'Pollutant "{c}" not found in lexicon!'))
-
-                if pol_name in level_norm.keys():
-                    d = level_norm[pol_name]
-                    for lv in list(d.keys()):
-                        if verbose: print(f"-------- {val} ? {d[lv]}")
-                        if val >= d[lv]:
-                            level = list(d.keys())[list(d.values()).index(d[lv])]
-
-                col_levels.update({c: level})
-                if verbose: print(f"{i} {pol_name}: {val} --> {level}")
-
-        result.update({i: col_levels})
-    return result
 
 
 def striplog_from_text_file(filename, lexicon=None):

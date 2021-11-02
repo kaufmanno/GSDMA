@@ -26,10 +26,10 @@ class BoreholeOrm(Base):
     """
     __tablename__ = 'Boreholes'
 
-    id = Column(String(32), primary_key=True)
-    date = Column(String(32))
-    length = Column(Float(64), default=0.)
-    diameter = Column(Float(64), default=0.)
+    id = Column(String, primary_key=True)
+    date = Column(String)
+    length = Column(Float, default=0.)
+    diameter = Column(Float, default=0.)
     intervals = relationship('IntervalOrm',
                              collection_class=attribute_mapped_collection('id'),
                              cascade='all, delete-orphan')
@@ -91,10 +91,10 @@ class IntervalOrm(Base):
     __tablename__ = 'Intervals'
 
     id = Column(Integer, primary_key=True)
-    borehole = Column(String(32), ForeignKey('Boreholes.id'))
+    borehole = Column(String, ForeignKey('Boreholes.id'))
     interval_number = Column(Integer)
-    type = Column(String(32))
-    description = Column(String(32))
+    type = Column(String)
+    description = Column(String)
     components = relationship('ComponentOrm', secondary='Linkintervalcomponent')
     top_id = Column(Integer, ForeignKey('Positions.id'))
     top = relationship('PositionOrm', foreign_keys=[top_id])
@@ -129,7 +129,7 @@ class ComponentOrm(Base):
 
     id = Column(Integer, primary_key=True)
     intervals = relationship('IntervalOrm', secondary='Linkintervalcomponent')
-    description = Column(String(32))
+    description = Column(String)
 
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
@@ -151,7 +151,7 @@ class LinkIntervalComponentOrm(Base):
 
     intv_id = Column(Integer, ForeignKey('Intervals.id'), primary_key=True)
     comp_id = Column(Integer, ForeignKey('Components.id'), primary_key=True)
-    extra_data = Column(String(256))
+    extra_data = Column(String)
     component = relationship('ComponentOrm', backref=backref("component_assoc"))
     interval = relationship('IntervalOrm', backref=backref("interval_assoc"))
 
@@ -180,11 +180,11 @@ class PositionOrm(Base):
     __tablename__ = 'Positions'
 
     id = Column(Integer, primary_key=True)
-    upper = Column(Float(32))
-    middle = Column(Float(32))
-    lower = Column(Float(32))
-    x = Column(Float(64), default=0.)
-    y = Column(Float(64), default=0.)
+    upper = Column(Float)
+    middle = Column(Float)
+    lower = Column(Float)
+    x = Column(Float, default=0.)
+    y = Column(Float, default=0.)
     z = synonym('middle')
 
 
@@ -196,9 +196,9 @@ class OtherDataOrm(Base):
     __tablename__ = 'OtherData'
 
     id = Column(Integer, primary_key=True)
-    key = Column(String(32))
-    value = Column(Float(64))
-    units = Column(String(32))
+    key = Column(String)
+    value = Column(Float)
+    units = Column(String)
 
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
@@ -214,9 +214,9 @@ class IntervalDataOrm(Base):
 
     id = Column(Integer, primary_key=True)
     interval = Column(Integer, ForeignKey('Intervals.id'))
-    key = Column(String(32))
-    value = Column(Float(64))
-    units = Column(String(32))
+    key = Column(String)
+    value = Column(Float)
+    units = Column(String)
 
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
