@@ -1,7 +1,9 @@
 import re
+
+import numpy as np
 import pandas as pd
 from striplog import Component, Interval, Striplog, Lexicon
-from utils.config import DEFAULT_CONTAM_LEVELS, DEFAULT_LITHO_LEXICON, DEFAULT_POL_LEXICON,\
+from utils.config import DEFAULT_LITHO_LEXICON, DEFAULT_POL_LEXICON,\
     SAMP_TYPE_KW, WARNING_TEXT_CONFIG
 from utils.lexicon.lexicon_memoris import LEX_SOIL_NORM, LEX_WATER_NORM
 from utils.io import update_dict
@@ -54,15 +56,16 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
 
     if pol_name in level_norm['pollutants'].keys():
         d = level_norm['pollutants'][pol_name]
-        for lv in list(d.keys()):
-            if value <= d['VR']:
-                level = '<VR'
-            elif value <= d['VS']:
-                level = '<VS'
-            elif value <= d['VI']:
-                level = '<VI'
-            else:
-                level = '>VI'
+        if pd.isnull(value):
+            level = 'Inconnu'
+        elif value <= d['VR']:
+            level = 'VR'
+        elif value <= d['VS']:
+            level = 'VS'
+        elif value <= d['VI']:
+            level = 'VI'
+        else:
+            level = 'VI_'
 
     if verbose: print(f"{pol_name}: {value} {unit} --> {level}")
 
@@ -208,13 +211,13 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
                     val = val.replace(',', '.')
                 num_val = float(val)
                 attrib, val, unit = get_contam_level_from_value(num_val, attrib, samp_type)
-            # TODO: find a way to store concentration value and unit in the database
 
-            if verbose: print(f"*** {attrib}: {num_val} {unit} <--> {val}")
+            if verbose:
+                print(f"**CONTAM_VAL** {attrib}: {num_val} {unit} <--> {val}")
             # set correct lexicon
-            if attrib.lower() in DEFAULT_POL_LEXICON.pollutant:
+            if attrib.lower() in DEFAULT_POL_LEXICON.pollutants:
                 # default lexicon for contaminant
-                lexicon = Lexicon({attrib.lower(): DEFAULT_CONTAM_LEVELS})
+                lexicon = Lexicon({attrib.lower(): DEFAULT_POL_LEXICON.levels})
             elif attrib not in symbols.keys() and attrib.lower() in symbols.keys():
                 lexicon = symbols[attrib.lower()]['lexicon']
             else:
@@ -223,6 +226,7 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
             # component creation
             if pd.isnull(val):
                 val = ''  # avoid NaN errors with component.from_text()
+            # TODO: a problem of regex in from_text function !!!
             if Component.from_text(val, lexicon) == Component({}):
                 if val != '':
                     print(f"{WARNING_TEXT_CONFIG['red']}"
@@ -233,9 +237,9 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
             else:
                 comp = Component.from_text(val, lexicon)
                 if num_val is not None:
+                    if pd.isnull(num_val): num_val = 'NaN'  # np.nan
                     comp['concentration'] = num_val
-                if unit is not None:
-                    comp['unit'] = unit
+                    if unit is not None: comp['unit'] = unit
                 iv_components.append(comp)
 
         # intervals top, base and thickness processing -----------------------

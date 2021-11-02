@@ -102,7 +102,7 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
 
         r = attr.replace('(', '\(').replace(')', '\)')
         reg_attr = re.compile("^{:s}$".format(r), flags=re.I)
-        rgx = list(filter(reg_attr.match, DEFAULT_POL_LEXICON.pollutant))
+        rgx = list(filter(reg_attr.match, DEFAULT_POL_LEXICON.pollutants))
         # print('-->', attr, '--- regex:', rgx)
 
         if rgx and legend_dict[attr]['legend'] is None:

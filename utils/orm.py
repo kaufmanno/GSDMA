@@ -62,16 +62,19 @@ def get_interval_list(bh_orm):
                         x=i.top.x, y=i.top.y)
 
         intv_comp_list = []
-        for c in i.description.strip('{|}').split(', '):
-            print('DESCRIPTIO********', c)
-            attr_val = [t.strip("'") for t in c.split(': ')]
+        for c in i.description.split('; '):
+            intv_comp_list.append(Component(eval(c)))
+
+        # for c in i.description.strip('{|}').split(', '):
+        #     print('DESCRIPTIO********', c)
+        #     attr_val = [t.strip("'") for t in c.split(': ')]
             # comp_type = 'pollutant' if attr_val[0] in CONTAM_NAMES else 'lithology'
             # comp_val = attr_val[0] if comp_type == 'pollutant' else attr_val[1]
             # comp_lev = attr_val[1] if comp_type == 'pollutant' else None
             # intv_comp_list.append(Component({'type': comp_type, 'value': comp_val,
             #                                  'level': comp_lev}))
             # print('********', intv_comp_list)
-            intv_comp_list.append(Component({attr_val[0]: attr_val[1]})) # old
+            # intv_comp_list.append(Component({attr_val[0]: attr_val[1]})) # old
 
         if re.search('litho', type, re.I):
             depth_l.append(i.base.middle)
@@ -264,12 +267,7 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
                                                x=row['X'], y=row['Y']
                                                )
 
-                            # todo: modify description below if the unique component idea is achieved
-                            desc = {}
-                            for c in intv.components:
-                                desc.update(c.__dict__)
-                            desc = str(desc)
-
+                            desc = '; '.join([c.json() for c in intv.components])
 
                             interval_dict.update({int_id: {'interval_number': interval_number,
                                                     'top': top, 'base': base,
