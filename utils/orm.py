@@ -3,7 +3,8 @@ import re
 from striplog import Position, Component, Interval
 from core.orm import BoreholeOrm, PositionOrm
 from core.visual import Borehole3D
-from utils.config import DEFAULT_BOREHOLE_DIAMETER, DEFAULT_BOREHOLE_LENGTH, DEFAULT_POL_LEXICON, WARNING_TEXT_CONFIG, WORDS_WITH_S, NOT_EXIST
+from utils.config import DEFAULT_BOREHOLE_DIAMETER, DEFAULT_BOREHOLE_LENGTH, DEFAULT_POL_LEXICON,\
+    WARNING_TEXT_CONFIG, WORDS_WITH_S, NOT_EXIST
 from utils.io import update_dict
 from utils.utils import striplog_from_dataframe
 from utils.visual import get_components
@@ -49,7 +50,6 @@ def get_interval_list(bh_orm):
                    
     """
 
-    # CONTAM_NAMES = list(DEFAULT_POL_LEXICON.abbreviations.values())
     litho_intervals, samp_intervals = [], []
     depth_l, depth_s = [], []
     x, y = 0, 0
@@ -65,25 +65,14 @@ def get_interval_list(bh_orm):
         for c in i.description.split('; '):
             intv_comp_list.append(Component(eval(c)))
 
-        # for c in i.description.strip('{|}').split(', '):
-        #     print('DESCRIPTIO********', c)
-        #     attr_val = [t.strip("'") for t in c.split(': ')]
-            # comp_type = 'pollutant' if attr_val[0] in CONTAM_NAMES else 'lithology'
-            # comp_val = attr_val[0] if comp_type == 'pollutant' else attr_val[1]
-            # comp_lev = attr_val[1] if comp_type == 'pollutant' else None
-            # intv_comp_list.append(Component({'type': comp_type, 'value': comp_val,
-            #                                  'level': comp_lev}))
-            # print('********', intv_comp_list)
-            # intv_comp_list.append(Component({attr_val[0]: attr_val[1]})) # old
-
         if re.search('litho', type, re.I):
             depth_l.append(i.base.middle)
             litho_intervals.append(Interval(top=top, base=base, description=i.description,
-                                      components=intv_comp_list, data={'type': type}))
+                                      components=intv_comp_list, data={'intv_type': type}))
         elif re.search('samp', type, re.I):
             depth_s.append(i.base.middle)
             samp_intervals.append(Interval(top=top, base=base, description=i.description,
-                                      components=intv_comp_list, data={'type': type,
+                                      components=intv_comp_list, data={'intv_type': type,
                                                                        'sample_ID': 'test'}))
 
     # set a default values if lists are empty
@@ -220,6 +209,7 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
 
                 for strip_dict in striplog_dict.values():
                     intv_type_dict = {}
+                    intv_dict = {}
                     for iv_type, strip in strip_dict.items():
                         for c in get_components(strip):
                             c_key = list(c.keys())[0]
@@ -273,6 +263,10 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
                                                     'top': top, 'base': base,
                                                     'type': iv_type, 'description': desc}})
 
+                            intv_dict.update({int_id: {'interval_number': interval_number,
+                                                           'top': top, 'base': base,
+                                                           'type': iv_type, 'description': desc}})
+
                             update_dict(intv_type_dict, {iv_type: interval_dict})
 
                             for cp in intv.components:
@@ -298,14 +292,14 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
                             int_id += 1
                             pos_id += 2
 
+                        print("\nESSAI ==========\n", interval_dict, '\n\n', intv_dict)
                         if bh_idx < len(boreholes_orm):
                             # TODO : find a way to store differents type of intervals in ORM
-                            # boreholes_orm[bh_idx].intervals_values = interval_dict
+                            boreholes_orm[bh_idx].intervals_values = interval_dict
+                            #boreholes_orm[bh_idx].intervals_values = intv_dict
                             if re.search('litho', iv_type, re.I):
-                                # print('litho_intv:', intv_type_dict['lithology'])
                                 boreholes_orm[bh_idx].litho_intv_values = intv_type_dict['lithology']
                             elif re.search('samp', iv_type, re.I):
-                                # print('sample_intv:', intv_type_dict['sample'])
                                 boreholes_orm[bh_idx].sample_intv_values = intv_type_dict['sample']
                             else:
                                 raise(TypeError(f'Unknown interval type: {iv_type}'))

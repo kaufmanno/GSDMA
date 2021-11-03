@@ -141,11 +141,6 @@ class Borehole3D(Striplog):
         self._repr_attribute = value
 
     @property
-    def attrib_components(self, attribute='lithology'):
-        # components according to the repr_attribute
-        return self.get_attrib_components_dict(self.__verbose__)[attribute]
-
-    @property
     def components(self):
         # all components in each interval as a dict like {interval_number: components_list}
         return {i: intv.components for i, intv in enumerate(self.intervals)}
@@ -163,6 +158,10 @@ class Borehole3D(Striplog):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
         return f"<{obj_class}> Borehole with {length} Intervals | {details} | name: {self.name}"
 
+    def attrib_components(self, attribute='lithology'):
+        # components according to the repr_attribute
+        return self.get_attrib_components_dict(self.__verbose__)[attribute]
+
     def get_attrib_components_dict(self, verbose=False):
         # compute a dict of components for all attributes found in legend_dict
         verb = False
@@ -171,14 +170,16 @@ class Borehole3D(Striplog):
 
         comp_attrib_dict = {}
         for attr in self.legend_dict.keys():
-            attr_components = []  # correct components order (not self.components)
-            for i in self.intervals:
-                j = find_component_from_attrib(i, attr, verbose=verb)
+            attr_components = {}  # correct components order (not self.components)
+            for i, intv in enumerate(self.intervals):
+                j = find_component_from_attrib(intv, attr, verbose=verb)
                 if j == -1:  # add default component if none
-                    attr_components.append(Component({attr: DEFAULT_ATTRIB_VALUE}))
+                    # TODO : find a way to avoid the auto-generation of default component when not found in the interval (don't forget that it's link to vtk lookuptable !!)
+                    attr_components.update({i: Component({attr: DEFAULT_ATTRIB_VALUE})})
                 else:
-                    attr_components.append(i.components[j])
-            comp_attrib_dict.update({attr: [attr_components[i] for i in range(len(attr_components)) if attr in attr_components[i].keys()]})
+                    attr_components.update({i: intv.components[j]})
+
+            comp_attrib_dict.update({attr: attr_components})
 
         return comp_attrib_dict
 
@@ -211,7 +212,7 @@ class Borehole3D(Striplog):
         for i in intervals:
             j = find_component_from_attrib(i, repr_attribute, verbose=verb)
             if j == -1:  # add default component if none
-                print(f'\n//// {j}, {components}, {i.components}\n')
+                # print(f'\n//// {j}, {components}, {i.components}\n')
                 components.append(Component({repr_attribute: DEFAULT_ATTRIB_VALUE}))
             else:
                 components.append(i.components[j])

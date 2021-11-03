@@ -226,7 +226,6 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
             # component creation
             if pd.isnull(val):
                 val = ''  # avoid NaN errors with component.from_text()
-            # TODO: a problem of regex in from_text function !!!
             if Component.from_text(val, lexicon) == Component({}):
                 if val != '':
                     print(f"{WARNING_TEXT_CONFIG['red']}"
@@ -263,15 +262,13 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
         if base != 0. or base != 0:
             # only add interval when top and base exist
             if not pd.isnull(top) and not pd.isnull(base):
+                print(f'{j}- Interval top={top}, base={base}, type={iv_type}')
                 if re.search('litho', iv_type, re.I):
                     litho_intervals.append(Interval(top=top, base=base, components=iv_components))
-                    print(f'{j}- Interval top={top}, base={base}, type={iv_type}')
                 elif re.search('samp', iv_type, re.I):
                     sample_intervals.append(Interval(top=top, base=base, components=iv_components,
                                                      data={'sample_ID': samp_name,
                                                            'sample_type': samp_type}))
-
-                    print(f'{j}- Interval top={top}, base={base}, type={iv_type}')
             else:
                 print(f"{WARNING_TEXT_CONFIG['red']}{warn_msg}{WARNING_TEXT_CONFIG['off']}")
         else:

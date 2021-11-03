@@ -42,21 +42,21 @@ class BoreholeOrm(Base):
                                              top=v['top'], base=v['base'])
                                          )
 
-    litho_intv_values = association_proxy('intervals', 'description',
-                                         creator=lambda k, v: IntervalOrm(
-                                             id=k, description=v['description'],
-                                             interval_number=v['interval_number'],
-                                             type=v['type'],
-                                             top=v['top'], base=v['base'])
-                                         )
-
-    sample_intv_values = association_proxy('intervals', 'description',
-                                          creator=lambda k, v: IntervalOrm(
-                                              id=k, description=v['description'],
-                                              interval_number=v['interval_number'],
-                                              type=v['type'],
-                                              top=v['top'], base=v['base'])
-                                          )
+    # litho_intv_values = association_proxy('intervals', 'description',
+    #                                      creator=lambda k, v: IntervalOrm(
+    #                                          id=k, description=v['description'],
+    #                                          interval_number=v['interval_number'],
+    #                                          type=v['type'],
+    #                                          top=v['top'], base=v['base'])
+    #                                      )
+    #
+    # sample_intv_values = association_proxy('intervals', 'description',
+    #                                       creator=lambda k, v: IntervalOrm(
+    #                                           id=k, description=v['description'],
+    #                                           interval_number=v['interval_number'],
+    #                                           type=v['type'],
+    #                                           top=v['top'], base=v['base'])
+    #                                       )
 
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
