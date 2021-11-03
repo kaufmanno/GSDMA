@@ -38,7 +38,7 @@ class Borehole3D(Striplog):
     plot3d(x3d=False)
     """
 
-    def __init__(self, intervals_dict={}, repr_attribute='lithology', name='BH3D',
+    def __init__(self, intervals_dict={}, repr_attribute='plomb', name='BH3D',
                  diam=0.5, length=None, date=None, x_collar=None, y_collar=None, z_collar=None,
                  legend_dict=None, compute_all_legend=True, verbose=False):
         """

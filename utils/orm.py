@@ -209,7 +209,7 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
 
                 for strip_dict in striplog_dict.values():
                     intv_type_dict = {}
-                    intv_dict = {}
+                    intv_dict = {}  # just for testing
                     for iv_type, strip in strip_dict.items():
                         for c in get_components(strip):
                             c_key = list(c.keys())[0]
@@ -228,6 +228,7 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
                                 # comp_id = list(component_dict.keys()).index(c)
 
                         # ORM processing
+                        # TODO : why error occurs when put interval_dict above, before the loop
                         interval_dict = {}
                         use_def_z = False
                         for intv in strip:
@@ -296,7 +297,7 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
                         if bh_idx < len(boreholes_orm):
                             # TODO : find a way to store differents type of intervals in ORM
                             boreholes_orm[bh_idx].intervals_values = interval_dict
-                            #boreholes_orm[bh_idx].intervals_values = intv_dict
+                            # boreholes_orm[bh_idx].intervals_values = intv_dict  # just for testing
                             if re.search('litho', iv_type, re.I):
                                 boreholes_orm[bh_idx].litho_intv_values = intv_type_dict['lithology']
                             elif re.search('samp', iv_type, re.I):
