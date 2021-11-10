@@ -188,23 +188,6 @@ class PositionOrm(Base):
     z = synonym('middle')
 
 
-class OtherDataOrm(Base):
-    """The additional Data table
-
-    Attributes
-    """
-    __tablename__ = 'OtherData'
-
-    id = Column(Integer, primary_key=True)
-    key = Column(String)
-    value = Column(Float)
-    units = Column(String)
-
-    def __repr__(self):
-        obj_class = str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}>(Id={self.id})"
-
-
 class IntervalDataOrm(Base):
     """The IntervalData table
 

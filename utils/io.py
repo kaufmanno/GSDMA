@@ -683,6 +683,82 @@ def data_validation(overall_data, conflict_data, valid_dict=None, index_col='ind
         return overall_data
 
 
+def replicate_values(data, id_col, cols_to_replicate, suffix=None, replace_id=False, verbose=False):
+    """ Replicate values of a column to the same column of another row, if same id
+
+    id_col : str
+        name of the column used as an ID
+
+    cols_to_replicate : list
+        list of columns to consider in replication
+
+    suffix : list
+        list of suffixes that can be removed from IDs
+
+    replace_id : bool
+        if true, replace ID values by values without suffixes
+    """
+
+    df = data.copy()
+    id_list = []
+    global_dict = {}
+    v_dict = {}
+    id_save = {}
+    df['ID_copy'] = df[id_col]
+    bh_id = ''
+
+    cols_to_replicate += [id_col]
+    if suffix is not None:
+        if not isinstance(suffix, list):
+            raise (TypeError("suffix parameter must be a list of columns' name"))
+        for i in df.index:
+            for s in suffix:
+                df.loc[i, 'ID_copy'] = re.sub(s, '', df.loc[i, 'ID_copy'], re.I) if not pd.isnull(df.loc[i, 'ID_copy']) else df.loc[i, 'ID_copy']
+
+    for i in df.index:
+        bh_id = df.loc[i, 'ID_copy']
+        if bh_id not in id_list:
+            id_list.append(bh_id)
+            q = df.query(f'ID_copy=="{bh_id}"').copy()
+            q_idx = tuple(q.index)
+            for c in cols_to_replicate:
+                # looking for not-null value in the column
+                val = np.nan
+                for p, r in q.iterrows():
+                    if not pd.isnull(r[c]):
+                        if c == id_col and replace_id:
+                            val = q.loc[p, 'ID_copy']
+                        elif c == id_col:
+                            update_dict(id_save, {p: r[c]})
+                        else:
+                            val = r[c]
+
+                    if verbose:
+                        if not pd.isnull(val) and val != r[c]:
+                            print(f'-- different values : {p}, {c}: {val} | {r[c]}')
+                        print(f'value kept for {c}:', val)
+
+                v_dict.update({c: val})
+            update_dict(global_dict, {q_idx: v_dict})
+
+    for k, v_dict in global_dict.items():
+        cols = [c for c in v_dict.keys()]
+        vals = [v for v in v_dict.values()]
+        df.loc[list(k), cols] = vals
+
+    if replace_id:
+        if id_col in df.columns:
+            df.drop(columns=id_col, inplace=True)
+        df.insert(0, id_col, df.pop('ID_copy'))
+    else:
+        idx = [k for k in id_save.keys()]
+        ids = [v for v in id_save.values()]
+        df.loc[idx, id_col] = ids
+        df.drop(columns='ID_copy', inplace=True)
+
+    return df
+
+
 def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
     """
     Delete columns in the dataframe where the count of non-NaN values is lower than col_non_na
@@ -696,11 +772,35 @@ def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
         if data[c].notnull().sum() < col_non_na:
             drop_cols.append(c)
 
-    if drop and not drop_cols:
-        print(f'\nColumns dropped :{drop_cols}\n')
+    if drop and drop_cols:
+        print(f'Columns dropped :{drop_cols}\n')
         data.drop(drop_cols, axis=1, inplace=True)
 
     return data
+
+
+def collect_measure(data, params_kw, params_col='Params', alter_df=True, verbose=False):
+    df = data.copy()
+    val_dict = {}
+    cols_to_drop = []
+    df[params_col] = np.nan
+
+    for i in df.index:
+        for c in df.columns:
+            for p in params_kw:
+                if re.search(p, c, re.I):
+                    val_dict.update({c: df.loc[i, c]})
+                    cols_to_drop.append(c)
+                    if verbose: print(val_dict)
+        df.loc[i, params_col] = str(val_dict)
+
+    cols_to_drop = list(set(cols_to_drop))
+
+    if alter_df:
+        df.drop(columns=cols_to_drop, inplace=True)
+        print('colums droped :', cols_to_drop)
+
+    return df
 
 
 def fix_duplicates(df1, df2, id_col='ID', crit_2nd_col=None, x_gap=.8, y_gap=.8, drop_old_id=True):
@@ -737,7 +837,7 @@ def fix_duplicates(df1, df2, id_col='ID', crit_2nd_col=None, x_gap=.8, y_gap=.8,
         q_idx = list(data2.query(f"X <= {x + x_gap} and X >= {x} and Y <= {y + y_gap} and Y >= {y}").index)
         same_obj = False
 
-        if not q_idx:
+        if q_idx:
             same_obj = True
             if crit_2nd_col is not None and data1.loc[idx, crit_2nd_col] != data2.loc[idx, crit_2nd_col]:
                 same_obj = False
@@ -1015,7 +1115,6 @@ def col_ren(data, line_to_col=1, mode=0, name=[]):
                         new_name.update({old: name[k]})
 
         elif isinstance(name, list) and len(name) != len(data.columns):
-            #print('Error! names list length and columns length are not the same.')
             raise(TypeError('Error! names list length and columns length are not the same.'))
 
     data.rename(columns=new_name, inplace=True)

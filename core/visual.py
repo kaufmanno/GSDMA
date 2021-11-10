@@ -322,7 +322,7 @@ class Borehole3D(Striplog):
             verb = 'plot2d'
 
         if ticks is None:
-            ticks = (self.length/5, self.length)
+            ticks = (self.length/len(self.intervals), self.length)
 
         if repr_legend is None:
             repr_legend = self.legend_dict[repr_attribute]['legend']

@@ -293,7 +293,6 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
                             int_id += 1
                             pos_id += 2
 
-                        print("\nESSAI ==========\n", interval_dict, '\n\n', intv_dict)
                         if bh_idx < len(boreholes_orm):
                             # TODO : find a way to store differents type of intervals in ORM
                             boreholes_orm[bh_idx].intervals_values = interval_dict

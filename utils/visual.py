@@ -352,7 +352,7 @@ def plot_from_striplog(striplog, legend=None, width=1.5, ladder=True, aspect=10,
     majorFormatter = mpl.ticker.FormatStrFormatter('%d')
     ax.yaxis.set_major_locator(majorLocator)
     ax.yaxis.set_major_formatter(majorFormatter)
-
+    print(ax.get_label())
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.spines['bottom'].set_visible(False)
