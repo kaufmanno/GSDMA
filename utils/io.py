@@ -5,6 +5,7 @@ from os import walk
 import numpy as np
 import geopandas as gpd
 import pandas as pd
+import datetime
 from shapely import wkt
 from ipywidgets import interact, IntSlider
 from IPython.display import HTML, display
@@ -683,20 +684,19 @@ def data_validation(overall_data, conflict_data, valid_dict=None, index_col='ind
         return overall_data
 
 
-def replicate_values(data, id_col, cols_to_replicate, suffix=None, replace_id=False, verbose=False):
-    """ Replicate values of a column to the same column of another row, if same id
+def replicate_values(data, id_col, cols_to_replicate, suffix=None, replace_id=False, criteria=None, verbose=False):
+    """ Replicate values of a column to the same column of another row, if same ID and criteria is satisfied
 
     id_col : str
         name of the column used as an ID
-
     cols_to_replicate : list
         list of columns to consider in replication
-
     suffix : list
         list of suffixes that can be removed from IDs
-
     replace_id : bool
         if true, replace ID values by values without suffixes
+    criteria: dict
+        dict of criteria for replicate values like {column:value}. If None, replicate values basis on same ID only
     """
 
     df = data.copy()
@@ -705,7 +705,6 @@ def replicate_values(data, id_col, cols_to_replicate, suffix=None, replace_id=Fa
     v_dict = {}
     id_save = {}
     df['ID_copy'] = df[id_col]
-    bh_id = ''
 
     cols_to_replicate += [id_col]
     if suffix is not None:
@@ -719,7 +718,20 @@ def replicate_values(data, id_col, cols_to_replicate, suffix=None, replace_id=Fa
         bh_id = df.loc[i, 'ID_copy']
         if bh_id not in id_list:
             id_list.append(bh_id)
-            q = df.query(f'ID_copy=="{bh_id}"').copy()
+            if criteria is not None:
+                text = ''
+                assert(criteria, dict)
+                for k, v in criteria.items():
+                    if isinstance(v, str):
+                        v = f"'{v}'"
+                    if text != '':
+                        text += f" and {k}=={v}"
+                    else:
+                        text += f"{k}=={v}"
+                q = df.query(f'ID_copy=="{bh_id} and {text}"').copy()
+            else:
+                q = df.query(f'ID_copy=="{bh_id}"').copy()
+
             q_idx = tuple(q.index)
             for c in cols_to_replicate:
                 # looking for not-null value in the column
@@ -779,28 +791,92 @@ def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
     return data
 
 
-def collect_measure(data, params_kw, params_col='Params', alter_df=True, verbose=False):
-    df = data.copy()
+def collect_time_data(df, regex=None):
+    """create a new line of values according to the date found in columns name. e.g: 'Colx_08/09/2010'
+
+    df : Pandas.Dataframe
+
+    regex: str
+        string that contains named regex group to retrieve date and column name. 
+        e.g: '(?P<col>\w+)_(?P<date>\d+/\d+/\d+)'
+
+    **kwargs : dict
+        see function replicates_values() in utils.io
+
+    """
+
+    data = df.copy()
+    cols = list(data.columns)
+    dates = []
+    cols_to_drop = []
+    no_copy_col = ['Date_mes']
+    cols_with_dates = []
+
+    if regex is None:
+        regex = '(?P<col>\w+)_(?P<date>\d+/\d+/\d+)'
+
+    for c in cols:
+        if re.search(regex, c, re.I):
+            dates.append(re.search(regex, c, re.I).group(2))
+            cols_with_dates.append(c)
+    dates = list(set(dates))
+    print('dates found:', dates)
+
+    # move colums with date to the end
+    for c in cols_with_dates:
+        cols.remove(c)
+    cols += cols_with_dates
+
+    for i in data.index:
+        for c in cols:
+            col = c
+            mes_id = i
+
+            if re.search('\d+/\d+/\d+', c, re.I):
+                if c not in cols_to_drop:
+                    cols_to_drop.append(c)
+                col = re.search(regex, c, re.I).group(1)
+                if col not in no_copy_col:
+                    no_copy_col.append(col)
+
+                d = re.search(regex, c, re.I).group(2)
+                dt = d.split('/')
+                mes_id = i + dates.index(d) / 10  # generate indexes 1.1, 1.2, ... 
+                data.loc[mes_id, :] = data.loc[i, :]  # replicate the row data
+                data.loc[mes_id, 'Date_mes'] = datetime.date(int(dt[2]), int(dt[1]), int(dt[0]))
+                data.loc[mes_id, col] = data.loc[i, c]
+
+            data.loc[mes_id, col] = data.loc[i, c]
+
+    data = data.query('Date_mes == Date_mes')
+    data.drop(columns=cols_to_drop, inplace=True)
+    data.reset_index(drop=True, inplace=True)
+
+    return data
+
+
+def collect_measure(df, params_kw, params_col='Params', alter_df=True, verbose=False):
+    data = df.copy()
     val_dict = {}
     cols_to_drop = []
-    df[params_col] = np.nan
+    data[params_col] = np.nan
 
-    for i in df.index:
-        for c in df.columns:
+    for i in data.index:
+        for c in data.columns:
             for p in params_kw:
                 if re.search(p, c, re.I):
-                    val_dict.update({c: df.loc[i, c]})
+                    val_dict.update({c: data.loc[i, c]})
                     cols_to_drop.append(c)
                     if verbose: print(val_dict)
-        df.loc[i, params_col] = str(val_dict)
+        data.loc[i, params_col] = str(val_dict)
 
     cols_to_drop = list(set(cols_to_drop))
 
     if alter_df:
-        df.drop(columns=cols_to_drop, inplace=True)
+        data.drop(columns=cols_to_drop, inplace=True)
         print('colums droped :', cols_to_drop)
 
-    return df
+    return data
 
 
 def fix_duplicates(df1, df2, id_col='ID', crit_2nd_col=None, x_gap=.8, y_gap=.8, drop_old_id=True):
