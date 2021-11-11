@@ -1,6 +1,7 @@
 import collections.abc
 import os
 import re
+from difflib import get_close_matches
 from os import walk
 import numpy as np
 import geopandas as gpd
@@ -266,8 +267,11 @@ def dataframe_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None, view
         print(f"Rows : {df.shape[0]}, columns : {df.shape[1]}, "
               f"Unique values on col '{un_val}': {len(set(df[un_val]))}")
     elif isinstance(un_val, list):
+        for c in un_val:
+            if c in df.columns:
+                len(set(df[c]))
         print(f"Rows : {df.shape[0]}, columns : {df.shape[1]}, "
-              f"Unique values on cols: {dict({c: len(set(df[c])) for c in un_val})}")
+              f"Unique values on cols: {dict({c: len(set(df[c])) if c in df.columns else 'NA' for c in un_val})}")
 
     if view:
         @interact(last_row=IntSlider(min=min(rows, df.shape[0]), max=df.shape[0],
@@ -338,6 +342,32 @@ def gen_geodf_geom(gdf):
     gdf = gpd.GeoDataFrame(gdf, geometry=gpd.points_from_xy(gdf.X, gdf.Y, crs=str('EPSG:31370')))
 
     return gdf
+
+
+def data_slicer(df, coi_dict, verbose=False):
+    """ create many dataframes based on data type, according to the columns given for each type of object (or data) if there are present in the initial dataframe.
+
+    df: Pandas.Dataframe
+    coi_dict: dict
+        dict of columns of interest for each type of object.
+    """
+    df_dict = {}
+    real_cols = []
+    data = df.copy()
+
+    for k, v_cols in coi_dict.items():
+        no_real_cols = []
+        for c in v_cols:
+            if c in data.columns:
+                real_cols.append(c)
+            else:
+                no_real_cols.append(c)
+        if verbose and no_real_cols:
+            print(f"For '{k}', {no_real_cols} are not present in the dataframe\n")
+        tmp_df = data[real_cols]
+        df_dict.update({k: tmp_df})
+
+    return df_dict
 
 
 def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=None,
@@ -685,7 +715,7 @@ def data_validation(overall_data, conflict_data, valid_dict=None, index_col='ind
 
 
 def replicate_values(data, id_col, cols_to_replicate, suffix=None, replace_id=False, criteria=None, verbose=False):
-    """ Replicate values of a column to the same column of another row, if same ID and criteria is satisfied
+    """ Replicate values of a column to the same column of another row, if same ID and criteria is satisfied.
 
     id_col : str
         name of the column used as an ID
@@ -720,7 +750,7 @@ def replicate_values(data, id_col, cols_to_replicate, suffix=None, replace_id=Fa
             id_list.append(bh_id)
             if criteria is not None:
                 text = ''
-                assert(criteria, dict)
+                assert isinstance(criteria, dict)
                 for k, v in criteria.items():
                     if isinstance(v, str):
                         v = f"'{v}'"
@@ -865,9 +895,11 @@ def collect_measure(df, params_kw, params_col='Params', alter_df=True, verbose=F
         for c in data.columns:
             for p in params_kw:
                 if re.search(p, c, re.I):
-                    val_dict.update({c: data.loc[i, c]})
+                    if not pd.isnull(data.loc[i, c]):
+                        val_dict.update({c: data.loc[i, c]})
+                        if verbose: print(val_dict)
                     cols_to_drop.append(c)
-                    if verbose: print(val_dict)
+
         data.loc[i, params_col] = str(val_dict)
 
     cols_to_drop = list(set(cols_to_drop))
@@ -1153,48 +1185,70 @@ def dble_col_drop(data, drop=True):
     return data
 
 
-def col_ren(data, line_to_col=1, mode=0, name=[]):
+def col_ren(df, row_num=None, mode=0, name=None, strip_regex=None, col_num_sep=None):
     """
     mode: int
-        set 0 to rename columns with a line, set 1 if provide name list or dict
+        set 0 to rename columns with values of a row, set 1 if provide name list or dict
+    strip_strip_regex: str
+        regex string that contains invalid characters to strip from columns names
+    col_num_sep: str
+        a regex character between a column's name and ending number that identify a column when same columns exist in the dataframe.
+        e. g: column,s names : ID_1, ID_2. Here the separation character is '_'. Don't forget to use '\' when special character like '\.' for '.'.
     """
-    new_name = {}
+    new_names_dict = {}
+    data = df.copy()
 
     if mode != 0 and mode != 1:
         print("Error! Parameter \'Mode\' must be 0 or 1 (if 1, colums length must be equal to name length)")
 
     elif mode == 0:
         for i in range(len(data.columns)):
-            col = str(data.iloc[line_to_col, i])
+            col = str(data.iloc[row_num, i])
             if re.search('nan', col, flags=re.IGNORECASE):
-                new_name.update({data.columns[i]: f'col_{i}'})
+                new_names_dict.update({data.columns[i]: f'col_{i}'})
             else:
-                new_name.update({data.columns[i]: col})
+                new_names_dict.update({data.columns[i]: col})
 
-        data.drop([line_to_col], axis=0, inplace=True)
+        data.drop([row_num], axis=0, inplace=True)
         data.reset_index(drop=True, inplace=True)
 
     elif mode == 1:
-        if isinstance(name, list) and len(name) == len(data.columns):
-            for i in range(len(name)):
-                new_name.update({data.columns[i]: name[i]})
+        if isinstance(name, list):
+            if len(name) == len(data.columns):
+                for i in range(len(name)):
+                    new_names_dict.update({data.columns[i]: name[i]})
+            else:
+                raise (TypeError('Error! names list length and columns length are not the same.'))
 
         elif isinstance(name, dict):
-            strp = ',| |>|<|-|\n|_|\(|\.|\)'
+            if strip_regex is None:
+                strip_regex = ',| |>|<|-|\n|_|\(|\.|\)'
+            if col_num_sep is None:
+                col_num_sep = '\.'
 
             for i in range(len(data.columns)):
                 keys = list(name.keys())
                 old = data.columns[i]
+                old_mod = re.sub(strip_regex, '', old)
+                closest = get_close_matches(old_mod, keys, n=1, cutoff=0.65)
+                if closest:
+                    old_mod = re.sub(strip_regex, '', closest[0])
+                # print(f"{i} {old} : {old_mod}")
+
+                num_search = re.search(f'(\w+)({col_num_sep}\d$)', old)
+                num = ''
+                if num_search:
+                    num = "_<" + num_search.group(2).lstrip(col_num_sep) + ">"
+                    c = num_search.group(1)
 
                 for k in keys:
-                    if re.match(f"{re.sub(strp, '', k)}", re.sub(strp, '', old), flags=re.I):
-                        new_name.update({old: name[k]})
+                    k_mod = re.sub(strip_regex, '', k)
+                    if re.match(f"{k_mod}", old_mod, flags=re.I):
+                        new_names_dict.update({old: name[k] + num})
+                    elif num != '':
+                        new_names_dict.update({old: c + num})
 
-        elif isinstance(name, list) and len(name) != len(data.columns):
-            raise(TypeError('Error! names list length and columns length are not the same.'))
-
-    data.rename(columns=new_name, inplace=True)
-
+    data.rename(columns=new_names_dict, inplace=True)
     return data
 
 
