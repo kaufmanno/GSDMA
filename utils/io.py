@@ -263,10 +263,10 @@ def dataframe_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None, view
 
     if un_val is None:
         print(f'Rows : {df.shape[0]}, columns : {df.shape[1]}')
-    elif isinstance(un_val, str):
-        print(f"Rows : {df.shape[0]}, columns : {df.shape[1]}, "
-              f"Unique values on col '{un_val}': {len(set(df[un_val]))}")
-    elif isinstance(un_val, list):
+    else:
+        if isinstance(un_val, str):
+            un_val = [un_val]
+
         for c in un_val:
             if c in df.columns:
                 len(set(df[c]))
@@ -287,6 +287,23 @@ def dataframe_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None, view
         def _freeze_header(last_row, last_column):
             display(df.iloc[max(0, last_row - rows):last_row,
                     max(0, last_column - cols):last_column])
+
+
+def gen_id_ech(df, id_col='ID', suffixes=['sup', 'prof', 'inf']):
+    """
+    """
+    data = df.copy()
+    data.insert(1, 'ID_ech', data[id_col])
+    for i in data.index:
+        strp = '|'.join(suffixes)
+        capture = '(?P<id>\w*\d+)\s*'
+        val = str(data.loc[i, id_col])
+
+        if re.search(capture + strp, val, re.I):
+            data.loc[i, id_col] = re.search(capture, val, re.I).group(1)
+
+    data.insert(0, id_col, data.pop(id_col))
+    return data
 
 
 def gen_id_dated(gdf, ref_col='Ref', date_col=None, date_ref='No_date'):
@@ -344,29 +361,60 @@ def gen_geodf_geom(gdf):
     return gdf
 
 
-def data_slicer(df, coi_dict, verbose=False):
-    """ create many dataframes based on data type, according to the columns given for each type of object (or data) if there are present in the initial dataframe.
+def data_slicer(df, coi_dict, crit_col_dict=None, unknow_kw='inconnu', verbose=False):
+    """ create many dataframes based on data type, according to the columns given for each type of data, if there are present in the initial dataframe.
 
     df: Pandas.Dataframe
     coi_dict: dict
-        dict of columns of interest for each type of object.
+        dict containing a list of columns of interest, for each type of data.
+    crit_col_dict: dict
+        dict containing a list of specific columns that characterize a type of data and allow the creation of this data's dataframe.
+        e.g: for 'lithology' data, specific columns are at least ['Intv_top', 'Intv_base']
     """
     df_dict = {}
-    real_cols = []
+    crit_found = {}
     data = df.copy()
+    msg = ''
+
+    assert isinstance(coi_dict, dict)
+    if crit_col_dict is not None:
+        assert isinstance(crit_col_dict, dict)
+        for k, v_cols in crit_col_dict.items():
+            crit_cols = []
+            for c in v_cols:
+                if c in df.columns:
+                    crit_cols.append(c)
+
+            if crit_cols:
+                found = True
+            else:
+                found = False
+            crit_found.update({k: found})
 
     for k, v_cols in coi_dict.items():
         no_real_cols = []
+        real_cols = []
         for c in v_cols:
             if c in data.columns:
                 real_cols.append(c)
             else:
                 no_real_cols.append(c)
         if verbose and no_real_cols:
-            print(f"For '{k}', {no_real_cols} are not present in the dataframe\n")
+            print(f"For '{k}', {no_real_cols} not found in the dataframe\n")
+
         tmp_df = data[real_cols]
+        if crit_found and crit_found[k]:
+            if k.lower() in ['unknown', 'inconnu'] and 'Type' in tmp_df.columns:
+                tmp_df = tmp_df.query(f'Type=="{unknow_kw}"')
+            elif k.lower() in ['unknown', 'inconnu'] and 'Type' not in tmp_df.columns:
+                tmp_df = pd.DataFrame()
+        else:
+            tmp_df = pd.DataFrame()
         df_dict.update({k: tmp_df})
 
+        msg += f"{k}: {len(df_dict[k])} ; "
+
+    print(msg)
     return df_dict
 
 
@@ -821,17 +869,15 @@ def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
     return data
 
 
-def collect_time_data(df, regex=None):
-    """create a new line of values according to the date found in columns name. e.g: 'Colx_08/09/2010'
+def collect_time_data(df, regex=None, sort_values_by='Date_mes'):
+    """create a new line of values according to the date found in columns name. like 'Colx_08/09/2010'
 
     df : Pandas.Dataframe
-
     regex: str
         string that contains named regex group to retrieve date and column name. 
         e.g: '(?P<col>\w+)_(?P<date>\d+/\d+/\d+)'
-
-    **kwargs : dict
-        see function replicates_values() in utils.io
+    sort_values_by: str
+        sort the dataframe's values by a column
 
     """
 
@@ -850,7 +896,6 @@ def collect_time_data(df, regex=None):
             dates.append(re.search(regex, c, re.I).group(2))
             cols_with_dates.append(c)
     dates = list(set(dates))
-    print('dates found:', dates)
 
     # move colums with date to the end
     for c in cols_with_dates:
@@ -872,7 +917,7 @@ def collect_time_data(df, regex=None):
                 d = re.search(regex, c, re.I).group(2)
                 dt = d.split('/')
                 mes_id = i + dates.index(d) / 10  # generate indexes 1.1, 1.2, ... 
-                data.loc[mes_id, :] = data.loc[i, :]  # replicate the row data
+                data.loc[mes_id, :] = data.loc[i, :]  # replicate the row data to the new row
                 data.loc[mes_id, 'Date_mes'] = datetime.date(int(dt[2]), int(dt[1]), int(dt[0]))
                 data.loc[mes_id, col] = data.loc[i, c]
 
@@ -880,12 +925,14 @@ def collect_time_data(df, regex=None):
 
     data = data.query('Date_mes == Date_mes')
     data.drop(columns=cols_to_drop, inplace=True)
+    data.sort_values(sort_values_by, inplace=True)
     data.reset_index(drop=True, inplace=True)
+    print('dates found:', dates)
 
     return data
 
 
-def collect_measure(df, params_kw, params_col='Params', alter_df=True, verbose=False):
+def collect_measure(df, params_kw, params_col='Params', alter_df=False, verbose=False):
     data = df.copy()
     val_dict = {}
     cols_to_drop = []
@@ -906,7 +953,9 @@ def collect_measure(df, params_kw, params_col='Params', alter_df=True, verbose=F
 
     if alter_df:
         data.drop(columns=cols_to_drop, inplace=True)
-        print('colums droped :', cols_to_drop)
+        print('columns droped :', cols_to_drop)
+    else:
+        print('Set "alter_df=True", if columns must be droped :', cols_to_drop)
 
     return data
 
@@ -1185,7 +1234,8 @@ def dble_col_drop(data, drop=True):
     return data
 
 
-def col_ren(df, row_num=None, mode=0, name=None, strip_regex=None, col_num_sep=None):
+def col_ren(df, row_num=None, mode=0, name=None, strip_regex=None, cutoff=0.65,
+            col_num_sep=None, verbose=False):
     """
     mode: int
         set 0 to rename columns with values of a row, set 1 if provide name list or dict
@@ -1196,6 +1246,7 @@ def col_ren(df, row_num=None, mode=0, name=None, strip_regex=None, col_num_sep=N
         e. g: column,s names : ID_1, ID_2. Here the separation character is '_'. Don't forget to use '\' when special character like '\.' for '.'.
     """
     new_names_dict = {}
+    news = []
     data = df.copy()
 
     if mode != 0 and mode != 1:
@@ -1221,19 +1272,30 @@ def col_ren(df, row_num=None, mode=0, name=None, strip_regex=None, col_num_sep=N
                 raise (TypeError('Error! names list length and columns length are not the same.'))
 
         elif isinstance(name, dict):
+            pol_fields = [p.lower() for p in name.keys()]
             if strip_regex is None:
-                strip_regex = ',| |>|<|-|\n|_|\(|\.|\)'
+                strip_regex = ',|\?| |>|<|-|\n|_|\(|\.|\)'
             if col_num_sep is None:
                 col_num_sep = '\.'
 
             for i in range(len(data.columns)):
                 keys = list(name.keys())
                 old = data.columns[i]
+                if old.lower() not in pol_fields:
+                    news.append(old)
+
                 old_mod = re.sub(strip_regex, '', old)
-                closest = get_close_matches(old_mod, keys, n=1, cutoff=0.65)
+                closest = get_close_matches(old_mod, keys, n=3, cutoff=cutoff)
+                keep_ = None
+                for p in closest:
+                    keep = re.findall(f'^{old}', p, re.I)
+                    if keep:
+                        keep_ = keep
+                        closest = keep
                 if closest:
                     old_mod = re.sub(strip_regex, '', closest[0])
-                # print(f"{i} {old} : {old_mod}")
+
+                if verbose: print(f"{i} {old} : {keep_}---- {closest}")
 
                 num_search = re.search(f'(\w+)({col_num_sep}\d$)', old)
                 num = ''
@@ -1249,6 +1311,8 @@ def col_ren(df, row_num=None, mode=0, name=None, strip_regex=None, col_num_sep=N
                         new_names_dict.update({old: c + num})
 
     data.rename(columns=new_names_dict, inplace=True)
+    if news:
+        print('\nPossible new pollutants names:', news)
     return data
 
 
