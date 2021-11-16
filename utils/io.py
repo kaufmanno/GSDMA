@@ -10,6 +10,7 @@ import datetime
 from shapely import wkt
 from ipywidgets import interact, IntSlider
 from IPython.display import HTML, display
+from utils.config import WARNING_TEXT_CONFIG
 
 
 def df_from_sources(search_dir, filename, columns=None, verbose=False):
@@ -289,24 +290,27 @@ def dataframe_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None, view
                     max(0, last_column - cols):last_column])
 
 
-def gen_id_ech(df, id_col='ID', suffixes=['sup', 'prof', 'inf']):
-    """
+def gen_id_from_ech(df, id_ech_col='ID_ech', id_col='ID', suffixes=['sup', 'prof', 'inf'], capture_regex='(?P<id>\w*\d+\w*)\s*'):
+    """ Generate boreholes ID ('ID) from sample ID ('ID_ech'), by removing suffixes.
     """
     data = df.copy()
-    data.insert(1, 'ID_ech', data[id_col])
+    if id_ech_col == 'ID':
+        id_col = 'ID'
+        id_ech_col = 'ID_ech'
+        data.rename(columns={id_col: id_ech_col}, inplace=True)
+
+    data.insert(0, id_col, data[id_ech_col])
     for i in data.index:
         strp = '|'.join(suffixes)
-        capture = '(?P<id>\w*\d+)\s*'
-        val = str(data.loc[i, id_col])
-
+        capture = capture_regex
+        val = str(data.loc[i, id_ech_col])
         if re.search(capture + strp, val, re.I):
             data.loc[i, id_col] = re.search(capture, val, re.I).group(1)
 
-    data.insert(0, id_col, data.pop(id_col))
     return data
 
 
-def gen_id_dated(gdf, ref_col='Ref', date_col=None, date_ref='No_date'):
+def gen_dated_id(gdf, ref_col='Ref', date_col=None, date_ref='No_date'):
     """
     Generate a Id-dated reference for a (geo)dataframe
     
@@ -361,7 +365,7 @@ def gen_geodf_geom(gdf):
     return gdf
 
 
-def data_slicer(df, coi_dict, crit_col_dict=None, unknow_kw='inconnu', verbose=False):
+def data_slicer(df, coi_dict, crit_col_dict=None, unknow_kw='Inconnu', verbose=False):
     """ create many dataframes based on data type, according to the columns given for each type of data, if there are present in the initial dataframe.
 
     df: Pandas.Dataframe
@@ -375,6 +379,7 @@ def data_slicer(df, coi_dict, crit_col_dict=None, unknow_kw='inconnu', verbose=F
     crit_found = {}
     data = df.copy()
     msg = ''
+    remain_cols = list(df.columns)
 
     assert isinstance(coi_dict, dict)
     if crit_col_dict is not None:
@@ -385,7 +390,7 @@ def data_slicer(df, coi_dict, crit_col_dict=None, unknow_kw='inconnu', verbose=F
                 if c in df.columns:
                     crit_cols.append(c)
 
-            if crit_cols:
+            if len(crit_cols) >= 2:  # at least 2 criteria satisfied
                 found = True
             else:
                 found = False
@@ -411,10 +416,15 @@ def data_slicer(df, coi_dict, crit_col_dict=None, unknow_kw='inconnu', verbose=F
         else:
             tmp_df = pd.DataFrame()
         df_dict.update({k: tmp_df})
-
         msg += f"{k}: {len(df_dict[k])} ; "
 
+        for cl in tmp_df.columns:
+            if cl in remain_cols:
+                remain_cols.remove(cl)
+
     print(msg)
+    if remain_cols:
+        print(f"\n{WARNING_TEXT_CONFIG['green']}Not used columns:{WARNING_TEXT_CONFIG['off']}\n {remain_cols}")
     return df_dict
 
 
@@ -849,12 +859,12 @@ def replicate_values(data, id_col, cols_to_replicate, suffix=None, replace_id=Fa
     return df
 
 
-def na_col_drop(data, col_non_na=10, drop=True, verbose=False):
+def na_col_drop(df, col_non_na=10, drop=True, verbose=False):
     """
     Delete columns in the dataframe where the count of non-NaN values is lower than col_non_na
 
     """
-
+    data = df.copy()
     drop_cols = []
     if verbose: print('Non-NaN values\n----------------')
     for c in data.columns:
@@ -1172,13 +1182,14 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
     return data, check_data
 
 
-def na_line_drop(data, col_n=3, line_non_na=0, drop_by_position=False,
+def na_line_drop(df, col_n=3, line_non_na=0, drop_by_position=False,
                  old_idx=False, verbose=False):
     """
     Delete rows in the dataframe where the count of non-NaN values is lower than rows_non_na
 
     """
 
+    data = df.copy()
     l1 = len(data)
     no_pos = []
     data['line_na'] = False
@@ -1312,7 +1323,13 @@ def col_ren(df, row_num=None, mode=0, name=None, strip_regex=None, cutoff=0.65,
 
     data.rename(columns=new_names_dict, inplace=True)
     if news:
-        print('\nPossible new pollutants names:', news)
+        print(f"\n{WARNING_TEXT_CONFIG['blue']}Possible new pollutants names:{WARNING_TEXT_CONFIG['off']}\n{news}")
+
+    f_cols = list(data.columns)
+    dble_cols = list(set([(x, f_cols.count(x)) for x in f_cols if f_cols.count(x) > 1]))
+    if dble_cols:
+        print(f"{WARNING_TEXT_CONFIG['red']}Double columns' name found :{WARNING_TEXT_CONFIG['off']}\n{dble_cols}")
+
     return data
 
 
