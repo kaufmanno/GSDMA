@@ -79,7 +79,7 @@ def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
     creates a Striplog object from a dataframe
 
     Parameters
-    ----------
+    ------------
     df : Pandas.DataFrame
         Dataframe that contains borehole intervals data
 

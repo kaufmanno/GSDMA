@@ -1239,7 +1239,7 @@ def na_line_drop(df, col_n=3, line_non_na=0, drop_by_position=False,
     return data
 
 
-def dble_col_drop(data, drop=True):
+def dble_col_drop(data, drop=True, keep_max=True):
     twins = {}
     idx_drop = {}
     for i in range(len(data.columns)):  # locate double columns
@@ -1259,7 +1259,10 @@ def dble_col_drop(data, drop=True):
                     if pd.isnull(data.iloc[j, i]):
                         data.iloc[j, i] = data.iloc[j, k]
                     elif not isinstance(data.iloc[j, i], str) and not isinstance(data.iloc[j, k], str):
-                        data.iloc[j, i] = max(data.iloc[j, i], data.iloc[j, k])
+                        if keep_max:
+                            data.iloc[j, i] = max(data.iloc[j, i], data.iloc[j, k])
+                        else:
+                            data.iloc[j, i] = min(data.iloc[j, i], data.iloc[j, k])
 
     print(f"column(s) dropped: {[f'{x}:{y}' for x, y in idx_drop.items()]}")
     new_col = list(set(range(len(data.columns))) - set(idx_drop.keys()))
