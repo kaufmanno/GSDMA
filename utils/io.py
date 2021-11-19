@@ -305,7 +305,7 @@ def gen_id_from_ech(df, id_ech_col='ID_ech', id_col='ID', suffixes=None, prefixe
         id_ech_col = 'ID_ech'
         data.rename(columns={id_col: id_ech_col}, inplace=True)
 
-    data.insert(0, id_col, data[id_ech_col])
+    data[id_col] = data[id_ech_col]
     if suffixes is not None:
         assert isinstance(suffixes, list)
         suf = '|'.join(suffixes)
