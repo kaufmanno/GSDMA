@@ -29,6 +29,7 @@ xlrd = "*"
 descartes = "*"
 vedo = "*"
 ipyvtklink = "*"
+pylint = "*"
 
 [requires]
 python_version = "3.8"
