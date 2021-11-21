@@ -290,22 +290,16 @@ def dataframe_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None, view
                     max(0, last_column - cols):last_column])
 
 
-def gen_id_from_ech(df, id_ech_col='ID_ech', id_col='ID', suffixes=None, prefixes=None, capture_regex=None, verbose=False):
+def gen_id_from_ech(df, id_ech_col='ID_ech', id_col='ID', suffixes=None, prefixes=None, capture_regex=None, overwrite_id=True, verbose=False):
     """ Generate boreholes ID ('ID) from sample ID ('ID_ech'), by removing suffixes.
     """
 
     if suffixes is None and prefixes is None and capture_regex is None:
         raise(ValueError("one of these 3 parameters (suffixes, prefixes or capture_regex) must be given!"))
+
     pref, suf = [], []
     capture = False
     presuf = False
-    data = df.copy()
-    if id_ech_col == 'ID':
-        id_col = 'ID'
-        id_ech_col = 'ID_ech'
-        data.rename(columns={id_col: id_ech_col}, inplace=True)
-
-    data[id_col] = data[id_ech_col]
     if suffixes is not None:
         assert isinstance(suffixes, list)
         suf = '|'.join(suffixes)
@@ -315,20 +309,33 @@ def gen_id_from_ech(df, id_ech_col='ID_ech', id_col='ID', suffixes=None, prefixe
     if capture_regex is not None:
         assert isinstance(capture_regex, str)
         capture = True
-    if pref or suf: presuf = True
-
+    if pref or suf:
+        presuf = True
     strp = pref + '|' + suf
+
+    data = df.copy()
+    if id_ech_col == 'ID':
+        id_col = 'ID'
+        id_ech_col = 'ID_ech'
+        data.rename(columns={id_col: id_ech_col}, inplace=True)
+
+    id_copy = id_col + '_copy'
+    data.insert(0, id_copy, data[id_ech_col])
     for i in data.index:
         val = str(data.loc[i, id_ech_col])
-        if capture and presuf and re.search(pref + capture_regex + suf, val, re.I):
-            data.loc[i, id_col] = re.search(capture_regex, val, re.I).group(1)
-        elif capture and re.search(capture_regex, val, re.I):
-            data.loc[i, id_col] = re.search(capture_regex, val, re.I).group(1)
-        else:
-            data.loc[i, id_col] = re.sub(strp, '', val, re.I)
+        val_mod = re.sub(strp, '', val, flags=re.I)
+        if capture and presuf and re.search(pref + capture_regex + suf, val_mod, flags=re.I):
+            data.loc[i, id_copy] = re.search(capture_regex, val_mod, flags=re.I).group(1)
+        elif capture and re.search(capture_regex, val_mod, re.I):
+            data.loc[i, id_copy] = re.search(capture_regex, val_mod, flags=re.I).group(1)
 
         if verbose:
-            print(f"{id_col}: {val} --> {data.loc[i, id_col]}")
+            print(f"{i}: {val} : {val_mod} --> {data.loc[i, id_copy]}")
+
+    if overwrite_id:
+        if id_col in data.columns:
+            data.drop(columns=id_col, inplace=True)
+        data.insert(0, id_col, data.pop(id_copy))
 
     return data
 
