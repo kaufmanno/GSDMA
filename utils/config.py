@@ -1,9 +1,11 @@
 from striplog import Lexicon, Legend
-from utils.lexicon.lexicon_memoris import LEX_LITHO_MEMORIS, LEX_POL_MEMORIS, LEG_LITHO_MEMORIS
+import numpy as np
+from utils.lexicon_memoris import LEX_LITHO_MEMORIS, LEX_POL_MEMORIS, LEG_LITHO_MEMORIS
 
 # DEFAULT PROPERTIES VALUES
 DEFAULT_BOREHOLE_LENGTH = 0.1
 DEFAULT_BOREHOLE_DIAMETER = 0.1
+DEFAULT_Z = 102.0
 DEFAULT_ATTRIB_VALUE = 'Inconnu'
 NOT_EXIST = 'not_exist'
 WORDS_WITH_S = ['Gneiss', 'Silex', 'VS', 'vs']

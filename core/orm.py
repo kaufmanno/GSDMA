@@ -38,25 +38,8 @@ class BoreholeOrm(Base):
                                          creator=lambda k, v: IntervalOrm(
                                              id=k, description=v['description'],
                                              interval_number=v['interval_number'],
-                                             type=v['type'],
                                              top=v['top'], base=v['base'])
                                          )
-
-    # litho_intv_values = association_proxy('intervals', 'description',
-    #                                      creator=lambda k, v: IntervalOrm(
-    #                                          id=k, description=v['description'],
-    #                                          interval_number=v['interval_number'],
-    #                                          type=v['type'],
-    #                                          top=v['top'], base=v['base'])
-    #                                      )
-    #
-    # sample_intv_values = association_proxy('intervals', 'description',
-    #                                       creator=lambda k, v: IntervalOrm(
-    #                                           id=k, description=v['description'],
-    #                                           interval_number=v['interval_number'],
-    #                                           type=v['type'],
-    #                                           top=v['top'], base=v['base'])
-    #                                       )
 
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
@@ -93,7 +76,6 @@ class IntervalOrm(Base):
     id = Column(Integer, primary_key=True)
     borehole = Column(String, ForeignKey('Boreholes.id'))
     interval_number = Column(Integer)
-    type = Column(String)
     description = Column(String)
     components = relationship('ComponentOrm', secondary='Linkintervalcomponent')
     top_id = Column(Integer, ForeignKey('Positions.id'))

@@ -11,6 +11,7 @@ from shapely import wkt
 from ipywidgets import interact, IntSlider
 from IPython.display import HTML, display
 from utils.config import WARNING_TEXT_CONFIG
+from definitions import ROOT_DIR
 
 
 def df_from_sources(search_dir, filename, columns=None, verbose=False):
@@ -830,7 +831,8 @@ def replicate_values(data, id_col, cols_to_replicate, suffix=None, replace_id=Fa
             raise (TypeError("suffix parameter must be a list of columns' name"))
         for i in df.index:
             for s in suffix:
-                df.loc[i, 'ID_copy'] = re.sub(s, '', df.loc[i, 'ID_copy'], re.I) if not pd.isnull(df.loc[i, 'ID_copy']) else df.loc[i, 'ID_copy']
+                id_copy = str(df.loc[i, 'ID_copy'])
+                df.loc[i, 'ID_copy'] = re.sub(s, '', id_copy, flags=re.I) if not pd.isnull(df.loc[i, 'ID_copy']) else df.loc[i, 'ID_copy']
 
     for i in df.index:
         bh_id = df.loc[i, 'ID_copy']
@@ -865,8 +867,9 @@ def replicate_values(data, id_col, cols_to_replicate, suffix=None, replace_id=Fa
 
                     if verbose:
                         if not pd.isnull(val) and val != r[c]:
-                            print(f'-- different values : {p}, {c}: {val} | {r[c]}')
-                        print(f'value kept for {c}:', val)
+                            msg = f'\ndifferent values at index ({p}), column ({c}): {val} ' \
+                                  f'\033[1;37;40m|\033[0;0;0m {r[c]}'
+                            print(msg, f'\nvalue kept for {c}:', val)
 
                 v_dict.update({c: val})
             update_dict(global_dict, {q_idx: v_dict})
@@ -887,6 +890,168 @@ def replicate_values(data, id_col, cols_to_replicate, suffix=None, replace_id=Fa
         df.drop(columns='ID_copy', inplace=True)
 
     return df
+
+
+def find_borehole_by_position(df, id_col='ID', xy_cols=('X', 'Y'), dist_max=1., bh_syn_dict=None, reg_skip=None,
+                              save_bh_syn=False, display=False, drop_old_id=True, verbose=False):
+    """ Look for nearest objects in 2 dataframes, by position, and set same ID
+    (to treat same position but different names cases)
+
+    Parameters
+    ------------
+    df : pandas.Dataframe
+        a dataframe with XY coordinates
+    id_col : str
+        name of the column used for boreholes ID
+    xy_cols: tuple
+        name of the columns containing XY coordinates
+    dist_max : float
+        maximum distance between Y coordinates of an object in df1 and df2
+    bh_syn_dict : dict
+        a dictionary containing encountered boreholes with their position and synonyms for same ID
+    reg_skip : str
+        Regex pattern to skip specific borehole ID. e.g : '\d+[a-e]\'?M?$'
+    display : bool
+        if True, display of same IDs dictionary
+    drop_old_id : bool
+        if True, drop the column of old ID
+    inplace : bool
+        if True, alter the given dataframe
+    """
+
+    data = df.copy()
+
+    if bh_syn_dict is None:
+        bh_syn_dict = {'boreholes': {}, 'synonyms': {}}
+
+    synonyms = bh_syn_dict['synonyms']
+    boreholes = bh_syn_dict['boreholes']
+
+    if xy_cols[0] not in data.columns:
+        raise (KeyError('No coordinates (X,Y) found in the dataframe !'))
+
+    # retrieve IDs before changing them
+    data.insert(0, f'old_{id_col}', data[id_col])
+    idx_dict = {}
+
+    # retrieve new bh_ID and position found in the dataframe
+    for i in data.index:
+        bh_id = data.loc[i, id_col]
+        bh_xy = (data.loc[i, xy_cols[0]], data.loc[i, xy_cols[1]])
+
+        qsl = data[id_col] == f"{bh_id}"
+        i = data[qsl].index
+        idx_dict.update({bh_id: i})
+
+        if bh_id in boreholes.keys() and boreholes[bh_id] == bh_xy:
+            continue
+        elif bh_id in boreholes.keys() and boreholes[bh_id] != bh_xy:
+            continue  # manage by data_merger() !
+        else:
+            if verbose: print('boreholes dict updating...')
+            if not pd.isnull(bh_xy[0]):
+                boreholes.update({bh_id: bh_xy})
+
+    id_list = []
+    skip_list = []
+    same_bh_dict = {}
+
+    # Browsing and comparison
+    for bh_id, bh_xy in boreholes.items():
+        if bh_id not in id_list:
+            id_list.append(bh_id)
+
+        # browse the dictionary and compare
+        same_list = []
+        for k, coords in boreholes.items():
+            found_xy = coords
+            dist = (bh_xy[0] - found_xy[0]) ** 2 + (bh_xy[1] - found_xy[1]) ** 2
+
+            if dist <= dist_max ** 2:  # same objects
+                if reg_skip is not None:
+                    if not re.search(reg_skip, k, flags=re.I):
+                        same_list.append(k)
+                    elif k not in skip_list:
+                        skip_list.append(k)
+                else:
+                    same_list.append(k)
+
+        if len(same_list) > 1:
+            all_same = [sorted(list(v.values())[0]) for v in same_bh_dict.values()]
+            if sorted(same_list) not in all_same:
+                same_bh_dict.update({bh_id: {bh_xy: same_list}})
+            # print('\n', sorted(same_list), '---', all_same, sorted(same_list) not in all_same)
+
+    if skip_list:
+        print(f"Skipped {len(skip_list)} IDs")
+        if verbose: print(f"{skip_list}")
+
+    if same_bh_dict:
+        new_synonyms = {}
+        for bh_id, val in same_bh_dict.items():
+            same = list(val.values())[0]
+            for bh in same:
+                i = idx_dict[bh]  # index in the dataframe
+                new_id = data.loc[i, id_col]
+                if not synonyms:
+                    synonyms.update({bh_id: same})
+                else:
+                    for bh_id_syn, v in synonyms.items():
+                        if bh in v:
+                            new_id = bh_id_syn
+                        else:
+                            if verbose: print('synonyms dict updating...')
+                            new_synonyms.update({bh_id: same})
+                data.loc[i, id_col] = new_id
+        synonyms.update(new_synonyms)
+
+        if display:
+            print(f'{len(same_bh_dict.keys())} boreholes found')
+            dict_viewer(same_bh_dict)
+
+        if drop_old_id:
+            data = data.drop(columns=f'old_{id_col}').copy()
+    else:
+        print('All boreholes are unique !')
+
+    if save_bh_syn:
+        file = f'{ROOT_DIR}/utils/boreholes_synonyms.py'
+        print(f'Updating and saving encountered boreholes dict in {file}')
+        bh_syn_dict['synonyms'] = synonyms
+        bh_syn_dict['boreholes'] = boreholes
+
+        with open(f'{file}', 'w') as f:
+            f.write('import numpy as np\n\nnan=np.nan\n\n')
+            f.write('BOREHOLES_ENCOUNTERED = {\n')
+            for k, v in bh_syn_dict.items():
+                f.write(f"\t'{k}':{v},\n")
+            f.write('}')
+
+    return data
+
+
+def bh_synonyms_cleaner(bh_syn_dict, save_bh_syn=True):
+    treated = []
+    for k in bh_syn_dict['synonyms'].keys():
+        syn_list = []
+        for v in bh_syn_dict['synonyms'].values():
+            if k in v and k not in treated:
+                syn_list = list(set(syn_list + v))
+                treated = treated + [x for x in syn_list]
+
+        if syn_list:
+            bh_syn_dict['synonyms'].update({k: syn_list})
+
+    if save_bh_syn:
+        file = f'{ROOT_DIR}/utils/boreholes_synonyms.py'
+        print(f'Updating and saving encountered boreholes dict in {file}')
+
+        with open(f'{file}', 'w') as f:
+            f.write('import numpy as np\n\nnan=np.nan\n\n')
+            f.write('BOREHOLES_ENCOUNTERED = {\n')
+            for k, v in bh_syn_dict.items():
+                f.write(f"\t'{k}':{v},\n")
+            f.write('}')
 
 
 def na_col_drop(df, col_non_na=10, drop=True, verbose=False):
@@ -1294,7 +1459,7 @@ def col_ren(df, row_num=None, mode=0, name=None, strip_regex=None, cutoff=0.65,
     data = df.copy()
 
     if mode != 0 and mode != 1:
-        print("Error! Parameter \'Mode\' must be 0 or 1 (if 1, colums length must be equal to name length)")
+        print("Error! Parameter \'Mode\' must be 0 or 1 (if 1, columns length must be equal to name length)")
 
     elif mode == 0:
         for i in range(len(data.columns)):
@@ -1512,8 +1677,16 @@ def dict_viewer(dictionary):
     Jupyter Notebook magic repr function for dictionaries.
     """
     rows = ''
-    s = '<tr><td><strong>{k}</strong></td><td>{v}</td></tr>'
+    s = '<td>{v}</td>'
+    ss = '<td>{vk}</td><td>{vv}</td>'
     for k, v in dictionary.items():
-        rows += s.format(k=k, v=v)
+        if isinstance(v, dict):
+            for vk, vv in v.items():
+                cels = ss.format(vk=vk, vv=vv)
+                rows += '<tr><td><strong>{k}</strong></td>{cels}</tr>'.format(k=k, cels=cels)
+        else:
+            cels = s.format(v=v)
+            rows += '<tr><td><strong>{k}</strong></td>{cels}</tr>'.format(k=k, cels=cels)
+
     html = '<table>{}</table>'.format(rows)
     return display(HTML(html))

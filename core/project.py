@@ -293,5 +293,4 @@ class Project:
         if save_as is not None:
             bhs_map.save(save_as)  # ('tmp_files/BH_location.html')
 
-        # plot map
         return bhs_map

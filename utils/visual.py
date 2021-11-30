@@ -11,7 +11,7 @@ import numpy as np
 from striplog.utils import hex_to_rgb
 import core.visual as cv
 from utils.config import DEFAULT_ATTRIB_VALUE, WORDS_WITH_S, DEFAULT_POL_LEXICON, NOT_EXIST
-from utils.lexicon.lexicon_memoris import LEG_CONTAMINATION_LEV
+from utils.lexicon_memoris import LEG_CONTAMINATION_LEV
 
 
 def striplog_legend_to_omf_legend(legend, alpha=1.):
