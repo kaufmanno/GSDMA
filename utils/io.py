@@ -1,4 +1,5 @@
 import collections.abc
+import importlib
 import os
 import re
 from difflib import get_close_matches
@@ -460,8 +461,7 @@ def data_slicer(df, coi_dict, crit_col_dict=None, unknow_kw='Inconnu', verbose=F
 
 
 def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=None,
-                error_tol_dict={0.1:['Diam_for', 'Long_for'], 0.01:['Z']}, drop_skip_col=None,
-                verbose=False):
+                error_tol_dict=None, drop_skip_col=None, verbose=False):
     """ Enhance data merging with automatic actions on dataframe after the merge
 
     Parameters
@@ -489,6 +489,9 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=No
     gdf_error: dataframe that contains ambiguous values encounter
 
     """
+
+    if error_tol_dict is None:
+        error_tol_dict = {0.1:['Diam_for', 'Long_for'], 0.01:['Z']}
 
     distinct_objects_to_add = {}
     idx_distinct_obj = 0
@@ -722,8 +725,7 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=No
     return gdf, gdf_conflict
 
 
-def data_validation(overall_data, conflict_data, valid_dict=None, index_col='index', pass_col=['Origin_ID'],
-                    valid_all=False, verbose=False):
+def data_validation(overall_data, conflict_data, valid_dict=None, index_col='index', valid_all=False, verbose=False):
     """
     Validate correct data in a conflictual dataframe after merging
 
@@ -892,15 +894,14 @@ def replicate_values(data, id_col, cols_to_replicate, suffix=None, replace_id=Fa
     return df
 
 
-def find_borehole_by_position(df, id_col='ID', xy_cols=('X', 'Y'), dist_max=1., bh_syn_dict=None, reg_skip=None,
-                              save_bh_syn=False, display=False, drop_old_id=True, verbose=False):
+def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1., bh_syn_dict=None, reg_same=None, reg_skip=None, reg_pref=None, save_bh_syn=False, display=False, drop_old_id=True, verbose=False):
     """ Look for nearest objects in 2 dataframes, by position, and set same ID
     (to treat same position but different names cases)
 
     Parameters
     ------------
-    df : pandas.Dataframe
-        a dataframe with XY coordinates
+    dfs : list
+        a list of pandas.Dataframe with XY coordinates (columns)
     id_col : str
         name of the column used for boreholes ID
     xy_cols: tuple
@@ -911,6 +912,8 @@ def find_borehole_by_position(df, id_col='ID', xy_cols=('X', 'Y'), dist_max=1., 
         a dictionary containing encountered boreholes with their position and synonyms for same ID
     reg_skip : str
         Regex pattern to skip specific borehole ID. e.g : '\d+[a-e]\'?M?$'
+    reg_pref: str
+        regular expression used to choose a borehole name format for file cleaner function.
     display : bool
         if True, display of same IDs dictionary
     drop_old_id : bool
@@ -919,131 +922,202 @@ def find_borehole_by_position(df, id_col='ID', xy_cols=('X', 'Y'), dist_max=1., 
         if True, alter the given dataframe
     """
 
-    data = df.copy()
+    new_dfs = []
+    if not isinstance(dfs, list):
+        dfs = [dfs]
 
-    if bh_syn_dict is None:
-        bh_syn_dict = {'boreholes': {}, 'synonyms': {}}
-
-    synonyms = bh_syn_dict['synonyms']
-    boreholes = bh_syn_dict['boreholes']
-
-    if xy_cols[0] not in data.columns:
-        raise (KeyError('No coordinates (X,Y) found in the dataframe !'))
-
-    # retrieve IDs before changing them
-    data.insert(0, f'old_{id_col}', data[id_col])
-    idx_dict = {}
-
-    # retrieve new bh_ID and position found in the dataframe
-    for i in data.index:
-        bh_id = data.loc[i, id_col]
-        bh_xy = (data.loc[i, xy_cols[0]], data.loc[i, xy_cols[1]])
-
-        qsl = data[id_col] == f"{bh_id}"
-        i = data[qsl].index
-        idx_dict.update({bh_id: i})
-
-        if bh_id in boreholes.keys() and boreholes[bh_id] == bh_xy:
+    for n, df in enumerate(dfs):
+        data = df.copy()
+        if xy_cols[0] not in data.columns:
+            print(f'No coordinates (X,Y) found in the dataframe {n}, skip it !')
             continue
-        elif bh_id in boreholes.keys() and boreholes[bh_id] != bh_xy:
-            continue  # manage by data_merger() !
-        else:
-            if verbose: print('boreholes dict updating...')
-            if not pd.isnull(bh_xy[0]):
-                boreholes.update({bh_id: bh_xy})
+        print(f"Dataframe {n} processing ...")
+        data[id_col] = data[id_col].apply(lambda x: str(x) if not isinstance(x, str) else x)
 
-    id_list = []
-    skip_list = []
-    same_bh_dict = {}
+        if bh_syn_dict is None:
+            if os.path.exists(f'{ROOT_DIR}/utils/boreholes_synonyms/bh_syn_distmax_{dist_max}'):
+                imp = importlib.import_module(f'utils.boreholes_synonyms.bh_syn_distmax_{dist_max}')
+                bs = imp.BBOREHOLES_ENCOUNTERED
+            elif os.path.exists(f'{ROOT_DIR}/utils/boreholes_synonyms/bh_syn_default'):
+                imp = importlib.import_module(f'utils.boreholes_synonyms.bh_syn_default')
+                bs = imp.BBOREHOLES_ENCOUNTERED
+            else:
+                print('No boreholes synonyms file or  dict found, create a new one.')
+                bs = {'boreholes': {}, 'synonyms': {}}
+            bh_syn_dict = bs
 
-    # Browsing and comparison
-    for bh_id, bh_xy in boreholes.items():
-        if bh_id not in id_list:
-            id_list.append(bh_id)
+        synonyms = bh_syn_dict['synonyms']
+        boreholes = bh_syn_dict['boreholes']
 
-        # browse the dictionary and compare
-        same_list = []
-        for k, coords in boreholes.items():
-            found_xy = coords
-            dist = (bh_xy[0] - found_xy[0]) ** 2 + (bh_xy[1] - found_xy[1]) ** 2
+        # retrieve IDs before changing them
+        data.insert(0, f'old_{id_col}', data[id_col])
+        idx_dict = {}
 
-            if dist <= dist_max ** 2:  # same objects
-                if reg_skip is not None:
-                    if not re.search(reg_skip, k, flags=re.I):
+        # retrieve new bh_ID and position found in the dataframe
+        for i in data.index:
+            bh_id = data.loc[i, id_col]
+            bh_xy = (data.loc[i, xy_cols[0]], data.loc[i, xy_cols[1]])
+
+            qsl = data[id_col] == f"{bh_id}"
+            j = list(data[qsl].index)
+            idx_dict.update({bh_id: j})
+
+            if bh_id in boreholes.keys() and boreholes[bh_id] == bh_xy:
+                continue
+            elif bh_id in boreholes.keys() and boreholes[bh_id] != bh_xy:
+                # managed by data_merger() !
+                idx_dict[bh_id].remove(i)
+                bh_id = bh_id + '_mod'
+                data.loc[i, id_col] = bh_id
+                qsl = data[id_col] == f"{bh_id}"
+                j = list(data[qsl].index)
+                idx_dict.update({bh_id: j})
+                if not pd.isnull(bh_xy[0]):
+                    boreholes.update({bh_id: bh_xy})
+            else:
+                if not pd.isnull(bh_xy[0]):
+                    boreholes.update({bh_id: bh_xy})
+
+        id_list = []
+        skip_list = []
+        same_bh_dict = {}
+
+        # Browsing and comparison
+        for bh_id, bh_xy in boreholes.items():
+            if bh_id not in id_list:
+                id_list.append(bh_id)
+
+            # browse the dictionary and compare
+            same_list = []
+            for k, coords in boreholes.items():
+                found_xy = coords
+                dist = (bh_xy[0] - found_xy[0]) ** 2 + (bh_xy[1] - found_xy[1]) ** 2
+
+                if dist <= dist_max ** 2:  # same objects
+                    if reg_skip is not None:
+                        if not re.search(reg_skip, k, flags=re.I):
+                            same_list.append(k)
+                        elif k not in skip_list:
+                            skip_list.append(k)
+
+                    if reg_same is not None:
                         same_list.append(k)
-                    elif k not in skip_list:
-                        skip_list.append(k)
-                else:
-                    same_list.append(k)
+                        same_list = [x for x in same_list if re.search(reg_same, x, flags=re.I)]
 
-        if len(same_list) > 1:
-            all_same = [sorted(list(v.values())[0]) for v in same_bh_dict.values()]
-            if sorted(same_list) not in all_same:
-                same_bh_dict.update({bh_id: {bh_xy: same_list}})
-            # print('\n', sorted(same_list), '---', all_same, sorted(same_list) not in all_same)
+                    if reg_same is None and reg_skip is None:
+                            same_list.append(k)
+            same_list = sorted(list(set(same_list)))
 
-    if skip_list:
-        print(f"Skipped {len(skip_list)} IDs")
-        if verbose: print(f"{skip_list}")
+            if len(same_list) > 1:
+                all_same = [sorted(list(v.values())[0]) for v in same_bh_dict.values()]
+                if same_list not in all_same:
+                    same_bh_dict.update({bh_id: {bh_xy: same_list}})
 
-    if same_bh_dict:
-        new_synonyms = {}
-        for bh_id, val in same_bh_dict.items():
-            same = list(val.values())[0]
-            for bh in same:
-                i = idx_dict[bh]  # index in the dataframe
-                new_id = data.loc[i, id_col]
-                if not synonyms:
-                    synonyms.update({bh_id: same})
-                else:
-                    for bh_id_syn, v in synonyms.items():
-                        if bh in v:
-                            new_id = bh_id_syn
-                        else:
-                            if verbose: print('synonyms dict updating...')
-                            new_synonyms.update({bh_id: same})
-                data.loc[i, id_col] = new_id
-        synonyms.update(new_synonyms)
+        if skip_list:
+            print(f"Skipped {len(skip_list)} IDs. Set verbose = True to see them")
+            if verbose: print(f"{skip_list}")
 
-        if display:
-            print(f'{len(same_bh_dict.keys())} boreholes found')
-            dict_viewer(same_bh_dict)
+        # work on synonyms
+        if same_bh_dict:
+            new_synonyms = {}
+            for bh_id, val in same_bh_dict.items():
+                same = list(val.values())[0]
+                for bh in same:
+                    new_id = None
+                    if bh in idx_dict.keys():
+                        i = idx_dict[bh]  # index in the dataframe
+                        new_id = data.loc[i, id_col]
+                    if not synonyms:
+                        synonyms.update({bh_id: same})
+                    else:
+                        for bh_id_syn, v in synonyms.items():
+                            if bh in v:
+                                new_id = bh_id_syn
+                            else:
+                                new_synonyms.update({bh_id: same})
+                    if new_id is not None:
+                        data.loc[i, id_col] = new_id
+            synonyms.update(new_synonyms)
 
-        if drop_old_id:
-            data = data.drop(columns=f'old_{id_col}').copy()
-    else:
-        print('All boreholes are unique !')
+            if display:
+                print(f'\nSynonyms : {len(same_bh_dict.keys())} items\n---------')
+                dict_viewer(same_bh_dict)
+                print(f'\nBoreholes : {len(boreholes.keys())} items\n-----------')
+                dict_viewer(boreholes)
 
-    if save_bh_syn:
-        file = f'{ROOT_DIR}/utils/boreholes_synonyms.py'
-        print(f'Updating and saving encountered boreholes dict in {file}')
-        bh_syn_dict['synonyms'] = synonyms
-        bh_syn_dict['boreholes'] = boreholes
+            if drop_old_id:
+                data = data.drop(columns=f'old_{id_col}').copy()
+        else:
+            print('All boreholes are unique !')
 
-        with open(f'{file}', 'w') as f:
-            f.write('import numpy as np\n\nnan=np.nan\n\n')
-            f.write('BOREHOLES_ENCOUNTERED = {\n')
-            for k, v in bh_syn_dict.items():
-                f.write(f"\t'{k}':{v},\n")
-            f.write('}')
+        if save_bh_syn:
+            bh_syn_dict['synonyms'] = synonyms
+            bh_syn_dict['boreholes'] = boreholes
+            boreholes_synonyms_cleaner(bh_syn_dict, reg_pref, save_bh_syn, dist_max)
 
-    return data
+        new_dfs.append(data)
+    return new_dfs
 
 
-def bh_synonyms_cleaner(bh_syn_dict, save_bh_syn=True):
-    treated = []
-    for k in bh_syn_dict['synonyms'].keys():
-        syn_list = []
-        for v in bh_syn_dict['synonyms'].values():
-            if k in v and k not in treated:
-                syn_list = list(set(syn_list + v))
-                treated = treated + [x for x in syn_list]
+def boreholes_synonyms_cleaner(bh_syn_dict, reg_pref=None, save_bh_syn=True, dist_max=1.):
+    """
+    cleaner of a boreholes synonyms file given as a dict
+
+     Parameters
+    ------------
+    bh_syn_dict: dict
+        a a boreholes synonyms dictionary
+    reg_pref: str
+        regular expression used to choose a borehole name format. default is 'F|P'
+    save_bh_syn: bool
+        update and save the output dictionary as a python file (fixed name !).
+    dist_max:
+        maximum distance between 2 identical boreholes
+    """
+    if reg_pref is None:
+        reg_pref = 'F|P'
+
+    dplct_dict = {}
+    for k, syn_list in bh_syn_dict['synonyms'].items():
+        for s in syn_list:
+            found_in = []
+            for kd, v in bh_syn_dict['synonyms'].items():
+                if s in v:
+                    syn_list = sorted(list(set(syn_list + v)))
+                    found_in.append(kd)
+
+            if len(found_in) > 1:
+                if re.search(reg_pref, s) and found_in not in dplct_dict.values():
+                    dplct_dict.update({s: found_in})
 
         if syn_list:
             bh_syn_dict['synonyms'].update({k: syn_list})
 
+    old_keys = []
+    for key, val in dplct_dict.items():
+        if key in val:
+            val.remove(key)
+        took = 0
+        for k in val:
+            old_keys.append(k)
+            if took < 1:
+                bh_syn_dict['synonyms'][key] = bh_syn_dict['synonyms'].pop(k)
+            else:
+                del bh_syn_dict['synonyms'][k]
+            took += 1
+
+    # checking
+    no_del = []
+    for k in old_keys:
+        if k in bh_syn_dict['synonyms']:
+            no_del.append(k)
+            old_keys.remove(k)
+
+    print('dropped keys:', old_keys)
+    if no_del: print(no_del, 'not deleted')
+
     if save_bh_syn:
-        file = f'{ROOT_DIR}/utils/boreholes_synonyms.py'
+        file = f'{ROOT_DIR}/utils/boreholes_synonyms/bh_syn_distmax_{dist_max}.py'
         print(f'Updating and saving encountered boreholes dict in {file}')
 
         with open(f'{file}', 'w') as f:
@@ -1531,49 +1605,55 @@ def col_ren(df, row_num=None, mode=0, name=None, strip_regex=None, cutoff=0.65,
     return data
 
 
-def compute_borehole_length(df, mode='length', length_col=None, top_col='Litho_top',
+def compute_borehole_length(df, mode='length', id_col='ID', length_col=None, top_col='Litho_top',
                             base_col='Litho_base', reset_drop=True):
     """
 
     """
+    if length_col in df.columns:
+        raise (NameError(f'{length_col} is already in columns. Give another name'))
+
+    # number conversion
+    for i in df.index:
+        try:
+            top = float(str(df.loc[i, top_col]).replace(',','.'))
+            df.loc[i, top_col] = top
+        except ValueError:
+            df.loc[i, top_col] = np.nan
+        try:
+            base = float(str(df.loc[i, base_col]).replace(',','.'))
+            df.loc[i, base_col] = base
+        except ValueError:
+            df.loc[i, base_col] = np.nan
+
     df[top_col] = df[top_col].astype('float64')
     df[base_col] = df[base_col].astype('float64')
 
     # compute length or thickness based on litho_top and litho_base
     id_list = []
-
     if mode == 'length':
         if length_col is None:
             length_col = 'Long_for'
         for i in df.index:
-            try:
-                float(df.loc[i, top_col])
-            except ValueError:
-                df.loc[i, top_col] = np.nan
-            try:
-                float(df.loc[i, base_col])
-            except ValueError:
-                df.loc[i, base_col] = np.nan
-
-            id_ = df.loc[i, 'ID']
+            id_ = df.loc[i, id_col]
             if id_ not in id_list:
                 id_list.append(id_)
                 if isinstance(id_, str):
                     sql_id = f"{id_}"
                 elif isinstance(id_, float) or isinstance(id_, int):
                     sql_id = id_
-
-                tmp = df[df['ID'] == sql_id]
+                tmp = df[df[id_col] == sql_id]
                 df.loc[tmp.index, length_col] = max(tmp[base_col]) - min(tmp[top_col])
+
     elif mode == 'thickness':
         if length_col is None:
-            length_col = 'Ep_litho'
+            length_col = 'Litho_epais'
         df[length_col] = df[[top_col, base_col]].apply(lambda x: round(x[1]-x[0],3), axis=1)
     else:
         raise(ValueError("Only 'length' or 'thickness' are allowed!"))
 
     df.drop(index=df.query(f'{base_col}.isnull() and {top_col}.isnull()').index, inplace=True)
-    df.insert(df.columns.to_list().index('ID') + 1, length_col, df.pop(length_col))
+    df.insert(df.columns.to_list().index(id_col) + 4, length_col, df.pop(length_col))
     df.reset_index(drop=reset_drop, inplace=True)
 
 
