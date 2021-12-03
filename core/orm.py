@@ -88,7 +88,7 @@ class IntervalOrm(Base):
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
         return f"<{obj_class}>(Id={self.id}, top={self.top}, base={self.base}, " \
-               f"type={self.type}, Description={self.description}, " \
+               f"Description={self.description}, " \
                f"Components={self.components})"
 
 

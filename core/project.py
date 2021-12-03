@@ -1,4 +1,5 @@
 from core.orm import BoreholeOrm, ComponentOrm, LinkIntervalComponentOrm
+from sqlalchemy import select
 from utils.orm import create_bh3d_from_bhorm
 from vtk import vtkX3DExporter, vtkPolyDataMapper # NOQA
 from IPython.display import HTML
@@ -145,6 +146,48 @@ class Project:
         self.commit()
         self.refresh()
 
+    def find_next_id(self, orm_class):
+        """ Gets the next id for a given ORM_Class
+
+        Parameters
+        ----------
+        orm_class : class
+            A class from core.orm
+
+        Returns
+        -------
+        int
+            Next record id
+        """
+
+        stmt = select(orm_class.id).order_by(orm_class.id.desc())
+        last_id = self.session.execute(stmt).first()
+        if last_id is None:
+            last_id = -1
+        else:
+            last_id = last_id[0]
+        return last_id + 1
+
+    def get_component_id_from_description(self, description):
+        """ Gets the id of the (first) component corresponding to the given description
+
+         Parameters
+         ----------
+         description : str
+            A string that can be evaluated as a dictionary e.g. "{'lithology': 'sand'}"
+
+        Returns
+        -------
+        int
+            Id of the component
+        """
+
+        stmt = select(ComponentOrm.id).where(ComponentOrm.description == description)
+        result = self.session.execute(stmt).first()
+        if result is not None:
+            result = result[0]
+        return result
+
     def update_legend_cmap(self, repr_attribute_list=None, legend_dict=None, width=3,
                            compute_all_attrib=False, update_bh3d_legend=False,
                            update_project_legend=True, verbose=False):
@@ -167,7 +210,7 @@ class Project:
 
     def plot_3d(self, plotter=None, repr_attribute='lithology', repr_legend_dict=None,
                 labels_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"),
-                x3d=False, window_size=None, verbose=False):
+                x3d=False, window_size=None, verbose=False, **kwargs):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -200,7 +243,7 @@ class Project:
             bh.plot_3d(plotter=pl, repr_attribute=repr_attribute,
                        bg_color=bg_color,
                        repr_legend_dict=repr_legend_dict, repr_cmap=plot_cmap,
-                       repr_uniq_val=uniq_attr_val, custom_legend=custom_legend)
+                       repr_uniq_val=uniq_attr_val, custom_legend=custom_legend, **kwargs)
             name_pts.update({bh.name: bh._vtk.center[:2]+[bh.z_collar]})
             if verbose:
                 print(f'Borehole "{bh.name}" | attribute values -> {bh_val_un}')

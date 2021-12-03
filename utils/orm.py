@@ -64,6 +64,9 @@ def get_interval_list(bh_orm):
         interval_list.append(Interval(top=top, base=base, description=i.description,
                                       components=intv_comp_list))
         depth.append(i.base.middle)
+        print(f'depth: {depth}')
+        if len(depth) == 0:  # NOTE: to handle the case of a borehole without any interval
+            depth.append(0.)
     return interval_list, max(depth)
 
 
