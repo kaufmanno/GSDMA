@@ -927,7 +927,10 @@ def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1.,
         dfs = [dfs]
 
     dfs_dict = {}
+    dfs_id_chgd = {}
+    id_chgd = []
     dfs_skip = []
+    changed = False
     for n, df in enumerate(dfs):
         data = df.copy()
         data.insert(0, f'old_{id_col}', data[id_col])  # retrieve IDs before changing them
@@ -966,12 +969,15 @@ def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1.,
                 continue
             elif bh_id in boreholes.keys() and boreholes[bh_id] != bh_xy:
                 bh_id = bh_id + '_mod'
+                id_chgd.append(i)
                 data.loc[i, id_col] = bh_id
                 if not pd.isnull(bh_xy[0]):
                     boreholes.update({bh_id: bh_xy})
             else:
                 if not pd.isnull(bh_xy[0]):
                     boreholes.update({bh_id: bh_xy})
+        if id_chgd:
+            dfs_id_chgd.update({n: id_chgd})
 
         id_list = []
         skip_list = []
@@ -1052,6 +1058,10 @@ def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1.,
                     data.loc[i, id_col] = bh_id
                     break
         dfs_dict[n] = data
+
+    if dfs_id_chgd:
+        print("\nIndex of borehole's ID mofified in the dataframes :")
+        dict_viewer(dfs_id_chgd)
 
     return list(dfs_dict.values())
 
