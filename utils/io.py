@@ -292,7 +292,8 @@ def dataframe_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None, view
                     max(0, last_column - cols):last_column])
 
 
-def gen_id_from_ech(df, id_ech_col='ID_ech', id_col='ID', suffixes=None, prefixes=None, capture_regex=None, overwrite_id=True, verbose=False):
+def gen_id_from_ech(df, id_ech_col='ID_ech', id_col='ID', suffixes=None, prefixes=None, capture_regex=None,
+                    regex_skip=None, overwrite_id=True, verbose=False):
     """ Generate boreholes ID ('ID) from sample ID ('ID_ech'), by removing suffixes.
     """
 
@@ -326,6 +327,8 @@ def gen_id_from_ech(df, id_ech_col='ID_ech', id_col='ID', suffixes=None, prefixe
     for i in data.index:
         val = str(data.loc[i, id_ech_col])
         val_mod = re.sub(strp, '', val, flags=re.I)
+        if regex_skip is not None and re.search(regex_skip, val_mod, flags=re.I):
+            continue
         if capture and presuf and re.search(pref + capture_regex + suf, val_mod, flags=re.I):
             data.loc[i, id_copy] = re.search(capture_regex, val_mod, flags=re.I).group(1)
         elif capture and re.search(capture_regex, val_mod, re.I):
@@ -941,7 +944,7 @@ def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1.,
     changed = False
     loop = 1
     while loop <= n_iteration:
-        print(f"\n\033[0;40;42mITERATION N° {loop}\033[0;0;0m")
+        print(f"\n\033[0;40;42mITERATION N°{loop}\033[0;0;0m")
         for n, df in enumerate(dfs):
             data = df.copy()
             data.insert(0, f'old_{id_col}', data[id_col])  # retrieve IDs before changing them
@@ -1021,7 +1024,7 @@ def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1.,
 
                     if log_dict:
                         with open(f'{ROOT_DIR}/utils/boreholes_synonyms/log_match_{cm}_distmax_{fv}.log', 'w') as f:
-                            f.write(f"Ambiguous synonmys :\n-----------------------"
+                            f.write(f"Ambiguous synonyms :\n-----------------------"
                               f"\n{log_dict}")
                     same_list = c_same_list
 
@@ -1061,9 +1064,6 @@ def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1.,
                             for v in syn_val:
                                 if bh not in v:
                                     synonyms.update({bh_id: same})
-
-            if drop_old_id:
-                data = data.drop(columns=f'old_{id_col}').copy()
             else:
                 print('All boreholes are unique !')
 
@@ -1071,6 +1071,8 @@ def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1.,
             bh_syn_dict['boreholes'] = boreholes
             bh_syn_dict = boreholes_synonyms_cleaner(bh_syn_dict, reg_pref, save_bh_syn, fv, round_num, clean_dict)
 
+            if drop_old_id:
+                data = data.drop(columns=f'old_{id_col}').copy()
             data.insert(0, f'{id_col}', data.pop(id_col))
             dfs_dict[n] = data
         loop += 1
@@ -1104,8 +1106,8 @@ def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1.,
     return list(dfs_dict.values())
 
 
-def boreholes_synonyms_cleaner(bh_syn_dict, key_format=None, save_bh_syn=True, dist_max=1., round_num=5,
-                               return_clean=True):
+def boreholes_synonyms_cleaner(bh_syn_dict, key_format=None, save_bh_syn=True, dist_max=1.,
+                               round_num=None, return_clean=True):
     """
     cleaner of a boreholes synonyms file given as a dict
 
@@ -1127,7 +1129,6 @@ def boreholes_synonyms_cleaner(bh_syn_dict, key_format=None, save_bh_syn=True, d
     if key_format is None:
         key_format = '^[F|P|M]'
 
-    rc = round_num
     # clean boreholes
     old_keys = []
     no_del = []
@@ -1135,8 +1136,17 @@ def boreholes_synonyms_cleaner(bh_syn_dict, key_format=None, save_bh_syn=True, d
         if bh not in old_keys:
             no_del.append(bh)
         for k, v in bh_syn_dict['boreholes'].items():
+
             # same element
-            if bh != k and (round(pos[0],rc) == round(v[0],rc) and round(pos[1],rc) == round(v[1],rc)) :
+            if round_num is None:
+                p_digit = [len(str(pos[0]).split('.')[1]), len(str(pos[1]).split('.')[1])]
+                v_digit = [len(str(v[0]).split('.')[1]), len(str(v[1]).split('.')[1])]
+                rn = [min(p_digit[0], v_digit[0]), min(p_digit[1], v_digit[1])]
+            else:
+                rn = [round_num, round_num]
+
+            if bh != k and (round(pos[0], rn[0]) == round(v[0], rn[0]) and
+                            round(pos[1], rn[1]) == round(v[1], rn[1])) :
                 if k not in old_keys and k in no_del: continue
                 old_keys.append(k)
     for k in old_keys:
@@ -1235,6 +1245,152 @@ def boreholes_synonyms_cleaner(bh_syn_dict, key_format=None, save_bh_syn=True, d
         return bh_syn_dict
 
 
+def remove_duplicates(df, id_col, round_n=3, max_loop=3, display=True, skip_conflict=False):
+    """
+
+    :param df:
+    :param id_col:
+    :param round_n:
+    :param max_loop:
+    :param display:
+    :param skip_conflict: bool
+        if True, skip all conflictual values and just copy a value when the line to keep is NaN
+    :return:
+    """
+    data = df.copy()
+    data['line_drop'] = True
+    data['solved'] = True
+    cols = data.columns
+    loop = True
+    n_loop = 1
+    while loop and n_loop < max_loop:
+        id_list = []
+        conflict_dict = {}
+        x = 0
+        for i in data.index:
+            bh_id = data.loc[i, id_col]
+            if bh_id in id_list:
+                continue
+            else:
+                id_list.append(bh_id)  # list of ID already treated
+            tmp = data[data[id_col] == f"{bh_id}"]
+            f_idx = tmp.index[0]
+
+            for c in range(len(cols)):
+                if cols[c] in [id_col, 'line_drop', 'solved', 'old_ID']: continue
+
+                data.loc[f_idx, 'line_drop'] = False
+                val_f = data.iloc[f_idx, c]
+                for j in tmp.index[1:]:  # compare to other occurrences
+                    val_n = data.iloc[j, c]
+                    if not pd.isnull(val_f) and skip_conflict:
+                        break
+                    elif pd.isnull(val_f):
+                        data.iloc[f_idx, c] = val_n
+                    elif not pd.isnull(val_f) and not pd.isnull(val_n):
+                        add_conflict = False
+                        if val_f == val_n:
+                            continue
+                        elif (isinstance(val_f, str) and isinstance(val_n, str)) and (val_f.lower() == val_n.lower()):
+                            continue
+                        elif (isinstance(val_f, str) and isinstance(val_n, str)) and (val_f.lower() != val_n.lower()):
+                            add_conflict = True
+                            data.loc[j, 'solved'] = False
+                        else:
+                            try:
+                                val_f = float(val_f)
+                                f_digit = len(str(val_f).split('.')[1])
+                            except ValueError:
+                                continue
+                            try:
+                                val_n = float(val_n)
+                                n_digit = len(str(val_n).split('.')[1])
+                            except ValueError:
+                                continue
+
+                            digit = min(f_digit, n_digit)
+                            if digit > round_n:
+                                digit = round_n
+                            elif f_digit == n_digit:
+                                digit = f_digit - 1
+                            if round(val_f, digit) == round(val_n, digit):
+                                data.iloc[f_idx, c] = round(val_n, digit)
+                            else:
+                                add_conflict = True
+                                data.loc[j, 'solved'] = False
+
+                        if add_conflict:
+                            conflict_dict.update({x: {cols[c]: [(f_idx, val_f), (j, val_n)]}})
+                            x += 1
+
+        n_loop += 1
+        found_x = False
+        if conflict_dict:
+            for k, val in conflict_dict.items():
+                for c, v in val.items():
+                    if c == 'X':
+                        found_x = True
+                        idx = v[1][0]
+                        data.loc[idx, 'ID'] = data.loc[idx, 'ID'] + '-modif'
+
+        if not found_x and n_loop > 2:
+            break
+        elif found_x:
+            n_loop = 2
+
+
+    if conflict_dict:
+        print(len(conflict_dict), 'conflictual values found !')
+        if display: dict_viewer(conflict_dict)
+
+    return data, conflict_dict
+
+
+def remove_duplicates_validator(data, conflict_dict, valid_dict, display=True):
+    """ valid_dict:{side_to_validate: index}. e.g: {'right':[1,5,6]}
+    """
+
+    if not 'solved' in data.columns and not 'line_drop' in data.columns:
+        raise('data must be a dataframe derived from the function "remove_duplicates()" !')
+
+    drop_keys = []
+    for v_side in valid_dict.keys():
+        if v_side == 'right':
+            side = 1
+        elif v_side == 'left':
+            side = 0
+        else:
+            raise (ValueError('Choose the side to validate ("right" or "left") !'))
+
+        for v_idx in valid_dict[v_side]:
+            drop_keys.append(v_idx)
+            col = list(conflict_dict[v_idx].keys())[0]
+            f_idx = list(conflict_dict[v_idx].values())[0][0][0]
+            n_idx = list(conflict_dict[v_idx].values())[0][1][0]
+            val = list(conflict_dict[v_idx].values())[0][side][1]
+
+            data.loc[f_idx, col] = val
+            data.loc[f_idx, 'solved'] = True
+            data.loc[n_idx, 'solved'] = True
+
+    for k in drop_keys:
+        del conflict_dict[k]
+
+    data.drop(index=data.query('line_drop==True and solved==True').index, inplace=True)
+    if len(conflict_dict)==0:
+        print('All conflicts have been solved')
+        data.drop(columns=['line_drop', 'solved'], inplace=True)
+        data.reset_index(drop=True, inplace=True)
+    else:
+        print('Check for remaining conflicts !')
+
+    if conflict_dict:
+        print(len(conflict_dict), 'conflictual values found !')
+        if display: dict_viewer(conflict_dict)
+
+    return data, conflict_dict
+
+
 def na_col_drop(df, col_non_na=10, drop=True, verbose=False):
     """
     Delete columns in the dataframe where the count of non-NaN values is lower than col_non_na
@@ -1253,6 +1409,118 @@ def na_col_drop(df, col_non_na=10, drop=True, verbose=False):
         data.drop(drop_cols, axis=1, inplace=True)
 
     return data
+
+
+def find_bh_synonyms(data, regex_skip=None, dist_max=0.5, display=True, save_syn=True, verbose=False):
+    """"""
+
+    for i in data.index[:-1]:
+        syn_list = []
+        id_i = data.loc[i, 'ID']
+        if regex_skip is not None and re.search(regex_skip, id_i, re.I):
+            continue
+        for j in data.index:
+            id_j = data.loc[j, 'ID']
+            if regex_skip is not None and re.search(regex_skip, id_j, re.I):
+                continue
+            if not pd.isnull(data.loc[i, 'X']) and not pd.isnull(data.loc[j, 'X']):
+                x_i, y_i = data.loc[i, 'X'], data.loc[i, 'Y']
+                x_j, y_j = data.loc[j, 'X'], data.loc[j, 'Y']
+                dist = (x_i - x_j) ** 2 + (y_i - y_j) ** 2
+                if dist <= dist_max ** 2:
+                    syn_list.append(id_j)
+        syn_list = sorted(syn_list)
+        if len(syn_list) > 1:
+            data.loc[i, 'synonyms'] = str(syn_list)
+        else:
+            data.loc[i, 'synonyms'] = np.nan
+
+    treated = []
+    syn_dict = {}
+    n = 0
+    for i in data.index:
+        bh_id = data.loc[i, 'ID']
+        syn = data.loc[i, 'synonyms']
+        if not pd.isnull(syn):
+            syn = eval(syn)
+            if bh_id not in treated:
+                treated = list(set(treated + syn))
+                idx = list(data[data['synonyms'] == f"{syn}"].index)
+                syn_dict.update({n: {str(syn): idx}})
+                n += 1
+
+    data.drop(columns='synonyms', inplace=True)
+
+    if display:
+        print(len(syn_dict), 'possible synonyms found !')
+        dict_viewer(syn_dict)
+
+    if save_syn:
+        file = f'{ROOT_DIR}/utils/boreholes_synonyms/synonyms_distmax_{dist_max}.log'
+        if verbose: print(f'Updating and saving synonyms in "{file.lstrip(ROOT_DIR+"/")}"')
+
+        with open(f'{file}', 'a') as f:
+            f.write(f'BOREHOLES_SYNONYMS_DISTMAX = {dist_max}\n-----------------------------------\n')
+            for v in syn_dict.values():
+                k = list(v.keys())[0]
+                f.write(f"{k}, ")
+            f.write('\n\n ================================================================\n\n')
+
+    return syn_dict
+
+
+def choose_bh_synonym(dataf, syn_dict=None, choice_dict=None, regex_choice=None, auto_search=False, n_loop=1, **kwargs):
+    """"""
+    data = dataf.copy()
+    drop = []
+    regex_skip = kwargs.pop('regex_skip', None)
+    dist_max = kwargs.pop('dist_max', 0.2)
+    display = kwargs.pop('display', False)
+    verb = kwargs.pop('verbose', False)
+
+    if syn_dict is None:
+        syn_dict = find_bh_synonyms(data, regex_skip=regex_skip, dist_max=dist_max, display=display, verbose=verb)
+
+    if regex_choice is not None:
+        loop = 0
+        while loop < n_loop:
+            choice_lev = regex_choice.split('|')
+            lev = len(choice_lev)
+            for r, val in syn_dict.items():
+                for syn, idx in val.items():
+                    n = 0
+                    while n < lev:  # find an ID matching with regex_choice option
+                        ch = [x for x in eval(syn) if re.search(choice_lev[n], x, re.I)]
+                        if ch: break
+                        n += 1
+                    if len(ch) >= 1:
+                        data.loc[idx, 'ID'] = ch[0]
+                        drop.append(r)
+            if auto_search:
+                syn_dict = find_bh_synonyms(data, regex_skip=regex_skip, dist_max=dist_max, display=False, verbose=verb)
+
+            loop += 1
+
+    if choice_dict:
+        for r, val in syn_dict.items():
+            for syn, idx in val.items():
+                if r in choice_dict.keys():
+                    if choice_dict[r] in eval(syn):
+                        data.loc[idx, 'ID'] = choice_dict[r]
+                        drop.append(r)
+                    else:
+                        print(f"Cannot find the choice ('{choice_dict[r]}') in synonyms, skipped !")
+
+    drop = list(set(drop))
+    for k in drop:
+        del syn_dict[k]
+
+    if not syn_dict:
+        print('All synonyms have been attributed !')
+    else:
+        print('It remains some synonyms to attribute. Check synonyms dict !')
+
+    return data.sort_values('ID'), syn_dict
 
 
 def collect_time_data(df, regex=None, sort_values_by='Date_mes'):
@@ -1556,6 +1824,50 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
     print(f"Rows : {data.shape[0]} ; Columns : {data.shape[1]} ; Unique on '{id_col}' : {len(set(data[id_col]))} ; ")
 
     return data, check_data
+
+
+def value_replication(data, crit_cols=['ID', 'X', 'Y'], pass_cols=None, copy_cols=None):
+    """"""
+    df = data.copy()
+
+    if pass_cols is None:
+        pass_cols = crit_cols
+    else:
+        pass_cols = crit_cols + pass_cols
+
+    treated = []
+    for i in df.index:
+        if i in treated:
+            continue
+        cv = list(df.loc[i, crit_cols])
+        crit_vals = {c: cv[n] for n, c in enumerate(crit_cols)}
+
+        q = ''
+        for k, v in crit_vals.items():
+            if k == list(crit_vals.keys())[-1]:
+                suf = ''
+            else:
+                suf = " and "
+            if isinstance(v, float) or isinstance(v, int):
+                t = f'{k}=={v}{suf} '
+            else:
+                t = f'{k}=="{v}"{suf} '
+            q += t
+
+        if re.search('=nan', q, re.I): continue
+        tmp = df.query(q)
+        treated = list(set(treated + list(tmp.index)))
+        for c in df.columns:
+            found_val = False
+            if c in pass_cols or c not in copy_cols:
+                continue
+            for j in tmp.index:
+                if not pd.isnull(df.loc[j, c]) and not found_val:
+                    keep_val = df.loc[j, c]
+                    found_val = True
+                if found_val:
+                    df.loc[tmp.index, c] = keep_val
+    return df
 
 
 def na_line_drop(df, col_n=3, line_non_na=0, drop_by_position=False,
