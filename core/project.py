@@ -11,6 +11,7 @@ import pyvista as pv
 import folium as fm
 from folium import plugins
 import geopandas as gpd
+from copy import deepcopy
 
 
 class Project:
@@ -58,7 +59,7 @@ class Project:
         if lexicon is None:
             lexicon = DEFAULT_LITHO_LEXICON
 
-        self.legend_dict = legend_dict
+        self.legend_dict = deepcopy(legend_dict)
         self.lexicon = lexicon
         self.refresh(update_3d=True)
 

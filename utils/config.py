@@ -1,6 +1,6 @@
 from striplog import Lexicon, Legend
 import numpy as np
-from utils.lexicon_memoris import LEX_LITHO_MEMORIS, LEX_POL_MEMORIS, LEG_LITHO_MEMORIS
+from utils.lexicon_memoris import LEX_LITHO_MEMORIS, LEX_POL_MEMORIS, LEG_LITHO_MEMORIS, LEG_BOREHOLE
 
 # DEFAULT PROPERTIES VALUES
 DEFAULT_BOREHOLE_LENGTH = 0.1
@@ -13,6 +13,7 @@ SAMP_TYPE_KW = ['soil', 'water', 'sol', 'eau', 'inconnu']
 
 DEFAULT_LITHO_LEXICON = Lexicon(LEX_LITHO_MEMORIS)  # or Lexicon.default()
 DEFAULT_LITHO_LEGEND = Legend.from_csv(text=LEG_LITHO_MEMORIS)
+DEFAULT_BOREHOLE_LEGEND = Legend.from_csv(text=LEG_BOREHOLE)
 DEFAULT_POL_LEXICON = Lexicon(LEX_POL_MEMORIS)
 
 # TEXT COLOR PROPERTIES : "\033[text_style; text_color; text_background_color m"

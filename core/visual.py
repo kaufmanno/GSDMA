@@ -358,6 +358,7 @@ class Borehole3D(Striplog):
         plot_from_striplog(self, legend=plot_legend, match_only=[repr_attribute],
                            ax=ax[0], ticks=ticks, aspect=aspect, verbose=verbose)
         ax[1].set_title('Legend', size=text_size, color='r')
+        print(f'plot_legend: {plot_legend}')
         plot_legend.plot(ax=ax[1])
 
     def plot_3d(self, plotter=None, repr_legend_dict=None, repr_attribute='lithology',

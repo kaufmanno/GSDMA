@@ -33,41 +33,52 @@ def create_bh3d_from_bhorm(bh_orm, legend_dict=None, verbose=False):
     return bh_3d
 
 
-def get_interval_list(bh_orm):
+from striplog import Position, Component, Interval
+
+
+def interval_orm_to_interval(intv_orm):
+    top = Position(upper=intv_orm.top.upper, middle=intv_orm.top.middle, lower=intv_orm.top.lower,
+                   x=intv_orm.top.x, y=intv_orm.top.y)
+    base = Position(upper=intv_orm.base.upper, middle=intv_orm.base.middle, lower=intv_orm.base.lower,
+                    x=intv_orm.top.x, y=intv_orm.top.y)
+
+    intv_comp_list = []
+    for c in intv_orm.description.split('; '):
+        intv_comp_list.append(Component(eval(c)))
+
+    intv = Interval(top=top, base=base, description=intv_orm.description, components=intv_comp_list)
+    return intv
+
+
+def get_interval_list(bh_orm, attribute=None):
     """create a list of interval from a boreholeORM object
-    
+
     Parameters
     -------------
     bh_orm: boreholeOrm object
-
+        A BoreholeOrm object from which intervals matching the attribute will be listed
+    attribute: str
+        The attribute of components to search in components associated with the borehole intervals
     Returns
     ---------
-    interval_dict: dict
-        dictionary of Interval objects for each type of interval (lithology or sample)
-    depth_dict: dict
-        dictionary of borehole's maximum depth for each type of interval (lithology or sample)
-                   
+    interval_list: list
+        List of Interval objects for each type of interval
+    max_depth: float
+        Borehole's maximum depth for all intervals
+
     """
 
-    interval_list, depth = [], []
-    for i in bh_orm.intervals.values():
-        top = Position(upper=i.top.upper, middle=i.top.middle, lower=i.top.lower,
-                       x=i.top.x, y=i.top.y)
-        base = Position(upper=i.base.upper, middle=i.base.middle, lower=i.base.lower,
-                        x=i.top.x, y=i.top.y)
-
-        intv_comp_list = []
-        for c in i.description.split('; '):
-            print('description', i)
-            intv_comp_list.append(Component(eval(c)))
-
-        interval_list.append(Interval(top=top, base=base, description=i.description,
-                                      components=intv_comp_list))
-        depth.append(i.base.middle)
-        print(f'depth: {depth}')
-        if len(depth) == 0:  # NOTE: to handle the case of a borehole without any interval
-            depth.append(0.)
-    return interval_list, max(depth)
+    max_depth = None
+    interval_list = []
+    for int_id, intv_orm in bh_orm.intervals.items():
+        for c in intv_orm.components:
+            interval_attributes = [i for i in eval(c.description).values()]
+            if (attribute in interval_attributes) or (attribute is None):
+                interval_list.append(interval_orm_to_interval(intv_orm))
+            if 'borehole_type' in interval_attributes:
+                max_depth = intv_orm.base.middle
+    assert max_depth is not None
+    return interval_list, max_depth
 
 
 def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='ID',
