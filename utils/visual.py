@@ -122,6 +122,7 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
                 j = find_component_from_attrib(intv, attr, verbose=verbose)
                 if j == -1:  # add default component if none found
                     intv.components.append(Component({attr: DEFAULT_ATTRIB_VALUE}))
+                    # pass
 
                 if intv.components[j][attr] not in WORDS_WITH_S:
                     comp_v = intv.components[j][attr].rstrip('s')  # remove ending 's'
@@ -223,7 +224,7 @@ def get_components(strip):
 
 
 def find_component_from_attrib(intv, attrib, verbose=False):
-    """retrieve component index in the components list of an interval, according to the defined attribute
+    """retrieve the first component index in the components list of an interval, according to the defined attribute
 
     Parameters
     -------------

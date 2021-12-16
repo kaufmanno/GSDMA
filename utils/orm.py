@@ -36,15 +36,17 @@ def create_bh3d_from_bhorm(bh_orm, legend_dict=None, verbose=False):
 from striplog import Position, Component, Interval
 
 
+def component_orm_to_component(comp_orm):
+    return Component(eval(comp_orm.description))
+
+
 def interval_orm_to_interval(intv_orm):
     top = Position(upper=intv_orm.top.upper, middle=intv_orm.top.middle, lower=intv_orm.top.lower,
                    x=intv_orm.top.x, y=intv_orm.top.y)
     base = Position(upper=intv_orm.base.upper, middle=intv_orm.base.middle, lower=intv_orm.base.lower,
                     x=intv_orm.top.x, y=intv_orm.top.y)
 
-    intv_comp_list = []
-    for c in intv_orm.description.split('; '):
-        intv_comp_list.append(Component(eval(c)))
+    intv_comp_list = [component_orm_to_component(c_orm) for c_orm in intv_orm.components]
 
     intv = Interval(top=top, base=base, description=intv_orm.description, components=intv_comp_list)
     return intv
@@ -72,7 +74,7 @@ def get_interval_list(bh_orm, attribute=None):
     interval_list = []
     for int_id, intv_orm in bh_orm.intervals.items():
         for c in intv_orm.components:
-            interval_attributes = [i for i in eval(c.description).values()]
+            interval_attributes = [i for i in eval(c.description).keys()]
             if (attribute in interval_attributes) or (attribute is None):
                 interval_list.append(interval_orm_to_interval(intv_orm))
             if 'borehole_type' in interval_attributes:

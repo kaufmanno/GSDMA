@@ -241,10 +241,10 @@ class Project:
 
         for bh in self.boreholes_3d:
             bh_val_un = bh.legend_dict[repr_attribute]['values']
-            bh.plot_3d(plotter=pl, repr_attribute=repr_attribute,
-                       bg_color=bg_color,
-                       repr_legend_dict=repr_legend_dict, repr_cmap=plot_cmap,
-                       repr_uniq_val=uniq_attr_val, custom_legend=custom_legend, **kwargs)
+            bh.plot3d(plotter=pl, repr_attribute=repr_attribute,
+                      bg_color=bg_color,
+                      repr_legend_dict=repr_legend_dict, repr_cmap=plot_cmap,
+                      repr_uniq_val=uniq_attr_val, custom_legend=custom_legend, **kwargs)
             name_pts.update({bh.name: bh._vtk.center[:2]+[bh.z_collar]})
             if verbose:
                 print(f'Borehole "{bh.name}" | attribute values -> {bh_val_un}')

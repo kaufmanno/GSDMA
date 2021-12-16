@@ -181,23 +181,20 @@ class Borehole3D(Striplog):
 
         Returns
         --------
-        array of indices
+        numpy.array
+            array of indices
         """
-
-        verb = False
-        if verbose:
-            verb = 'get_comp'
 
         if repr_attribute is None:
             repr_attribute = self.repr_attribute
         if intervals is None:
             intervals = self.intervals
 
-        if verbose and verb in verbose:
+        if verbose:
             print(f'\n~~~~~~~~~~~~~~~~~~ {repr_attribute} ~~~~~~~~~~~~~~~~~~~~~~')
         components = []
         for i in intervals:
-            j = find_component_from_attrib(i, repr_attribute, verbose=verb)
+            j = find_component_from_attrib(i, repr_attribute, verbose=verbose)
             if j == -1:  # add default component if none
                 # print(f'\n//// {j}, {components}, {i.components}\n')
                 components.append(Component({repr_attribute: DEFAULT_ATTRIB_VALUE}))
@@ -208,16 +205,15 @@ class Borehole3D(Striplog):
         indices = []
         incr = 0
         for i in intervals:
-            j = find_component_from_attrib(i, repr_attribute, verbose=verb)
+            j = find_component_from_attrib(i, repr_attribute, verbose=verbose)
             indices.append(comp_list.index(i.components[j][repr_attribute]))
 
-            if verbose and verb in verbose:
+            if verbose:
                 print(
                     f'get_comp | uniq_comp_list: {comp_list}, n_intv:{incr}, ind_val: {j}, comp: {i.components[j][repr_attribute]}')
-
             incr += 1
 
-        if verbose and verb in verbose:
+        if verbose:
             print(f'\nget_comp | comp_indices: {np.array(indices)}')
         return np.array(indices)
 
@@ -358,14 +354,13 @@ class Borehole3D(Striplog):
         plot_from_striplog(self, legend=plot_legend, match_only=[repr_attribute],
                            ax=ax[0], ticks=ticks, aspect=aspect, verbose=verbose)
         ax[1].set_title('Legend', size=text_size, color='r')
-        print(f'plot_legend: {plot_legend}')
         plot_legend.plot(ax=ax[1])
 
-    def plot_3d(self, plotter=None, repr_legend_dict=None, repr_attribute='lithology',
-                repr_cmap=None, repr_uniq_val=None, x3d=False, diam=None,
-                bg_color=["royalblue", "aliceblue"], update_vtk=False,
-                update_cmap=False, custom_legend=False, str_annotations=True,
-                scalar_bar_args=None, verbose=False):
+    def plot3d(self, plotter=None, repr_legend_dict=None, repr_attribute='lithology',
+               repr_cmap=None, repr_uniq_val=None, x3d=False, diam=None,
+               bg_color=["royalblue", "aliceblue"], update_vtk=False,
+               update_cmap=False, custom_legend=False, str_annotations=True,
+               scalar_bar_args=None, verbose=False):
         """
         Returns an interactive 3D representation of all boreholes in the project
 
