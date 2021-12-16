@@ -147,6 +147,13 @@ class Project:
         self.commit()
         self.refresh()
 
+    def find_component_id(self, description):
+        stmt = select(ComponentOrm.id).where(ComponentOrm.description == description).order_by(ComponentOrm.id.desc())
+        reply = self.session.execute(stmt).first()
+        if reply is not None:
+            reply = reply[0]
+        return reply
+
     def find_next_id(self, orm_class):
         """ Gets the next id for a given ORM_Class
 
