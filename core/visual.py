@@ -301,9 +301,6 @@ class Borehole3D(Striplog):
         """
         Plot a 2D log for the attribute
         """
-        verb = False
-        if verbose:
-            verb = 'plot2d'
 
         if ticks is None:
             ticks = (self.length/len(self.intervals), self.length)
@@ -316,7 +313,7 @@ class Borehole3D(Striplog):
         attrib_values = []  # list of lithologies in the borehole
 
         for i in self.intervals:
-            j = find_component_from_attrib(i, repr_attribute, verbose=verb)
+            j = find_component_from_attrib(i, repr_attribute, verbose=verbose)
             intv_value = i.components[j][repr_attribute]
 
             if isinstance(intv_value, str):
@@ -392,11 +389,6 @@ class Borehole3D(Striplog):
         elif diam is None and self.diameter != 0:
             diam = self.diameter
 
-        # *** TESTING ***
-        #self.repr_attribute = repr_attribute
-        #self._geometry()
-        #update_vtk = True
-        # *** TESTING ***
         if update_vtk or diam is not None:
             seg = self.vtk(radius=diam / 2)
         else:

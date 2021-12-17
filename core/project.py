@@ -1,4 +1,4 @@
-from core.orm import BoreholeOrm, ComponentOrm, LinkIntervalComponentOrm
+from core.orm import BoreholeOrm, ComponentOrm, IntervalOrm, PositionOrm, LinkIntervalComponentOrm
 from sqlalchemy import select
 from utils.orm import create_bh3d_from_bhorm
 from vtk import vtkX3DExporter, vtkPolyDataMapper # NOQA
@@ -207,6 +207,48 @@ class Project:
             result = result[0]
         return result
 
+    def insert_borehole(self, bh_dict, verbose=False):
+        bh_orm = BoreholeOrm(id=bh_dict['id'], date=bh_dict.pop('date', None), length=bh_dict.pop('length', None),
+                             diameter=bh_dict.pop('diameter', None))
+        intv_id = self.find_next_id(IntervalOrm)
+        bh_orm.intervals_values.update({intv_id: {'description': f"{bh_dict['borehole_type']} {bh_dict['id']}",
+                                                  'interval_number': 0,
+                                                  'top': PositionOrm(**bh_dict['top']),
+                                                  'base': PositionOrm(**bh_dict['base'])}})
+
+        description = "{'borehole_type': '" + bh_dict['borehole_type'] + "'}"
+        component_id = self.get_component_id_from_description(description)
+        if component_id is None:
+            component_id = self.find_next_id(ComponentOrm)
+            bh_component = ComponentOrm(id=component_id, description=description)
+            self.session.add(bh_component)
+
+        link_dict = {(intv_id, component_id): {'extra_data': 'None'}}
+        if verbose:
+            print(f'interval : {intv_id}, component: {component_id}')
+        self.add_link_components_intervals(link_dict, commit=False)
+        # self.commit()
+        self.add_borehole(bh_orm, verbose)
+
+    def insert_interval_in_borehole(self, intv_dict, verbose=False):
+        intv_id = self.find_next_id(IntervalOrm)
+        self.boreholes_orm[intv_dict['bh_id']].intervals_values.update({
+            intv_id: {'description': intv_dict['description'],
+                      'interval_number': intv_dict['interval_number'],
+                      'top': PositionOrm(**intv_dict['top']),
+                      'base': PositionOrm(**intv_dict['base'])}})
+        link_dict = {}
+        for descr_comp in intv_dict['components']:
+            component_id = self.get_component_id_from_description(descr_comp)
+            if component_id is None:
+                component_id = self.find_next_id(ComponentOrm)
+                new_component = ComponentOrm(id=component_id, description=descr_comp)
+                self.session.add(new_component)
+            link_dict.update({(intv_id, component_id): {'extra_data': intv_dict['extra_data']}})
+            if verbose:
+                print(f'adding interval : {intv_id}, component: {component_id}')
+        self.add_link_components_intervals(link_dict)
+    
     def plot3d(self, plotter=None, repr_attribute='borehole_type', repr_legend_dict=None,
                labels_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"),
                x3d=False, window_size=None, verbose=False, **kwargs):
