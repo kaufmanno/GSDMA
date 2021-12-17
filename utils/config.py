@@ -1,19 +1,20 @@
 from striplog import Lexicon, Legend
 import numpy as np
-from utils.lexicon_memoris import LEX_LITHO_MEMORIS, LEX_POL_MEMORIS, LEG_LITHO_MEMORIS, LEG_BOREHOLE
+from utils.lexicon_memoris import LEX_LITHO_MEMORIS, LEX_POL_MEMORIS, LEG_LITHO_MEMORIS, LEG_BOREHOLE, LEX_BOREHOLE_MEMORIS
 
 # DEFAULT PROPERTIES VALUES
 DEFAULT_BOREHOLE_LENGTH = 0.1
 DEFAULT_BOREHOLE_DIAMETER = 0.1
 DEFAULT_Z = 102.0
-DEFAULT_ATTRIB_VALUE = 'Inconnu'
-NOT_EXIST = 'not_exist'
+# DEFAULT_ATTRIB_VALUE = 'Inconnu'
+NOT_EXIST = 'inconnu'
 WORDS_WITH_S = ['Gneiss', 'Silex', 'VS', 'vs']
 SAMP_TYPE_KW = ['soil', 'water', 'sol', 'eau', 'inconnu']
 
 DEFAULT_LITHO_LEXICON = Lexicon(LEX_LITHO_MEMORIS)  # or Lexicon.default()
 DEFAULT_LITHO_LEGEND = Legend.from_csv(text=LEG_LITHO_MEMORIS)
 DEFAULT_BOREHOLE_LEGEND = Legend.from_csv(text=LEG_BOREHOLE)
+DEFAULT_BOREHOLE_LEXICON = Lexicon(LEX_BOREHOLE_MEMORIS)
 DEFAULT_POL_LEXICON = Lexicon(LEX_POL_MEMORIS)
 
 # TEXT COLOR PROPERTIES : "\033[text_style; text_color; text_background_color m"

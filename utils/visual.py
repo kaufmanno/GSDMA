@@ -10,7 +10,7 @@ from striplog import Legend, Component
 import numpy as np
 from striplog.utils import hex_to_rgb
 import core.visual as cv
-from utils.config import DEFAULT_ATTRIB_VALUE, WORDS_WITH_S, DEFAULT_POL_LEXICON, NOT_EXIST
+from utils.config import WORDS_WITH_S, DEFAULT_POL_LEXICON, NOT_EXIST
 from utils.lexicon_memoris import LEG_CONTAMINATION_LEV
 
 
@@ -121,36 +121,37 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
             for intv in bh3d.intervals:
                 j = find_component_from_attrib(intv, attr, verbose=verbose)
                 if j == -1:  # add default component if none found
-                    intv.components.append(Component({attr: DEFAULT_ATTRIB_VALUE}))
-                    # pass
-
-                if intv.components[j][attr] not in WORDS_WITH_S:
-                    comp_v = intv.components[j][attr].rstrip('s')  # remove ending 's'
-                    intv.components[j] = Component({attr: comp_v})  # overwrite component
-
-                if intv.components[j][attr] not in bh3d_uniq_attrib_val:
-                    bh3d_uniq_attrib_val.append(intv.components[j][attr])
-                if intv.components[j][attr] not in global_uniq_attrib_val:
-                    global_uniq_attrib_val.append(intv.components[j][attr])
+                    # intv.components.append(Component({attr: DEFAULT_ATTRIB_VALUE}))
+                    pass
+                if intv.components[j][attr] is not None:
+                    if intv.components[j][attr] not in WORDS_WITH_S:
+                        comp_v = intv.components[j][attr].rstrip('s')  # remove ending 's'
+                        intv.components[j] = Component({attr: comp_v})  # overwrite component
+                    if intv.components[j][attr] not in bh3d_uniq_attrib_val:
+                        bh3d_uniq_attrib_val.append(intv.components[j][attr])
+                    if intv.components[j][attr] not in global_uniq_attrib_val:
+                        global_uniq_attrib_val.append(intv.components[j][attr])
             if verbose:
                 print(f'\nBLCMap - unique/bh3d: {bh3d_uniq_attrib_val}, unique_proj: {global_uniq_attrib_val}')
 
             decors = {}  # dict of decors for building each attribute legend/cmap
-            for i in range((len(legend_copy))):
-                leg_value = legend_copy[i].component[attr]
-                reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
-                reg_value = list(filter(reg.match, bh3d_uniq_attrib_val))  # value that matches
+            if len(bh3d_uniq_attrib_val)>0:
+                for i in range((len(legend_copy))):
+                    leg_value = legend_copy[i].component[attr]
+                    reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
+                    reg_value = list(filter(reg.match, bh3d_uniq_attrib_val))  # value that matches
 
-                if len(reg_value) > 0:
-                    # force matching to plot
-                    legend_copy[i].component = Component({attr: reg_value[0]})
-                    legend_copy[i].width = width
-                    # use interval order to obtain correct plot legend order
-                    if bh3d_uniq_attrib_val.index(reg_value[0]) not in decors.keys():
-                        decors.update({bh3d_uniq_attrib_val.index(reg_value[0]): legend_copy[i]})
-                    # add decors to build synthetic legend with all boreholes attributes values
-                    if global_uniq_attrib_val.index(reg_value[0]) not in synth_decors.keys():
-                        synth_decors.update({global_uniq_attrib_val.index(reg_value[0]): legend_copy[i]})
+                    if len(reg_value) > 0:
+                        # force matching to plot
+                        legend_copy[i].component = Component({attr: reg_value[0]})
+                        legend_copy[i].width = width
+                        # use interval order to obtain correct plot legend order
+                        if bh3d_uniq_attrib_val.index(reg_value[0]) not in decors.keys():
+                            decors.update({bh3d_uniq_attrib_val.index(reg_value[0]): legend_copy[i]})
+                        # add decors to build synthetic legend with all boreholes attributes values
+                        if global_uniq_attrib_val.index(reg_value[0]) not in synth_decors.keys():
+                            synth_decors.update({global_uniq_attrib_val.index(reg_value[0]): legend_copy[i]})
+
             if verbose:
                 print('\nBLCMap | Decors:', decors)
             _legend = Legend([decors[k] for k in sorted(decors.keys())])

@@ -10,30 +10,30 @@ from utils.utils import striplog_from_dataframe
 from utils.visual import get_components
 
 
-def create_bh3d_from_bhorm(bh_orm, legend_dict=None, verbose=False):
+def create_bh3d_from_bhorm(bh_orm, legend_dict=None, attribute=None, verbose=False):
     """
     Create a Borehole3D object from a BoreholeOrm object
 
     parameters
     ------------
-    bh_orm: BoreholeOrm object
-    legend_dict: dict of legend per attribute
-    verbose: bool
+    bh_orm : BoreholeOrm object
+
+    legend_dict : dict of legend per attribute
+
+    verbose : bool
 
     returns
     --------
-    bh_3d : Borehole3D object
+    Borehole3D
+        a Borehole3D object
     """
-    intervals, length = get_interval_list(bh_orm)
+    intervals, length = get_interval_list(bh_orm, attribute=attribute)
 
-    bh_3d = Borehole3D(name=bh_orm.id, date=bh_orm.date, diam=bh_orm.diameter,
+    bh_3d = Borehole3D(name=bh_orm.id, date=bh_orm.date, diam=bh_orm.diameter, repr_attribute=attribute,
                        length=length, legend_dict=legend_dict, intervals=intervals)
     if verbose:
         print(bh_orm.id, " added")
     return bh_3d
-
-
-from striplog import Position, Component, Interval
 
 
 def component_orm_to_component(comp_orm):

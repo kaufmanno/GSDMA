@@ -3,9 +3,8 @@ from sqlalchemy import select
 from utils.orm import create_bh3d_from_bhorm
 from vtk import vtkX3DExporter, vtkPolyDataMapper # NOQA
 from IPython.display import HTML
-from striplog import Legend
 from utils.visual import build_bh3d_legend_cmap
-from utils.config import DEFAULT_LITHO_LEXICON
+from utils.config import DEFAULT_BOREHOLE_LEGEND, DEFAULT_BOREHOLE_LEXICON, DEFAULT_LITHO_LEGEND
 import numpy as np
 import pyvista as pv
 import folium as fm
@@ -55,13 +54,27 @@ class Project:
         self.__components_dict__ = None
 
         if legend_dict is None:
-            legend_dict = {'lithology': {'legend': Legend.default()}}
+            legend_dict = {'borehole_type': {'legend': DEFAULT_BOREHOLE_LEGEND},
+                           'lithology': {'legend': DEFAULT_LITHO_LEGEND}}
         if lexicon is None:
-            lexicon = DEFAULT_LITHO_LEXICON
+            lexicon = DEFAULT_BOREHOLE_LEXICON
 
         self.legend_dict = deepcopy(legend_dict)
         self.lexicon = lexicon
+        self._repr_attribute = 'borehole_type'
         self.refresh(update_3d=True)
+
+    # ------------------------------- Class Properties ----------------------------
+    @property
+    def repr_attribute(self):
+        return self._repr_attribute
+
+    @repr_attribute.setter
+    def repr_attribute(self, value):
+        assert (isinstance(value, str))
+        self._repr_attribute = value
+        self.refresh(update_3d=True)
+        self.update_legend_cmap()
 
     def refresh(self, update_3d=False, verbose=False):
         """
@@ -71,6 +84,8 @@ class Project:
         -----------
         update_3d : bool
             if True, updates Striplog/OMF 3D boreholes (default=False)
+        verbose : bool
+            verbose display if True
         """
         
         self.boreholes_orm = self.session.query(BoreholeOrm).all()
@@ -79,7 +94,7 @@ class Project:
         if update_3d:
             self.boreholes_3d = []
             for bh in self.boreholes_orm:
-                self.boreholes_3d.append(create_bh3d_from_bhorm(bh, verbose=verbose,
+                self.boreholes_3d.append(create_bh3d_from_bhorm(bh, verbose=verbose, attribute=self.repr_attribute,
                                                                 legend_dict=self.legend_dict))
 
     def commit(self):
@@ -87,14 +102,16 @@ class Project:
         self.session.commit()
         print('Boreholes in the project : ', len(self.boreholes_orm))
         
-    def add_borehole(self, bh_orm, verbose=False):
+    def add_borehole(self, bh_orm, update_3d=False):
         """
         Add a Borehole to the project
         
         Parameters
         -----------
         bh_orm : BoreholeOrm object
-            
+
+        update_3d: bool
+
         See Also
         ---------
         BoreholeOrm : ORM borehole object
@@ -103,8 +120,8 @@ class Project:
         
         self.session.add(bh_orm)
         self.commit()
-        self.refresh()
-        self.boreholes_3d.append(create_bh3d_from_bhorm(bh_orm, verbose=verbose, legend_dict=self.legend_dict))
+        self.refresh(update_3d=update_3d)
+        #self.boreholes_3d.append(create_bh3d_from_bhorm(bh_orm, verbose=verbose, legend_dict=self.legend_dict))
             
     def add_components(self, components):
         """
@@ -129,7 +146,7 @@ class Project:
         self.commit()
         self.refresh()
 
-    def add_link_components_intervals(self, link_component_interval):
+    def add_link_components_intervals(self, link_component_interval, commit=True):
         """
         Add a list of Components to the project
 
@@ -144,15 +161,9 @@ class Project:
             new_link = LinkIntervalComponentOrm(intv_id=link[0], comp_id=link[1], **link_component_interval[link])
             self.session.add(new_link)
 
-        self.commit()
-        self.refresh()
-
-    def find_component_id(self, description):
-        stmt = select(ComponentOrm.id).where(ComponentOrm.description == description).order_by(ComponentOrm.id.desc())
-        reply = self.session.execute(stmt).first()
-        if reply is not None:
-            reply = reply[0]
-        return reply
+        if commit:
+            self.commit()
+            self.refresh()
 
     def find_next_id(self, orm_class):
         """ Gets the next id for a given ORM_Class
@@ -187,7 +198,7 @@ class Project:
         Returns
         -------
         int
-            Id of the component
+            Id of the component or None if none where found
         """
 
         stmt = select(ComponentOrm.id).where(ComponentOrm.description == description)
@@ -196,29 +207,9 @@ class Project:
             result = result[0]
         return result
 
-    def update_legend_cmap(self, repr_attribute_list=None, legend_dict=None, width=3,
-                           compute_all_attrib=False, update_bh3d_legend=False,
-                           update_project_legend=True, verbose=False):
-        """Update the project cmap based on all boreholes in the project"""
-
-        if repr_attribute_list is None:
-            repr_attribute_list = ['lithology']
-
-        if legend_dict is None:
-            legend_dict = self.legend_dict
-
-        synth_leg, detail_leg = build_bh3d_legend_cmap(bh3d_list=self.boreholes_3d, legend_dict=legend_dict, repr_attrib_list=repr_attribute_list, width=width, compute_all=compute_all_attrib, update_bh3d_legend=update_bh3d_legend, update_given_legend=update_project_legend, verbose=verbose)
-
-        if update_project_legend:
-            # print('-----------\n', legend_dict)
-            self.legend_dict = legend_dict
-
-        if not update_project_legend:
-            return synth_leg, detail_leg
-
-    def plot_3d(self, plotter=None, repr_attribute='lithology', repr_legend_dict=None,
-                labels_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"),
-                x3d=False, window_size=None, verbose=False, **kwargs):
+    def plot3d(self, plotter=None, repr_attribute='borehole_type', repr_legend_dict=None,
+               labels_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"),
+               x3d=False, window_size=None, verbose=False, **kwargs):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -242,7 +233,7 @@ class Project:
 
         if repr_legend_dict is None:
             repr_legend_dict = self.legend_dict
-
+        self.repr_attribute = repr_attribute
         plot_cmap = repr_legend_dict[repr_attribute]['cmap']
         uniq_attr_val = repr_legend_dict[repr_attribute]['values']
 
@@ -345,3 +336,28 @@ class Project:
             bhs_map.save(save_as)  # ('tmp_files/BH_location.html')
 
         return bhs_map
+
+    def update_legend_cmap(self, repr_attribute_list=None, legend_dict=None, width=3,
+                           compute_all_attrib=False, update_bh3d_legend=False,
+                           update_project_legend=True, verbose=False):
+        """Update the project cmap based on all boreholes in the project"""
+
+        if repr_attribute_list is None:
+            repr_attribute_list = [self.repr_attribute]
+
+        if legend_dict is None:
+            legend_dict = self.legend_dict
+
+        synth_leg, detail_leg = build_bh3d_legend_cmap(bh3d_list=self.boreholes_3d, legend_dict=legend_dict,
+                                                       repr_attrib_list=repr_attribute_list, width=width,
+                                                       compute_all=compute_all_attrib,
+                                                       update_bh3d_legend=update_bh3d_legend,
+                                                       update_given_legend=update_project_legend, verbose=verbose)
+
+        if update_project_legend:
+            # print('-----------\n', legend_dict)
+            self.legend_dict = legend_dict
+
+        if not update_project_legend:
+            return synth_leg, detail_leg
+
