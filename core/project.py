@@ -4,7 +4,7 @@ from utils.orm import create_bh3d_from_bhorm
 from vtk import vtkX3DExporter, vtkPolyDataMapper # NOQA
 from IPython.display import HTML
 from utils.visual import build_bh3d_legend_cmap
-from utils.config import DEFAULT_BOREHOLE_LEGEND, DEFAULT_BOREHOLE_LEXICON, DEFAULT_LITHO_LEGEND
+from utils.config import DEFAULT_BOREHOLE_LEGEND, DEFAULT_BOREHOLE_LEXICON, DEFAULT_LITHO_LEGEND, DEFAULT_POL_LEGEND
 import numpy as np
 import pyvista as pv
 import folium as fm
@@ -26,7 +26,6 @@ class Project:
     name : str
     boreholes_orm : list of BoreholeORM object
     boreholes_3d : list of Borehole3D object
-    legend : Striplog Legend object
 
     Methods
     --------
@@ -58,7 +57,8 @@ class Project:
 
         if legend_dict is None:
             legend_dict = {'borehole_type': {'legend': DEFAULT_BOREHOLE_LEGEND},
-                           'lithology': {'legend': DEFAULT_LITHO_LEGEND}}
+                           'lithology': {'legend': DEFAULT_LITHO_LEGEND},
+                           'benzene_industrial': {'legend': DEFAULT_POL_LEGEND}}
         if lexicon is None:
             lexicon = DEFAULT_BOREHOLE_LEXICON
 

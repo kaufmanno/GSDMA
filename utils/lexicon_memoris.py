@@ -40,12 +40,11 @@ LEG_BOREHOLE = """colour,width,component borehole_type
 #999999, None, [Forage|Borehole]
 """
 
-LEG_CONTAMINATION_LEV = """colour,width,component {:}
+LEG_CONTAMINATION_LEV = """colour,width,component benzene_industrial
 #9CB39C, None, VR,
 #00FF00, None, VS,
 #FFA500, None, VI,
-#FF0000, None, VI_,
-#FFFFFF, None, Inconnu
+#FF0000, None, VI_
 """
 
 LEG_LITHO_MEMORIS = """colour,width,hatch,component lithology
