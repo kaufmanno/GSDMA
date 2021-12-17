@@ -11,6 +11,9 @@ import folium as fm
 from folium import plugins
 import geopandas as gpd
 from copy import deepcopy
+from core.orm import Base
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 
 class Project:
@@ -63,6 +66,22 @@ class Project:
         self.lexicon = lexicon
         self._repr_attribute = 'borehole_type'
         self.refresh(update_3d=True)
+
+    @classmethod
+    def load(cls, db_name, legend_dict=None, verbose=False, lexicon=None):
+        """ creates a project from a project database"""
+        project_name = db_name.rstrip('.db')
+
+        engine = create_engine(f"sqlite:///{db_name}", echo=verbose)
+        Base.metadata.create_all(engine)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        if verbose:
+            print(f'legend_dict: {legend_dict}')
+        p = cls(session, name=project_name, legend_dict=legend_dict, lexicon=lexicon)
+        p.refresh()
+        session.close()
+        return p
 
     # ------------------------------- Class Properties ----------------------------
     @property
