@@ -1476,10 +1476,10 @@ def choose_bh_synonym(dataf, syn_dict=None, choice_dict=None, regex_choice=None,
     regex_skip = kwargs.pop('regex_skip', None)
     dist_max = kwargs.pop('dist_max', 0.2)
     display = kwargs.pop('display', False)
-    verb = kwargs.pop('verbose', False)
+    verbose = kwargs.pop('verbose', False)
 
     if syn_dict is None:
-        syn_dict = find_bh_synonyms(data, regex_skip=regex_skip, dist_max=dist_max, display=display, verbose=verb)
+        syn_dict = find_bh_synonyms(data, regex_skip=regex_skip, dist_max=dist_max, display=display, verbose=verbose)
 
     if regex_choice is not None:
         loop = 0
@@ -1497,7 +1497,7 @@ def choose_bh_synonym(dataf, syn_dict=None, choice_dict=None, regex_choice=None,
                         data.loc[idx, 'ID'] = ch[0]
                         drop.append(r)
             if auto_search:
-                syn_dict = find_bh_synonyms(data, regex_skip=regex_skip, dist_max=dist_max, display=False, verbose=verb)
+                syn_dict = find_bh_synonyms(data, regex_skip=regex_skip, dist_max=dist_max, display=False, verbose=verbose)
 
             loop += 1
 
