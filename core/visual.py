@@ -92,7 +92,6 @@ class Borehole3D(Striplog):
         #               f"with lithology ({DEFAULT_ATTRIB_VALUE})!\n")
 
         self.intervals = intervals
-
         if self.z_collar is None and self.intervals is not None:
             self.update_z_collar()
 

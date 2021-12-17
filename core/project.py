@@ -106,13 +106,13 @@ class Project:
         verbose : bool
             verbose display if True
         """
-        
-        self.boreholes_orm = self.session.query(BoreholeOrm).all()
+
+        self.boreholes_orm = {i.id: i for i in self.session.query(BoreholeOrm).all()}
         if verbose:
             print(self.legend_dict)
         if update_3d:
             self.boreholes_3d = []
-            for bh in self.boreholes_orm:
+            for bh in self.boreholes_orm.values():
                 self.boreholes_3d.append(create_bh3d_from_bhorm(bh, verbose=verbose, attribute=self.repr_attribute,
                                                                 legend_dict=self.legend_dict))
 
@@ -249,9 +249,10 @@ class Project:
         # self.commit()
         self.add_borehole(bh_orm, verbose)
 
-    def insert_interval_in_borehole(self, intv_dict, verbose=False):
+    def insert_interval_in_borehole(self, bh_id, intv_dict, verbose=False):
+
         intv_id = self.find_next_id(IntervalOrm)
-        self.boreholes_orm[intv_dict['bh_id']].intervals_values.update({
+        self.boreholes_orm[bh_id].intervals_values.update({
             intv_id: {'description': intv_dict['description'],
                       'interval_number': intv_dict['interval_number'],
                       'top': PositionOrm(**intv_dict['top']),
