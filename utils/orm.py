@@ -84,9 +84,9 @@ def get_interval_list(bh_orm, attribute=None):
     return interval_list, max_depth
 
 
-def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='ID',
-                             diameter_col='Diameter', default_z=None, date_col='Date',
-                             sample_type_col=None, skip_cols=None, verbose=False):
+def orm_boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='ID',
+                                 diameter_col='Diameter', default_z=None, date_col='Date',
+                                 sample_type_col=None, skip_cols=None, verbose=False):
     """ Creates a list of BoreholeORM objects from a dataframe
 
     Parameters
