@@ -30,6 +30,7 @@ descartes = "*"
 vedo = "*"
 ipyvtklink = "*"
 pylint = "*"
+eralchemy = "*"
 
 [requires]
 python_version = "3.8"
