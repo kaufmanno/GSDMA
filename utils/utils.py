@@ -1,8 +1,7 @@
 import re
 import pandas as pd
 from striplog import Component, Interval, Striplog, Lexicon
-from utils.config import DEFAULT_LITHO_LEXICON, DEFAULT_POL_LEXICON,\
-    SAMP_TYPE_KW, WARNING_TEXT_CONFIG
+from utils.config import DEFAULT_LITHO_LEXICON, DEFAULT_POL_LEXICON, WARNING_TEXT_CONFIG
 from utils.lexicon_memoris import LEX_SOIL_NORM, LEX_WATER_NORM
 from difflib import get_close_matches
 
@@ -39,15 +38,17 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
         else:
             raise (NameError(f'Pollutant "{pollutant}" not found in lexicon!'))
 
-    if sample_type is not None:
-        if re.search('sol|soil', sample_type, re.I):
-            level_norm = LEX_SOIL_NORM
-        elif re.search('eau|water', sample_type, re.I):
-            level_norm = LEX_WATER_NORM
-        else:
-            raise(NameError(f"Sample type must be in {SAMP_TYPE_KW[:-1]}, not {sample_type}"))
-    else:  # suppose sample type is 'soil'
-        level_norm = LEX_SOIL_NORM
+    # if sample_type is not None:
+    #     if re.search('sol|soil', sample_type, re.I):
+    #         level_norm = LEX_SOIL_NORM
+    #     elif re.search('eau|water', sample_type, re.I):
+    #         level_norm = LEX_WATER_NORM
+    #     else:
+    #         raise(NameError(f"Sample type must be in {SAMP_TYPE_KW[:-1]}, not {sample_type}"))
+    # else:  # suppose sample type is 'soil'
+    #     level_norm = LEX_SOIL_NORM
+
+    level_norm = LEX_SOIL_NORM # TODO: FIX this
 
     unit = level_norm['unit']
 

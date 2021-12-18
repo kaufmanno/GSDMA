@@ -77,7 +77,7 @@ class IntervalOrm(Base):
     borehole = Column(String, ForeignKey('Boreholes.id'))
     interval_number = Column(Integer)
     description = Column(String)
-    components = relationship('ComponentOrm', secondary='Linkintervalcomponent')
+    components = relationship('ComponentOrm', secondary='Linkintervalcomponent', viewonly=True)
     top_id = Column(Integer, ForeignKey('Positions.id'))
     top = relationship('PositionOrm', foreign_keys=[top_id])
     base_id = Column(Integer, ForeignKey('Positions.id'))
@@ -110,7 +110,7 @@ class ComponentOrm(Base):
     __tablename__ = 'Components'
 
     id = Column(Integer, primary_key=True)
-    intervals = relationship('IntervalOrm', secondary='Linkintervalcomponent')
+    intervals = relationship('IntervalOrm', secondary='Linkintervalcomponent', viewonly=True)
     description = Column(String)
 
     def __repr__(self):

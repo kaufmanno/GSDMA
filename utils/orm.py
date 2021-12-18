@@ -3,8 +3,8 @@ import re
 from striplog import Position, Component, Interval
 from core.orm import BoreholeOrm, PositionOrm
 from core.visual import Borehole3D
-from utils.config import DEFAULT_BOREHOLE_DIAMETER, DEFAULT_BOREHOLE_LENGTH, DEFAULT_POL_LEXICON,\
-    WARNING_TEXT_CONFIG, WORDS_WITH_S, NOT_EXIST
+from utils.config import DEFAULT_BOREHOLE_DIAMETER, DEFAULT_POL_LEXICON,\
+    WARNING_TEXT_CONFIG, WORDS_WITH_S
 
 from utils.utils import striplog_from_dataframe
 from utils.visual import get_components
