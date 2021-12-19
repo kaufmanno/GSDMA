@@ -342,7 +342,18 @@ class Project:
                        '</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
 
-    def plot_map(self, tile=None, epsg=31370, save_as=None, radius=0.2, opacity=0.1, zoom_start=15, max_zoom=25, control_scale=True, marker_color='red'):
+    def plot_log(self, bh_name):
+        """ plot a stratigraphical log of a borehole for an attribute
+
+        bh_name: str
+        """
+
+        for bh in self.boreholes_3d:
+            if bh.name == bh_name:
+                bh.plot_log(repr_attribute=self.repr_attribute)
+                break
+
+    def plot_map(self, tiles=None, epsg=31370, save_as=None, radius=0.2, opacity=0.1, zoom_start=15, max_zoom=25, control_scale=True, marker_color='red'):
         """2D Plot of all boreholes in the project
 
         parameters
@@ -371,10 +382,10 @@ class Project:
         center = [bhs.geometry.y.mean(), bhs.geometry.x.mean()]
 
         # Use a satellite map
-        if tile is None:
-            tile = {'name': 'Satellite',
+        if tiles is None:
+            tiles = [{'name': 'Satellite',
                     'attributes': "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
-                    'url': "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"}
+                    'url': "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"}]
 
         bhs_map = fm.Map(location=center, tiles='OpenStreetMap', zoom_start=zoom_start,
                          max_zoom=max_zoom, control_scale=control_scale)
@@ -390,7 +401,8 @@ class Project:
         mini_map = plugins.MiniMap(toggle_display=True, zoom_level_offset=-6)
 
         # adding features to the base_map
-        fm.TileLayer(name=tile['name'], tiles=tile['url'], attr=tile['attributes'],
+        for tile in tiles:
+            fm.TileLayer(name=tile['name'], tiles=tile['url'], attr=tile['attributes'],
                      max_zoom=max_zoom, control=True).add_to(bhs_map)
         ch1.add_to(bhs_map)
         fm.LayerControl().add_to(bhs_map)

@@ -298,7 +298,7 @@ class Borehole3D(Striplog):
     def plot_log(self, figsize=(6, 6), repr_legend=None, text_size=15, width=3,
                  ticks=None, aspect=3, repr_attribute='lithology', verbose=False):
         """
-        Plot a 2D log for the attribute
+        Plot a stratigraphical log for the attribute
         """
 
         if ticks is None:
