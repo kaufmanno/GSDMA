@@ -29,7 +29,6 @@ def create_bh3d_from_bhorm(bh_orm, legend_dict=None, attribute=None, verbose=Fal
     """
     intervals, length = get_interval_list(bh_orm, attribute=attribute)
 
-    print('XXX', legend_dict, intervals)
     bh_3d = Borehole3D(name=bh_orm.id, date=bh_orm.date, diam=bh_orm.diameter, repr_attribute=attribute,
                        length=length, legend_dict=legend_dict, intervals=intervals)
     if verbose:
@@ -142,8 +141,8 @@ def orm_boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_co
                     df.rename(columns={col: 'Base_intv'}, inplace=True)
                 elif re.search('thick|epais', col, re.I):
                     df.rename(columns={col: 'Thick_intv'}, inplace=True)
-                elif re.search('desc', col, re.I):
-                    df.rename(columns={col: 'Desc_intv'}, inplace=True)
+                elif re.search('descr', col, re.I):
+                    df.rename(columns={col: 'Descr_intv'}, inplace=True)
 
         df.insert(list(df.columns).index('_intv'), 'Type_intv', df.pop('_intv'))
         if last_index is not None:
@@ -163,9 +162,9 @@ def orm_boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_co
               f"Warning : -- No borehole diameter column found or check given column's name.\n"
               f'To continue, default diameter column has been created with value: '
               f'{DEFAULT_BOREHOLE_DIAMETER} [m]{WARNING_TEXT_CONFIG["off"]}')
-        final_df[diameter_col] = pd.Series([DEFAULT_BOREHOLE_DIAMETER] * len(final_df))
+        final_df[diameter_col] = DEFAULT_BOREHOLE_DIAMETER
 
-    top_col, base_col, desc_col = 'Top_intv', 'Base_intv', 'Desc_intv'
+    top_col, base_col, desc_col = 'Top_intv', 'Base_intv', 'Descr_intv'
     thick_col, intv_type_col = 'Thick_intv', 'Type_intv'
 
     for idx, row in final_df.iterrows():

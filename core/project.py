@@ -116,10 +116,15 @@ class Project:
                 self.boreholes_3d.append(create_bh3d_from_bhorm(bh, verbose=verbose, attribute=self.repr_attribute,
                                                                 legend_dict=self.legend_dict))
 
-    def commit(self):
+    def save_modification(self):
         """Validate all modifications done in the project"""
         self.session.commit()
-        print('Boreholes in the project : ', len(self.boreholes_orm))
+        print('Modifications saved! Boreholes in the project : ', len(self.boreholes_orm))
+
+    def cancel_modification(self):
+        """Cancel all modifications done in the project"""
+        self.session.rollback()
+        print('Modifications cancelled !')
         
     def add_borehole(self, bh_orm, update_3d=False):
         """
@@ -138,9 +143,8 @@ class Project:
         """
         
         self.session.add(bh_orm)
-        self.commit()
+        self.save_modification()
         self.refresh(update_3d=update_3d)
-        #self.boreholes_3d.append(create_bh3d_from_bhorm(bh_orm, verbose=verbose, legend_dict=self.legend_dict))
             
     def add_components(self, components):
         """
@@ -157,12 +161,11 @@ class Project:
         """
         
         for comp_id in components.keys():
-            new_component = ComponentOrm(description=str(components[comp_id].__dict__),
-                                         id=comp_id)
+            new_component = ComponentOrm(description=str(components[comp_id].__dict__), id=comp_id)
             self.session.add(new_component)
 
         self.__components_dict__ = components
-        self.commit()
+        self.save_modification()
         self.refresh()
 
     def add_link_components_intervals(self, link_component_interval, commit=True):
@@ -181,7 +184,7 @@ class Project:
             self.session.add(new_link)
 
         if commit:
-            self.commit()
+            self.save_modification()
             self.refresh()
 
     def find_next_id(self, orm_class):
