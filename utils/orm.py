@@ -83,16 +83,15 @@ def get_interval_list(bh_orm, attribute=None):
     return interval_list, max_depth
 
 
-def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='ID',
-                             diameter_col='Diameter', default_z=None, date_col='Date',
-                             sample_type_col=None, skip_cols=None, verbose=False):
+def orm_boreholes_from_dataframe(data_list, symbols=None, attributes=None, id_col='ID',
+                                 diameter_col='Diameter', default_z=None, date_col='Date',
+                                 sample_type_col=None, skip_cols=None, verbose=False):
     """ Creates a list of BoreholeORM objects from a dataframe
 
     Parameters
     ----------
-    data_dict: dict
-        A dictionary of pandas.DataFrame containing borehole intervals data, based on the type of
-        these intervals (lithology or samples). e.g: {'lithology': df_1, 'sample': df2}
+    data_list: list
+        A list of pandas.DataFrame containing borehole intervals data
     symbols: dict
         A dict e.g. {attribute_1: {'legend': striplog.Legend, 'lexicon': striplog.Lexicon}, ...}
     attributes : list
@@ -124,15 +123,11 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
     # data concatenation
     final_df = pd.DataFrame()
     last_index = None
-    for k, dataf in data_dict.items():
+    for dataf in data_list:
         assert isinstance(dataf, pd.DataFrame)
         df = dataf.copy()
-        if re.search('litho', k, re.I):
-            df['_intv'] = 'lithology'
-        elif re.search('sample|poll', k, re.I):
-            df['_intv'] = 'sample'
 
-        # columns' name standardization
+        # rename certain columns' name
         for col in df.columns:
             if col not in skip_cols:
                 if re.search('top|toit', col, re.I):
@@ -141,10 +136,9 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
                     df.rename(columns={col: 'Base_intv'}, inplace=True)
                 elif re.search('thick|epais', col, re.I):
                     df.rename(columns={col: 'Thick_intv'}, inplace=True)
-                elif re.search('desc', col, re.I):
-                    df.rename(columns={col: 'Desc_intv'}, inplace=True)
+                elif re.search('descr', col, re.I):
+                    df.rename(columns={col: 'Descr_intv'}, inplace=True)
 
-        df.insert(list(df.columns).index('_intv'), 'Type_intv', df.pop('_intv'))
         if last_index is not None:
             df.index = range(last_index, last_index + len(df))
 
@@ -162,10 +156,10 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
               f"Warning : -- No borehole diameter column found or check given column's name.\n"
               f'To continue, default diameter column has been created with value: '
               f'{DEFAULT_BOREHOLE_DIAMETER} [m]{WARNING_TEXT_CONFIG["off"]}')
-        final_df[diameter_col] = pd.Series([DEFAULT_BOREHOLE_DIAMETER] * len(final_df))
+        final_df[diameter_col] = DEFAULT_BOREHOLE_DIAMETER
 
-    top_col, base_col, desc_col = 'Top_intv', 'Base_intv', 'Desc_intv'
-    thick_col, intv_type_col = 'Thick_intv', 'Type_intv'
+    top_col, base_col, desc_col = 'Top_intv', 'Base_intv', 'Descr_intv'
+    thick_col = 'Thick_intv'
 
     for idx, row in final_df.iterrows():
         bh_name = row[id_col]
@@ -184,7 +178,7 @@ def boreholes_from_dataframe(data_dict, symbols=None, attributes=None, id_col='I
                                                     id_col=id_col, thick_col=thick_col,
                                                     top_col=top_col, base_col=base_col,
                                                     sample_type_col=sample_type_col,
-                                                    desc_col=desc_col, intv_type_col=intv_type_col,
+                                                    desc_col=desc_col,
                                                     query=False, verbose=verbose)
 
             if striplog_dict is not None:

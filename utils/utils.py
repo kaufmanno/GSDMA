@@ -63,17 +63,17 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
         elif value <= d['VI']:
             level = 'VI'
         else:
-            level = 'VI_'
+            level = 'VI_sup'
 
     if verbose: print(f"{pol_name}: {value} {unit} --> {level}")
 
     return pol_name, level, unit
 
 
-def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
-                            top_col=None, base_col=None, desc_col=None, thick_col=None,
-                            intv_type_col=None, sample_type_col=None, sample_id_col=None,
-                            query=True, verbose=False):
+def striplog_from_dataframe(df, bh_name, attributes, bh_type='Piezometer', id_col='ID', 
+                            symbols=None, top_col=None, base_col=None, desc_col=None, 
+                            thick_col=None, sample_type_col=None,
+                            sample_id_col=None, query=True, verbose=False):
     """
     creates a Striplog object from a dataframe
 
@@ -84,6 +84,9 @@ def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
 
     bh_name: str
         Borehole name (or ID)
+
+    bh_type: str
+        Borehole type. e.g: 'piezometer'
 
     attributes: list
         Attributes to use for creating components
@@ -140,8 +143,20 @@ def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
                                                  desc_col=desc_col,
                                                  sample_id_col=sample_id_col,
                                                  sample_type_col=sample_type_col,
-                                                 intv_type_col=intv_type_col,
                                                  verbose=verbose)
+
+            # enable below to add borehole_type automatically
+            # borehole type to special component
+            # found_spec_comp = False
+            # for n_iv, iv in enumerate(intervals):
+            #     if not found_spec_comp:
+            #         spec_num = [n for n, c in enumerate(iv.components) if 'borehole_type' in c.keys()]
+            #         if spec_num:
+            #             found_spec_comp = True
+            #             spec_num = spec_num[0]
+            #             intervals[n_iv].components[spec_num] = Component({'borehole_type': bh_type})
+            #             intervals[n_iv].description = "{'borehole_type':'" + bh_type + "'}"
+
             if intervals:
                 strip.update({bh_id: Striplog(list_of_Intervals=intervals)})
             else:
@@ -157,9 +172,10 @@ def striplog_from_dataframe(df, bh_name, attributes, id_col='ID', symbols=None,
 
 
 def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
-                             top_col=None, base_col=None, desc_col=None,
-                             intv_type_col=None, sample_type_col=None, sample_id_col=None,
+                             top_col=None, base_col=None, desc_col=None, length_col=None,
+                             sample_type_col=None, sample_id_col=None,
                              verbose=False):
+    """ df contains intervals description for a unique borehole"""
 
     pollutants = list(DEFAULT_POL_LEXICON.abbreviations.keys()) + \
                  list(DEFAULT_POL_LEXICON.abbreviations.values())
@@ -167,28 +183,33 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
     attrib_cdt, attrib_top_cdt = False, False
     thick_cdt, color_cdt, samp_type_cdt = False, False, False
 
-    if thick_col is not None and thick_col in list(df.columns):
+    if thick_col is not None and thick_col in df.columns:
         thick_cdt = True
-    if top_col is not None and top_col in list(df.columns):
+    if top_col is not None and top_col in df.columns:
         attrib_top_cdt = True
-    if sample_type_col is not None and sample_type_col in list(df.columns):
+    if sample_type_col is not None and sample_type_col in df.columns:
         samp_type_cdt = True
+
+    # # enable below to add borehole_type automatically
+    # if length_col is not None and length_col in df.columns:
+    #     spec_top, spec_base = 0, df[length_col][0]
+    # elif attrib_cdt:
+    #     spec_top, spec_base = min(df[top_col]), max(df[base_col])
+    # elif thick_cdt:
+    #     spec_top, spec_base = 0, df[thick_col].cumsum().max()
+    #
+    # spec_comp = Component({'borehole_type': 'borehole'})
+    # intervals = [Interval(top=spec_top, base=spec_base, components=[spec_comp])]
 
     intervals = []
     top, base, thick, val = 0, 0, 0, 0
     for j in df.index:
         samp_name = None
         samp_type = None
-        iv_type = df.loc[j, intv_type_col]
-        if re.search('litho', iv_type, re.I):
-            create_litho = True
-        else:
-            create_litho = False
-
-        if not create_litho and samp_type_cdt:
+        if samp_type_cdt:
             samp_type = df.loc[j, sample_type_col]
-            if sample_id_col is not None and not pd.isnull(df.loc[j, sample_id_col]):
-                samp_name = df.loc[j, sample_id_col]
+        if sample_id_col is not None and not pd.isnull(df.loc[j, sample_id_col]):
+            samp_name = df.loc[j, sample_id_col]
 
         # components processing -------------------------------------------
         iv_components = []
@@ -242,7 +263,7 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
             base = df.loc[j, base_col]
         elif thick_cdt and not pd.isnull(df.loc[j, thick_col]):
             thick = df.loc[j, thick_col]
-            print(f'enter in thick_cdt : thick= {thick}')
+            # print(f'enter in thick_cdt : thick= {thick}')
             if j == df.index[0]:
                 top = 0
                 base = top + thick
@@ -253,7 +274,7 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
         else:
             raise (ValueError("Cannot retrieve or compute interval's top values. provide thickness or top/base values!"))
 
-        warn_msg = 'WARNING : Interval skipped because top/base are null!!'
+
         error_intv = True
         if base != 0. or base != 0:
             # only add interval when top and base exist
@@ -261,13 +282,17 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
                 error_intv = False
                 print(f'{j}- Interval top={top}, base={base}')
                 if samp_name is None:
-                    intervals.append(Interval(top=top, base=base, components=iv_components))
+                    intervals.append(Interval(top=top, base=base, description = iv_desc,
+                                              components=iv_components))
                 else:
-                    intervals.append(Interval(top=top, base=base, components=iv_components,
+                    intervals.append(Interval(top=top, base=base, description = iv_desc,
+                                              components=iv_components,
                                               data={'sample_ID': samp_name,
                                                     'sample_type': samp_type}))
         if error_intv:
-            print(f"{WARNING_TEXT_CONFIG['red']}\n{warn_msg}{WARNING_TEXT_CONFIG['off']}")
+            print(f"{WARNING_TEXT_CONFIG['red']}\n"
+                  f"'WARNING : Interval skipped because top/base are null!!'"
+                  f"{WARNING_TEXT_CONFIG['off']}")
 
         print(f" - Interval components: {iv_components}\n")
 

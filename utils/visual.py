@@ -207,8 +207,9 @@ def legend_from_attributes(attributes):
 
             attribute = attr
             # default contamination level for pollutants
-            legend_text = f"colour,width,component {attr}\n#00FF00, None, VR,\n#FFA500, None, VS,\n#FF0000, None, VI,\n#FFFFFF, None, Inconnu\n"
-            legend = Legend.from_csv(text=legend_text)
+            # legend_text = f"colour,width,component {attr}\n#9CB39C, None, VR,\n#00FF00, None, VS,\n#FFA500, None, VI,\n#FF0000, None, VI_sup,\n#FFFFFF, None, Inconnu\n"
+            legend = Legend.from_csv(text=LEG_CONTAMINATION_LEV.format(attr))
+            # legend = Legend.from_csv(text=legend_text)
         else:
             raise(TypeError('Only a list containing strings and/or tuple (attribute, Legend) is allowed !'))
 
