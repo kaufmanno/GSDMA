@@ -71,7 +71,7 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
 
 def striplog_from_dataframe(df, bh_name, attributes, bh_type='Piezometer', id_col='ID', 
                             symbols=None, top_col=None, base_col=None, desc_col=None, 
-                            thick_col=None, intv_type_col=None, sample_type_col=None, 
+                            thick_col=None, sample_type_col=None,
                             sample_id_col=None, query=True, verbose=False):
     """
     creates a Striplog object from a dataframe
@@ -142,7 +142,6 @@ def striplog_from_dataframe(df, bh_name, attributes, bh_type='Piezometer', id_co
                                                  desc_col=desc_col,
                                                  sample_id_col=sample_id_col,
                                                  sample_type_col=sample_type_col,
-                                                 intv_type_col=intv_type_col,
                                                  verbose=verbose)
 
             # enable below to add borehole_type automatically
