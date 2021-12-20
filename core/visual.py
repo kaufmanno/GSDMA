@@ -106,9 +106,9 @@ class Borehole3D(Striplog):
         Striplog.__init__(self, list_of_Intervals=self.intervals)
 
         # create object legend
-        build_bh3d_legend_cmap(bh3d_list=[self], legend_dict=self.legend_dict,
-                               verbose=self.__verbose__,
-                               compute_all=compute_all_legend, update_bh3d_legend=True)
+        #build_bh3d_legend_cmap(bh3d_list=[self], legend_dict=self.legend_dict,
+        #                       verbose=self.__verbose__,
+        #                       compute_all=compute_all_legend, update_bh3d_legend=True)
 
         self.omf_legend = striplog_legend_to_omf_legend(self.legend_dict[repr_attribute]['legend'])[0]
         self._geometry(verbose=verbose)
@@ -211,8 +211,8 @@ class Borehole3D(Striplog):
                 indices.append(comp_list.index(i.components[j][repr_attribute]))
 
             if verbose:
-                print(
-                    f'get_comp | uniq_comp_list: {comp_list}, n_intv:{incr}, ind_val: {j}, comp: {i.components[j][repr_attribute]}')
+                print(f"""get_comp | uniq_comp_list: {comp_list}, n_intv:{incr}, ind_val: {j},
+                 comp: {i.components[j][repr_attribute]}""")
             incr += 1
 
         if verbose:
@@ -268,12 +268,9 @@ class Borehole3D(Striplog):
         data = []
         array = omf.ScalarArray(self.get_components_indices(repr_attribute=self.repr_attribute, verbose=verbose))
         if len(array.array) > 0:
-            # if verbose:
-            #     print(f"\ngeom | {attr}_legend: {self.legend_dict[attr]['legend']}")
             legend = striplog_legend_to_omf_legend(self.legend_dict[self.repr_attribute]['legend'])[0]
             data.append(omf.MappedData(name=self.repr_attribute, array=array, legends=[legend],
                                        location='segments', description=''))
-
         self.geometry = omf.LineSetElement(
             name=self.name, geometry=omf.LineSetGeometry(vertices=vertices, segments=segments),
             data=data)
@@ -283,24 +280,27 @@ class Borehole3D(Striplog):
     def vtk(self, radius=None, res=50, scale=5.):
         """ build a vtk tube of given radius based on the borehole geometry """
         if radius is None:
-            radius = self.diameter / 2 * scale  # multiply by scale for visibility
-            vtk_obj = ov.line_set_to_vtk(self.geometry).tube(radius=radius, n_sides=res)
-            vtk_obj.set_active_scalars(self.repr_attribute.lower())
-            self._vtk = vtk_obj
+            radius = (self.diameter / 2)
+        vtk_obj = ov.line_set_to_vtk(self.geometry).tube(radius=radius*scale, n_sides=res)   # multiply by scale for visibility
+        vtk_obj.set_active_scalars(self.repr_attribute.lower())
+        self._vtk = vtk_obj
         return self._vtk
 
     def update_z_collar(self):
         """
         updates z_collar assuming that collar is at the top elevation of the highest interval
         """
+        print(self.name)
         self.z_collar = max([i.top.z for i in self.intervals])
 
     def plot_log(self, figsize=(6, 6), repr_legend=None, text_size=15, width=3,
-                 ticks=None, aspect=3, repr_attribute='lithology', verbose=False):
+                 ticks=None, aspect=3, repr_attribute=None, verbose=False):
         """
         Plot a 2D log for the attribute
         """
 
+        if repr_attribute is None:
+            repr_attribute=self.repr_attribute
         if ticks is None:
             ticks = (self.length/len(self.intervals), self.length)
 
@@ -353,7 +353,7 @@ class Borehole3D(Striplog):
         ax[1].set_title('Legend', size=text_size, color='r')
         plot_legend.plot(ax=ax[1])
 
-    def plot3d(self, plotter=None, repr_legend_dict=None, repr_attribute='borehole_type',
+    def plot3d(self, plotter=None, repr_legend_dict=None, repr_attribute=None,
                repr_cmap=None, repr_uniq_val=None, x3d=False, diam=None,
                bg_color=["royalblue", "aliceblue"], update_vtk=False,
                update_cmap=False, custom_legend=False, str_annotations=True,
@@ -387,11 +387,14 @@ class Borehole3D(Striplog):
             diam = 0.5
         elif diam is None and self.diameter != 0:
             diam = self.diameter
-
         if update_vtk or diam is not None:
             seg = self.vtk(radius=diam / 2)
         else:
             seg = self._vtk
+
+        if repr_attribute is None:
+            repr_attribute = 'borehole_type'
+
         seg.set_active_scalars(repr_attribute.lower())
 
         if repr_legend_dict is None:
@@ -466,8 +469,6 @@ class Borehole3D(Striplog):
 
             plotter.set_background(color=btm_c, top=top_c)
 
-        if show and not x3d:
-            plotter.show()
         if x3d:
             writer = vtkX3DExporter()
             writer.SetInput(plotter.renderer.GetRenderWindow())
@@ -490,3 +491,6 @@ class Borehole3D(Striplog):
                        'mapDEFToID="true" url="' + filename + '" />' \
                                                               '\n</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
+        elif show:
+            plotter.show()
+            print('XXX PLOTTER SHOW')

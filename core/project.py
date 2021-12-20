@@ -4,6 +4,7 @@ from utils.orm import create_bh3d_from_bhorm
 from vtk import vtkX3DExporter, vtkPolyDataMapper # NOQA
 from IPython.display import HTML
 from utils.visual import build_bh3d_legend_cmap
+from utils.orm import get_interval_list
 from utils.config import DEFAULT_BOREHOLE_LEGEND, DEFAULT_BOREHOLE_LEXICON, DEFAULT_LITHO_LEGEND, DEFAULT_POL_LEGEND
 import numpy as np
 import pyvista as pv
@@ -93,7 +94,7 @@ class Project:
         assert (isinstance(value, str))
         self._repr_attribute = value
         self.refresh(update_3d=True)
-        self.update_legend_cmap()
+        self.update_legend_cmap(update_project_legend=True)
 
     def refresh(self, update_3d=False, verbose=False):
         """
@@ -111,15 +112,19 @@ class Project:
         if verbose:
             print(self.legend_dict)
         if update_3d:
-            self.boreholes_3d = []
+            self.boreholes_3d = {}
             for bh in self.boreholes_orm.values():
-                self.boreholes_3d.append(create_bh3d_from_bhorm(bh, verbose=verbose, attribute=self.repr_attribute,
-                                                                legend_dict=self.legend_dict))
+                if len(get_interval_list(bh, self.repr_attribute)[0])>0:
+                    z_ref = get_interval_list(bh, 'borehole_type')[0][0].top.z
+                    self.boreholes_3d.update({bh.id : create_bh3d_from_bhorm(bh, verbose=verbose, z_ref=z_ref,
+                                                                               attribute=self.repr_attribute,
+                                                                               legend_dict=self.legend_dict)})
 
-    def commit(self):
+    def commit(self, verbose=False):
         """Validate all modifications done in the project"""
         self.session.commit()
-        print('Boreholes in the project : ', len(self.boreholes_orm))
+        if verbose:
+            print('Boreholes in the project : ', len(self.boreholes_orm))
         
     def add_borehole(self, bh_orm, update_3d=False):
         """
@@ -268,9 +273,42 @@ class Project:
             if verbose:
                 print(f'adding interval : {intv_id}, component: {component_id}')
         self.add_link_components_intervals(link_dict)
-    
-    def plot3d(self, plotter=None, repr_attribute='borehole_type', repr_legend_dict=None,
-               labels_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"),
+
+    @property
+    def cmap(self):
+        return self.legend_dict[self.repr_attribute]['cmap']
+
+    @property
+    def scalar_bar_args(self):
+        return dict(title=f"{self.repr_attribute.upper()}", title_font_size=25,
+                               label_font_size=6, n_labels=len(self.cmap.colors), fmt='', font_family='arial',
+                               color='k', italic=False, bold=False, interactive=True,
+                               vertical=False, shadow=False)
+    @property
+    def annotations(self):
+        uniq_attr_val = self.legend_dict[self.repr_attribute]['values']
+        n_col = len(self.cmap.colors)
+        incr = (len(uniq_attr_val) - 1) / n_col  # increment
+        # print(f'{self.name}... {incr}, {uniq_attr_val}')
+
+        bounds = [0]  # cmap colors limits
+        next_bound = 0
+        for i in range(n_col + 1):
+            if i < n_col:
+                next_bound += incr
+                bounds.append(bounds[0] + next_bound)
+        bounds.append(n_col)  # add cmap last value (limit)
+        centers = [(bounds[i] + bounds[i + 1]) / 2 for i in range(n_col)]
+        return {k: v.capitalize() for k, v in zip(centers, uniq_attr_val)}
+
+    @property
+    def vtk(self):
+        blocks = pv.MultiBlock()
+        for bh in self.boreholes_3d.keys():
+            blocks.append(self.boreholes_3d[bh]._vtk)
+        return blocks
+
+    def plot3d(self, plotter=None, labels_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"),
                x3d=False, window_size=None, verbose=False, **kwargs):
         """
         Returns an interactive 3D representation of all boreholes in the project
@@ -291,19 +329,17 @@ class Project:
         if plotter is not None:
             pl = plotter
         else:
+            print('XXX NEW plotter')
             pl = pv.Plotter(notebook=notebook, window_size=window_size)
 
-        if repr_legend_dict is None:
-            repr_legend_dict = self.legend_dict
-        self.repr_attribute = repr_attribute
-        plot_cmap = repr_legend_dict[repr_attribute]['cmap']
-        uniq_attr_val = repr_legend_dict[repr_attribute]['values']
+        plot_cmap = self.legend_dict[self.repr_attribute]['cmap']
+        uniq_attr_val = self.legend_dict[self.repr_attribute]['values']
 
-        for bh in self.boreholes_3d:
-            bh_val_un = bh.legend_dict[repr_attribute]['values']
-            bh.plot3d(plotter=pl, repr_attribute=repr_attribute,
+        for bh in self.boreholes_3d.values():
+            bh_val_un = bh.legend_dict[self.repr_attribute]['values']
+            bh.plot3d(plotter=pl, repr_attribute=self.repr_attribute,
                       bg_color=bg_color,
-                      repr_legend_dict=repr_legend_dict, repr_cmap=plot_cmap,
+                      repr_legend_dict=self.legend_dict, repr_cmap=plot_cmap,
                       repr_uniq_val=uniq_attr_val, custom_legend=custom_legend, **kwargs)
             name_pts.update({bh.name: bh._vtk.center[:2]+[bh.z_collar]})
             if verbose:
@@ -353,7 +389,7 @@ class Project:
         """
         # create a geopandas with all project boreholes
         bhs = gpd.GeoDataFrame(columns=['Name', 'X', 'Y'])
-        for bh in self.boreholes_3d:
+        for bh in self.boreholes_3d.values():
             i = len(bhs)
             xy = bh._vtk.center[:2]  # retrieve collars positions
             bhs.loc[i, ['Name', 'X', 'Y']] = [bh.name, xy[0], xy[1]]
@@ -410,7 +446,7 @@ class Project:
         if legend_dict is None:
             legend_dict = self.legend_dict
 
-        synth_leg, detail_leg = build_bh3d_legend_cmap(bh3d_list=self.boreholes_3d, legend_dict=legend_dict,
+        synth_leg, detail_leg = build_bh3d_legend_cmap(bh3d_list=list(self.boreholes_3d.values()), legend_dict=legend_dict,
                                                        repr_attrib_list=repr_attribute_list, width=width,
                                                        compute_all=compute_all_attrib,
                                                        update_bh3d_legend=update_bh3d_legend,

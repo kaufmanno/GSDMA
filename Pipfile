@@ -27,9 +27,11 @@ sphinx-gallery = "*"
 nbsphinx = "*"
 xlrd = "*"
 descartes = "*"
-vedo = "*"
 ipyvtklink = "*"
 pylint = "*"
+geometron = "*"
+panel = "*"
+jupyterlab = "*"
 
 [requires]
 python_version = "3.8"

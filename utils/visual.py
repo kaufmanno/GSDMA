@@ -79,7 +79,7 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
     """
 
     if not isinstance(repr_attrib_list, list):
-        raise (TypeError('repr_attribute must be a list of attributes present in the component'))
+        raise (TypeError('repr_attribute must be a list of attributes present in the interval'))
     if not isinstance(legend_dict, dict):
         raise (TypeError('legend must be a dict of attributes (key) and legend (and cmap) dict (value).'))
 
