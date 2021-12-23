@@ -38,17 +38,15 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
         else:
             raise (NameError(f'Pollutant "{pollutant}" not found in lexicon!'))
 
-    # if sample_type is not None:
-    #     if re.search('sol|soil', sample_type, re.I):
-    #         level_norm = LEX_SOIL_NORM
-    #     elif re.search('eau|water', sample_type, re.I):
-    #         level_norm = LEX_WATER_NORM
-    #     else:
-    #         raise(NameError(f"Sample type must be in {SAMP_TYPE_KW[:-1]}, not {sample_type}"))
-    # else:  # suppose sample type is 'soil'
-    #     level_norm = LEX_SOIL_NORM
-
-    level_norm = LEX_SOIL_NORM # TODO: FIX this
+    if sample_type is not None:
+        if re.search('sol|soil', sample_type, re.I):
+            level_norm = LEX_SOIL_NORM
+        elif re.search('eau|water', sample_type, re.I):
+            level_norm = LEX_WATER_NORM
+        else:
+            raise(NameError(f"Sample type must be in {SAMP_TYPE_KW[:-1]}, not {sample_type}"))
+    else:  # suppose sample type is 'soil'
+        level_norm = LEX_SOIL_NORM
 
     unit = level_norm['unit']
 

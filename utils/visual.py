@@ -37,6 +37,8 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
 
     for i in legend:
         omf_legend.append(i.colour)  # i.colour is in RGB format
+        # if i.component[list(i.component.keys())[0]] == NOT_EXIST:
+        #     alpha = 0.1
         new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([alpha])]))
 
     return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), mcolors.ListedColormap(
@@ -73,7 +75,7 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
 
     Returns
     --------
-    synth_legend_cmap : dict of synthetic legend, cmap and unique values basis on all boreholes
+    reduced_legend_cmap : dict of reduced legend, cmap and unique values basis on all boreholes
 
     detail_legend_cmap : dict of legend, cmap and unique values for each borehole
     """
@@ -87,7 +89,7 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
         repr_attrib_list = list(legend_dict.keys())
 
     detail_legend_cmap = {}  # contains legend/cmap dicts for each borehole
-    synth_legend_cmap = {}  # synthetic legend/cmap dict basis on all boreholes data
+    reduced_legend_cmap = {}  # reduced legend/cmap dict basis on all boreholes data
 
     for attr in repr_attrib_list:
         attr = attr.lower()
@@ -107,7 +109,7 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
             raise (TypeError('legend must be a Striplog.Legend object. Check the docstring!'))
 
         global_uniq_attrib_val = []  # [DEFAULT_ATTRIB_VALUE]  # all unique values for each attribute
-        synth_decors = {}  # dict of decors for building all boreholes synthetic legend/cmap per attribute
+        reduced_decors = {}  # dict of decors for building all boreholes reduced legend/cmap per attribute
         for bh3d in bh3d_list:
             if verbose:
                 print('|-> BH:', bh3d.name)
@@ -146,9 +148,9 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
                         # use interval order to obtain correct plot legend order
                         if bh3d_uniq_attrib_val.index(reg_value[0]) not in decors.keys():
                             decors.update({bh3d_uniq_attrib_val.index(reg_value[0]): legend_copy[i]})
-                        # add decors to build synthetic legend with all boreholes attributes values
-                        if global_uniq_attrib_val.index(reg_value[0]) not in synth_decors.keys():
-                            synth_decors.update({global_uniq_attrib_val.index(reg_value[0]): legend_copy[i]})
+                        # add decors to build reduced legend with all boreholes attributes values
+                        if global_uniq_attrib_val.index(reg_value[0]) not in reduced_decors.keys():
+                            reduced_decors.update({global_uniq_attrib_val.index(reg_value[0]): legend_copy[i]})
 
             if verbose:
                 print('\nBLCMap | Decors:', decors)
@@ -164,15 +166,15 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
             detail_legend_cmap[bh3d.name][attr] = {'legend': _legend, 'cmap': _cmap,
                                                    'values': bh3d_uniq_attrib_val}
 
-        glob_legend = Legend([synth_decors[k] for k in sorted(synth_decors.keys())])
+        glob_legend = Legend([reduced_decors[k] for k in sorted(reduced_decors.keys())])
         glob_cmap = striplog_legend_to_omf_legend(glob_legend)[1]
 
-        synth_legend_cmap[attr] = {'legend': glob_legend, 'cmap': glob_cmap,
+        reduced_legend_cmap[attr] = {'legend': glob_legend, 'cmap': glob_cmap,
                                    'values': global_uniq_attrib_val}
         if update_given_legend:
-            legend_dict[attr] = synth_legend_cmap[attr]
+            legend_dict[attr] = reduced_legend_cmap[attr]
 
-    return synth_legend_cmap, detail_legend_cmap
+    return reduced_legend_cmap, detail_legend_cmap
 
 
 def legend_from_attributes(attributes):
@@ -207,9 +209,7 @@ def legend_from_attributes(attributes):
 
             attribute = attr
             # default contamination level for pollutants
-            # legend_text = f"colour,width,component {attr}\n#9CB39C, None, VR,\n#00FF00, None, VS,\n#FFA500, None, VI,\n#FF0000, None, VI_sup,\n#FFFFFF, None, Inconnu\n"
             legend = Legend.from_csv(text=LEG_CONTAMINATION_LEV.format(attr))
-            # legend = Legend.from_csv(text=legend_text)
         else:
             raise(TypeError('Only a list containing strings and/or tuple (attribute, Legend) is allowed !'))
 
@@ -243,11 +243,9 @@ def find_component_from_attrib(intv, attrib, verbose=False):
         if attrib.lower() in intv.components[i].keys():
             pos.append(i)
             j = pos[0]  # take the first one if 2 components match for the attribute
-            # print(f'j: {j} --> {intv.components[i][attrib]}')
             break
         else:
             j = -1  # not found
-            # print(f'j: {j} --> {intv.components[i][attrib]}')
     if j is None:
         raise(StriplogError(f"Actually, empty interval is not allowed"))
     if verbose:

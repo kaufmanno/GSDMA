@@ -329,7 +329,6 @@ class Project:
         if plotter is not None:
             pl = plotter
         else:
-            print('XXX NEW plotter')
             pl = pv.Plotter(notebook=notebook, window_size=window_size)
 
         plot_cmap = self.legend_dict[self.repr_attribute]['cmap']
@@ -375,12 +374,29 @@ class Project:
                        '</scene>\n</x3d>\n</body>\n</html>\n'
             return HTML(x3d_html)
 
-    def plot_map(self, tile=None, epsg=31370, save_as=None, radius=0.2, opacity=0.1, zoom_start=15, max_zoom=25, control_scale=True, marker_color='red'):
+    def plot_log(self, bh_name, figsize=(6, 6), repr_legend=None, text_size=15, width=3,
+                 ticks=None, aspect=3, verbose=False):
+        """ plot a stratigraphical log of a borehole for an attribute
+
+        bh_name: str
+        """
+
+        for bh in self.boreholes_3d.keys():
+            if bh == bh_name:
+                self.boreholes_3d[bh].plot_log(repr_attribute=self.repr_attribute,
+                                               figsize=figsize, repr_legend=repr_legend,
+                                               text_size=text_size, width=width,
+                                               ticks=ticks, aspect=aspect,
+                                               verbose=verbose)
+                break
+
+
+    def plot_map(self, tiles=None, epsg=31370, save_as=None, radius=0.2, opacity=0.1, zoom_start=15, max_zoom=25, control_scale=True, marker_color='red'):
         """2D Plot of all boreholes in the project
 
         parameters
         -------------
-        tile : dict of a tile properties (name, attributes, url)
+        tile : List of dicts containing tiles properties (name, attributes, url)
         epsg : int
             Value of Coordinates Reference System (CRS)
         save_as : str
@@ -404,10 +420,10 @@ class Project:
         center = [bhs.geometry.y.mean(), bhs.geometry.x.mean()]
 
         # Use a satellite map
-        if tile is None:
-            tile = {'name': 'Satellite',
+        if tiles is None:
+            tiles = [{'name': 'Satellite',
                     'attributes': "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
-                    'url': "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"}
+                    'url': "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"}]
 
         bhs_map = fm.Map(location=center, tiles='OpenStreetMap', zoom_start=zoom_start,
                          max_zoom=max_zoom, control_scale=control_scale)
@@ -423,8 +439,10 @@ class Project:
         mini_map = plugins.MiniMap(toggle_display=True, zoom_level_offset=-6)
 
         # adding features to the base_map
-        fm.TileLayer(name=tile['name'], tiles=tile['url'], attr=tile['attributes'],
+        for tile in tiles:
+            fm.TileLayer(name=tile['name'], tiles=tile['url'], attr=tile['attributes'],
                      max_zoom=max_zoom, control=True).add_to(bhs_map)
+
         ch1.add_to(bhs_map)
         fm.LayerControl().add_to(bhs_map)
         bhs_map.add_child(mini_map)
@@ -453,7 +471,6 @@ class Project:
                                                        update_given_legend=update_project_legend, verbose=verbose)
 
         if update_project_legend:
-            # print('-----------\n', legend_dict)
             self.legend_dict = legend_dict
 
         if not update_project_legend:

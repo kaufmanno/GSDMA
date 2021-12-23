@@ -7,11 +7,10 @@ from utils.lexicon_memoris import LEX_BOREHOLE_MEMORIS, LEG_CONTAMINATION_LEV
 DEFAULT_BOREHOLE_LENGTH = 0.1
 DEFAULT_BOREHOLE_DIAMETER = 0.1
 DEFAULT_BOREHOLE_TYPE = 'Forage'
-# DEFAULT_Z = 102.0
+DEFAULT_Z = 102.0
 # DEFAULT_ATTRIB_VALUE = 'Inconnu'
-# NOT_EXIST = 'inconnu'
 WORDS_WITH_S = ['Gneiss', 'Silex', 'VS', 'vs']
-# SAMP_TYPE_KW = ['soil', 'water', 'sol', 'eau', 'inconnu']
+SAMP_TYPE_KW = ['soil', 'water', 'sol', 'eau', 'inconnu']
 
 DEFAULT_LITHO_LEXICON = Lexicon(LEX_LITHO_MEMORIS)  # or Lexicon.default()
 DEFAULT_LITHO_LEGEND = Legend.from_csv(text=LEG_LITHO_MEMORIS)
