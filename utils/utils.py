@@ -154,7 +154,7 @@ def striplog_from_dataframe(df, bh_name, attributes, bh_type='Borehole', id_col=
                         found_spec_comp = True
                         spec_num = spec_num[0]
                         intervals[n_iv].components[spec_num] = Component({'borehole_type': bh_type})
-                        intervals[n_iv].description = "{'borehole_type':'" + bh_type + "'}"
+                        intervals[n_iv].description = f"'{bh_type}'"
 
             if intervals:
                 strip.update({bh_id: Striplog(list_of_Intervals=intervals)})

@@ -231,30 +231,59 @@ class Project:
             result = result[0]
         return result
 
-    def insert_borehole(self, bh_dict, verbose=False):
-        bh_orm = BoreholeOrm(id=bh_dict['id'], date=bh_dict.pop('date', None), length=bh_dict.pop('length', None),
-                             diameter=bh_dict.pop('diameter', None))
-        intv_id = self.find_next_id(IntervalOrm)
-        bh_orm.intervals_values.update({intv_id: {'description': f"{bh_dict['borehole_type']} {bh_dict['id']}",
-                                                  'interval_number': 0,
-                                                  'top': PositionOrm(**bh_dict['top']),
-                                                  'base': PositionOrm(**bh_dict['base'])}})
+    def insert_borehole(self, borehole, update_3d=False, verbose=False):
+        """
+        Add a Borehole, from a dict or a BoreholeOrm, object to the project
 
-        description = "{'borehole_type': '" + bh_dict['borehole_type'] + "'}"
-        component_id = self.get_component_id_from_description(description)
-        if component_id is None:
-            component_id = self.find_next_id(ComponentOrm)
-            bh_component = ComponentOrm(id=component_id, description=description)
-            self.session.add(bh_component)
+        Parameters
+        -----------
+        borehole : dict or BoreholeOrm object
 
-        link_dict = {(intv_id, component_id): {'extra_data': 'None'}}
-        if verbose:
-            print(f'interval : {intv_id}, component: {component_id}')
-        self.add_link_components_intervals(link_dict, commit=False)
-        # self.commit()
-        self.add_borehole(bh_orm, verbose)
+        See Also
+        ---------
+        BoreholeOrm : ORM borehole object
+        """
+
+        if isinstance(borehole, BoreholeOrm):
+            bh_orm = borehole
+        elif isinstance(borehole, dict):
+            bh_orm = BoreholeOrm(id=borehole['id'], date=borehole.pop('date', None),
+                                 length=borehole.pop('length', None),
+                                 diameter=borehole.pop('diameter', None))
+            # create the special interval for the borehole
+            intv_id = self.find_next_id(IntervalOrm)
+            bh_orm.intervals_values.update(
+                {intv_id: {'description': f"{borehole['borehole_type']} {borehole['id']}",
+                           'interval_number': 0,
+                           'top': PositionOrm(**borehole['top']),
+                           'base': PositionOrm(**borehole['base'])}}
+                                           )
+            # create the special component (borehole_type)
+            description = "{'borehole_type': '" + borehole['borehole_type'] + "'}"
+            component_id = self.get_component_id_from_description(description)
+            if component_id is None:
+                component_id = self.find_next_id(ComponentOrm)
+                bh_component = ComponentOrm(id=component_id, description=description)
+                self.session.add(bh_component)
+            # create the link between fictive interval and component
+            link_dict = {(intv_id, component_id): {'extra_data': 'None'}}
+
+            if verbose:
+                print(f'interval : {intv_id}, component: {component_id}')
+            self.add_link_components_intervals(link_dict, commit=False)
+
+        self.session.add(bh_orm)
+        self.commit()
+        self.refresh(update_3d=update_3d)
 
     def insert_interval_in_borehole(self, bh_id, intv_dict, verbose=False):
+        """
+        Insert an interval, from a dict, in the given borehole (name)
+        bh_id: str
+            borehole's name
+        intv_dict: dict
+            dictionary with keys based on IntervalOrm attributes columns
+        """
 
         intv_id = self.find_next_id(IntervalOrm)
         self.boreholes_orm[bh_id].intervals_values.update({
@@ -475,4 +504,3 @@ class Project:
 
         if not update_project_legend:
             return synth_leg, detail_leg
-

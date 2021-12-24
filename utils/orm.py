@@ -5,7 +5,7 @@ from striplog import Position, Component, Interval
 from core.orm import BoreholeOrm, PositionOrm
 from core.visual import Borehole3D
 from utils.config import DEFAULT_BOREHOLE_DIAMETER, DEFAULT_POL_LEXICON,\
-    WARNING_TEXT_CONFIG, WORDS_WITH_S
+    DEFAULT_BOREHOLE_TYPE, WARNING_TEXT_CONFIG, WORDS_WITH_S
 
 from utils.utils import striplog_from_dataframe
 from utils.visual import get_components
@@ -84,8 +84,8 @@ def get_interval_list(bh_orm, attribute=None):
     return interval_list, max_depth
 
 
-def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID',
-                                 diameter_col='Diameter', date_col='Date', length_col=None,
+def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID', date_col=None,
+                                 diameter_col=None,  length_col=None, bh_type_col=None,
                                  sample_type_col=None, sample_id_col=None, default_z=None,
                                  skip_cols=None, verbose=False):
     """ Creates a list of BoreholeORM objects from a dataframe
@@ -111,10 +111,10 @@ def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID',
     """
 
     int_id = 0  # interval id
+    comp_id = 0  # component id
     pos_id = 0  # position id
     boreholes_orm = []
     components_dict = []
-    comp_id = 0  # component id
     component_dict = {}
     link_intv_comp_dict = {}  # link between intervals and components (<-> junction table)
     contam_names = list(DEFAULT_POL_LEXICON.abbreviations.keys()) + list(DEFAULT_POL_LEXICON.abbreviations.values())
@@ -160,11 +160,19 @@ def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID',
               f'{DEFAULT_BOREHOLE_DIAMETER} [m]{WARNING_TEXT_CONFIG["off"]}')
         final_df[diameter_col] = DEFAULT_BOREHOLE_DIAMETER
 
-    top_col, base_col, desc_col = 'Top_intv', 'Base_intv', 'Descr_intv'
-    thick_col = 'Thick_intv'
+    if bh_type_col not in final_df.columns:
+        final_df[bh_type_col] = DEFAULT_BOREHOLE_TYPE
+
+    top_col, base_col, = 'Top_intv', 'Base_intv',
+    desc_col, thick_col = 'Descr_intv', 'Thick_intv'
 
     for idx, row in final_df.iterrows():
         bh_name = row[id_col]
+        if not pd.isnull(row[bh_type_col]):
+            bh_type = row[bh_type_col]
+        else:
+            bh_type = DEFAULT_BOREHOLE_TYPE
+
         if date_col not in final_df.columns:
             bh_date = None
         else:
@@ -175,7 +183,7 @@ def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID',
             bh_selection = final_df[id_col] == f"{bh_name}"
             tmp = final_df[bh_selection].copy()
             tmp.reset_index(drop=True, inplace=True)
-            striplog_dict = striplog_from_dataframe(df=tmp, bh_name=bh_name,
+            striplog_dict = striplog_from_dataframe(df=tmp, bh_name=bh_name, bh_type=bh_type,
                                                     attributes=attributes, symbols=symbols,
                                                     id_col=id_col, thick_col=thick_col,
                                                     top_col=top_col, base_col=base_col,
@@ -243,7 +251,10 @@ def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID',
                                            x=row['X'], y=row['Y']
                                            )
 
-                        desc = '; '.join([c.json() for c in intv.components])
+                        #desc = '; '.join([c.json() for c in intv.components])
+                        desc = None
+                        if intv.description.lower() not in ['nan', 'vide']:
+                            desc = intv.description
 
                         interval_dict.update({int_id: {'top': top, 'base': base,
                                                 'interval_number': interval_number,
