@@ -94,7 +94,7 @@ class Project:
         assert (isinstance(value, str))
         self._repr_attribute = value
         self.refresh(update_3d=True)
-        self.update_legend_cmap(update_project_legend=True)
+        self.update_legend_cmap(update_project_legend=True, update_bh3d_legend=True)
 
     def refresh(self, update_3d=False, verbose=False):
         """
@@ -337,8 +337,8 @@ class Project:
             blocks.append(self.boreholes_3d[bh]._vtk)
         return blocks
 
-    def plot3d(self, plotter=None, labels_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"),
-               x3d=False, window_size=None, verbose=False, **kwargs):
+    def plot_3d(self, plotter=None, labels_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"),
+                x3d=False, window_size=None, verbose=False, **kwargs):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -349,6 +349,7 @@ class Project:
         """
         custom_legend = False
         name_pts = {}
+        jupyter_backend = kwargs.pop('jupyter_backend', None)
         if window_size is not None:
             notebook = False
         else:
@@ -362,13 +363,14 @@ class Project:
 
         plot_cmap = self.legend_dict[self.repr_attribute]['cmap']
         uniq_attr_val = self.legend_dict[self.repr_attribute]['values']
+        print()
 
         for bh in self.boreholes_3d.values():
             bh_val_un = bh.legend_dict[self.repr_attribute]['values']
-            bh.plot3d(plotter=pl, repr_attribute=self.repr_attribute,
-                      bg_color=bg_color,
-                      repr_legend_dict=self.legend_dict, repr_cmap=plot_cmap,
-                      repr_uniq_val=uniq_attr_val, custom_legend=custom_legend, **kwargs)
+            bh.plot_3d(plotter=pl, repr_attribute=self.repr_attribute,
+                       bg_color=bg_color,
+                       repr_legend_dict=self.legend_dict, repr_cmap=plot_cmap,
+                       repr_uniq_val=uniq_attr_val, custom_legend=custom_legend, **kwargs)
             name_pts.update({bh.name: bh._vtk.center[:2]+[bh.z_collar]})
             if verbose:
                 print(f'Borehole "{bh.name}" | attribute values -> {bh_val_un}')
@@ -383,7 +385,8 @@ class Project:
                                 text_color=labels_color, show_points=False)
 
         if not x3d:
-            pl.show(auto_close=True)
+            pl.add_axes()
+            pl.show(auto_close=True, jupyter_backend=jupyter_backend)
         else:
             writer = vtkX3DExporter()
             writer.SetInput(pl.renderer.GetRenderWindow())
@@ -420,7 +423,7 @@ class Project:
                 break
 
 
-    def plot_map(self, tiles=None, epsg=31370, save_as=None, radius=0.2, opacity=0.1, zoom_start=15, max_zoom=25, control_scale=True, marker_color='red'):
+    def plot_map(self, tiles=None, epsg=31370, save_as=None, radius=0.5, opacity=1, zoom_start=15, max_zoom=25, control_scale=True, marker_color='red'):
         """2D Plot of all boreholes in the project
 
         parameters

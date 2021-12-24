@@ -116,7 +116,7 @@ class Borehole3D(Striplog):
     # -------------------------------- Class Methods ------------------------------
     def __repr__(self):
         length = len(self._Striplog__list)
-        if self.start.z <= self.stop.z:
+        if self.stop.z < self.start.z:
             start = self.start.z
             stop = self.stop.z
         else:
@@ -124,7 +124,7 @@ class Borehole3D(Striplog):
             start = self.stop.z
         details = f"start={start}, stop={stop}"
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}> Borehole with {length} Intervals | {details} | name: {self.name}"
+        return f"<{obj_class}> name: {self.name} | {length} Intervals | {details}"
 
     def attrib_components(self, attribute=None):
         # components according to the repr_attribute
@@ -321,11 +321,11 @@ class Borehole3D(Striplog):
         ax[1].set_title('Legend', size=text_size, color='r')
         plot_legend.plot(ax=ax[1])
 
-    def plot3d(self, plotter=None, repr_legend_dict=None, repr_attribute=None,
-               repr_cmap=None, repr_uniq_val=None, x3d=False, diam=None,
-               bg_color=["royalblue", "aliceblue"], update_vtk=False,
-               update_cmap=False, custom_legend=False, str_annotations=True,
-               scalar_bar_args=None, verbose=False):
+    def plot_3d(self, plotter=None, repr_legend_dict=None, repr_attribute=None,
+                repr_cmap=None, repr_uniq_val=None, x3d=False, diam=None,
+                bg_color=["royalblue", "aliceblue"], update_vtk=False,
+                update_cmap=False, custom_legend=False, str_annotations=True,
+                scalar_bar_args=None, verbose=False):
         """
         Returns an interactive 3D representation of all boreholes in the project
 

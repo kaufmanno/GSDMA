@@ -10,8 +10,22 @@ from striplog import Legend, Component
 import numpy as np
 from striplog.utils import hex_to_rgb
 import core.visual as cv
-from utils.config import WORDS_WITH_S, DEFAULT_POL_LEXICON
+from utils.config import WORDS_WITH_S, DEFAULT_POL_LEXICON, BOREHOLE_TYPES
 from utils.lexicon_memoris import LEG_CONTAMINATION_LEV
+
+
+def find_new_word_for_legend(legend_dict, attribute):
+    """return a list of words don't found in the given legend_dict"""
+
+    leg_val_list = []
+    new_word = []
+    for lg in legend_dict[attribute]['legend']:
+        leg_val_list.append(lg.component[attribute])
+
+    for x in legend_dict[attribute]['values']:
+        if x not in leg_val_list: new_word.append(x)
+
+    return new_word
 
 
 def striplog_legend_to_omf_legend(legend, alpha=1.):
@@ -37,8 +51,8 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
 
     for i in legend:
         omf_legend.append(i.colour)  # i.colour is in RGB format
-        # if i.component[list(i.component.keys())[0]] == NOT_EXIST:
-        #     alpha = 0.1
+        if i.component[list(i.component.keys())[0]] in BOREHOLE_TYPES:
+            alpha = 0.5
         new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([alpha])]))
 
     return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), mcolors.ListedColormap(

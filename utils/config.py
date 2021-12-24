@@ -7,6 +7,7 @@ from utils.lexicon_memoris import LEX_BOREHOLE_MEMORIS, LEG_CONTAMINATION_LEV
 DEFAULT_BOREHOLE_LENGTH = 6
 DEFAULT_BOREHOLE_DIAMETER = 0.1
 DEFAULT_BOREHOLE_TYPE = 'Borehole'
+BOREHOLE_TYPES = ['Borehole', 'Forage', 'Piezometer', 'Heating tube']
 DEFAULT_Z = 102.0
 # DEFAULT_ATTRIB_VALUE = 'Inconnu'
 WORDS_WITH_S = ['Gneiss', 'Silex', 'VS', 'vs']
