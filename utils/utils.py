@@ -1,7 +1,8 @@
 import re
 import pandas as pd
+import numpy as np
 from striplog import Component, Interval, Striplog, Lexicon
-from utils.config import DEFAULT_LITHO_LEXICON, DEFAULT_POL_LEXICON, WARNING_TEXT_CONFIG
+from utils.config import DEFAULT_LITHO_LEXICON, DEFAULT_POL_LEXICON, SAMP_TYPE_KW, WARNING_TEXT_CONFIG
 from utils.lexicon_memoris import LEX_SOIL_NORM, LEX_WATER_NORM
 from difflib import get_close_matches
 
@@ -34,17 +35,18 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
         pollutant = get_close_matches(pollutant, full_names)
         if len(pollutant) > 0:
             pollutant = pollutant[0]
-            print(f"{WARNING_TEXT_CONFIG['blue']}No matching! Equivalent closest pollutant name found is {pollutant}{WARNING_TEXT_CONFIG['off']}\n")
+            print(f"{WARNING_TEXT_CONFIG['blue']}No close matching! Equivalent pollutant name found is {pollutant}{WARNING_TEXT_CONFIG['off']}\n")
         else:
             raise (NameError(f'Pollutant "{pollutant}" not found in lexicon!'))
 
-    if sample_type is not None:
+    if verbose : print(f"GCLV - value: {value}, pollutant: {pollutant} | {pol_name}, sample_type: {sample_type},")
+    if sample_type is not None and not pd.isnull(sample_type):
         if re.search('sol|soil', sample_type, re.I):
             level_norm = LEX_SOIL_NORM
         elif re.search('eau|water', sample_type, re.I):
             level_norm = LEX_WATER_NORM
         else:
-            raise(NameError(f"Sample type must be in {SAMP_TYPE_KW[:-1]}, not {sample_type}"))
+            raise(NameError(f"Sample type must be in {SAMP_TYPE_KW[:-1]}, not {sample_type} (or add it in config file)"))
     else:  # suppose sample type is 'soil'
         level_norm = LEX_SOIL_NORM
 
@@ -68,10 +70,10 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
     return pol_name, level, unit
 
 
-def striplog_from_dataframe(df, bh_name, attributes, bh_type='Piezometer', id_col='ID', 
-                            symbols=None, top_col=None, base_col=None, desc_col=None, 
-                            thick_col=None, sample_type_col=None,
-                            sample_id_col=None, query=True, verbose=False):
+def striplog_from_dataframe(df, bh_name, attributes, bh_type='Borehole', id_col='ID',
+                            symbols=None, length_col=None, top_col=None, base_col=None,
+                            desc_col=None, sample_type_col=None, sample_id_col=None,
+                            thick_col=None, query=True, verbose=False):
     """
     creates a Striplog object from a dataframe
 
@@ -138,22 +140,21 @@ def striplog_from_dataframe(df, bh_name, attributes, bh_type='Piezometer', id_co
             intervals = intervals_from_dataframe(tmp, attributes=attributes,
                                                  symbols=symbols, thick_col=thick_col,
                                                  top_col=top_col, base_col=base_col,
-                                                 desc_col=desc_col,
+                                                 desc_col=desc_col, length_col=length_col,
                                                  sample_id_col=sample_id_col,
                                                  sample_type_col=sample_type_col,
                                                  verbose=verbose)
 
-            # enable below to add borehole_type automatically
-            # borehole type to special component
-            # found_spec_comp = False
-            # for n_iv, iv in enumerate(intervals):
-            #     if not found_spec_comp:
-            #         spec_num = [n for n, c in enumerate(iv.components) if 'borehole_type' in c.keys()]
-            #         if spec_num:
-            #             found_spec_comp = True
-            #             spec_num = spec_num[0]
-            #             intervals[n_iv].components[spec_num] = Component({'borehole_type': bh_type})
-            #             intervals[n_iv].description = "{'borehole_type':'" + bh_type + "'}"
+            # add borehole_type automatically
+            found_spec_comp = False
+            for n_iv, iv in enumerate(intervals):
+                if not found_spec_comp:
+                    spec_num = [n for n, c in enumerate(iv.components) if 'borehole_type' in c.keys()]
+                    if spec_num:
+                        found_spec_comp = True
+                        spec_num = spec_num[0]
+                        intervals[n_iv].components[spec_num] = Component({'borehole_type': bh_type})
+                        intervals[n_iv].description = "{'borehole_type':'" + bh_type + "'}"
 
             if intervals:
                 strip.update({bh_id: Striplog(list_of_Intervals=intervals)})
@@ -163,7 +164,7 @@ def striplog_from_dataframe(df, bh_name, attributes, bh_type='Piezometer', id_co
                       f"{WARNING_TEXT_CONFIG['off']}")
 
         if list(strip.values()):
-            print(f"\033[1;40;47m Summary : {strip}\033[0;0;0m")
+            print(f"\033[0;40;43mSummary : {strip}\033[0;0;0m")
             return strip
         else:
             return None
@@ -173,7 +174,7 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
                              top_col=None, base_col=None, desc_col=None, length_col=None,
                              sample_type_col=None, sample_id_col=None,
                              verbose=False):
-    """ df contains intervals description for a unique borehole"""
+    """df contains intervals description for a unique borehole"""
 
     pollutants = list(DEFAULT_POL_LEXICON.abbreviations.keys()) + \
                  list(DEFAULT_POL_LEXICON.abbreviations.values())
@@ -188,22 +189,23 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
     if sample_type_col is not None and sample_type_col in df.columns:
         samp_type_cdt = True
 
-    # # enable below to add borehole_type automatically
-    # if length_col is not None and length_col in df.columns:
-    #     spec_top, spec_base = 0, df[length_col][0]
-    # elif attrib_cdt:
-    #     spec_top, spec_base = min(df[top_col]), max(df[base_col])
-    # elif thick_cdt:
-    #     spec_top, spec_base = 0, df[thick_col].cumsum().max()
-    #
-    # spec_comp = Component({'borehole_type': 'borehole'})
-    # intervals = [Interval(top=spec_top, base=spec_base, components=[spec_comp])]
+    # add borehole_type automatically
+    if length_col is not None and length_col in df.columns:
+        spec_top, spec_base = 0, np.nanmax(df[length_col])
+    elif attrib_cdt:
+        spec_top, spec_base = min(df[top_col]), max(df[base_col])
+    elif thick_cdt:
+        spec_top, spec_base = 0, df[thick_col].cumsum().max()
+    
+    spec_comp = Component({'borehole_type': 'borehole'})
+    intervals = [Interval(top=spec_top, base=spec_base, components=[spec_comp])]
 
-    intervals = []
     top, base, thick, val = 0, 0, 0, 0
+    base_all = []
     for j in df.index:
         samp_name = None
         samp_type = None
+        iv_desc = df.loc[j, desc_col]
         if samp_type_cdt:
             samp_type = df.loc[j, sample_type_col]
         if sample_id_col is not None and not pd.isnull(df.loc[j, sample_id_col]):
@@ -221,19 +223,23 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
 
             # retrieve contamination level
             if attrib in pollutants or attrib.lower() in pollutants:
+                pol_comp = True
                 if isinstance(val, str):
                     val = val.replace(',', '.')
                 num_val = float(val)
                 attrib, val, unit = get_contam_level_from_value(num_val, attrib, samp_type)
+            else:
+                pol_comp = False
 
             if verbose:
                 print(f"**CONTAM_VAL** {attrib}: {num_val} {unit} <--> {val}")
-            # set correct lexicon
-            if attrib.lower() in DEFAULT_POL_LEXICON.pollutants:
+            # choose correct lexicon
+            lexicon = None
+            if attrib not in symbols.keys() and attrib.lower() in symbols.keys():
+                lexicon = symbols[attrib.lower()]['lexicon']
+            elif pol_comp:
                 # default lexicon for contaminant
                 lexicon = Lexicon({attrib.lower(): DEFAULT_POL_LEXICON.levels})
-            elif attrib not in symbols.keys() and attrib.lower() in symbols.keys():
-                lexicon = symbols[attrib.lower()]['lexicon']
             else:
                 lexicon = symbols[attrib]['lexicon']
 
@@ -243,17 +249,19 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
             if Component.from_text(val, lexicon) == Component({}):
                 if val != '':
                     print(f"{WARNING_TEXT_CONFIG['red']}"
-                          f"\nWARNING : No value matches with '{val}' in given lexicon !"
+                          f"\nWARNING : No matched value for '{val}' in given lexicon !"
                           f"{WARNING_TEXT_CONFIG['off']}")
-            elif create_litho and val == 'Inconnu':
-                pass  # don't create lithology in this case
             else:
-                comp = Component.from_text(val, lexicon)
-                if num_val is not None:
-                    if pd.isnull(num_val): num_val = 'NaN'  # np.nan
-                    comp['concentration'] = num_val
-                    if unit is not None: comp['unit'] = unit
-                iv_components.append(comp)
+                comp = None
+                if not pol_comp:
+                    comp = Component.from_text(val, lexicon)
+                else:
+                    if num_val is not None and not pd.isnull(num_val):
+                        comp = Component.from_text(val, lexicon)
+                        comp['concentration'] = num_val
+                        if unit is not None: comp['unit'] = unit
+
+                if comp is not None: iv_components.append(comp)
 
         # intervals top, base and thickness processing -----------------------
         if attrib_top_cdt:
@@ -272,18 +280,17 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
         else:
             raise (ValueError("Cannot retrieve or compute interval's top values. provide thickness or top/base values!"))
 
-
         error_intv = True
-        if base != 0. or base != 0:
+        if base != 0. or base != 0 or base != top:
             # only add interval when top and base exist
             if not pd.isnull(top) and not pd.isnull(base):
                 error_intv = False
-                print(f'{j}- Interval top={top}, base={base}')
+                base_all.append(base)
                 if samp_name is None:
-                    intervals.append(Interval(top=top, base=base, description = iv_desc,
+                    intervals.append(Interval(top=top, base=base, description=iv_desc,
                                               components=iv_components))
                 else:
-                    intervals.append(Interval(top=top, base=base, description = iv_desc,
+                    intervals.append(Interval(top=top, base=base, description=iv_desc,
                                               components=iv_components,
                                               data={'sample_ID': samp_name,
                                                     'sample_type': samp_type}))
@@ -292,8 +299,40 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
                   f"'WARNING : Interval skipped because top/base are null!!'"
                   f"{WARNING_TEXT_CONFIG['off']}")
 
-        print(f" - Interval components: {iv_components}\n")
+    # group components for the same interval, based on top and base
+    for n, it in enumerate(intervals):
+        comp_group = []
+        for iv in intervals:
+            if iv.top.middle == it.top.middle and iv.base.middle == it.base.middle:
+                comp_group += iv.components
+        if comp_group:
+            intervals[n].components = comp_group
 
+    final_intv = []
+    for itv in intervals:
+        if itv not in final_intv:
+            final_intv.append(itv)
+
+    # assign maximum base to borehole_type interval if length is null
+    for x, iv in enumerate(final_intv):
+        if [c for c in iv.components if 'borehole_type' in c.keys()]:
+            if pd.isnull(final_intv[x].base.middle):
+                final_intv[x].base.middle = np.nanmax(base_all)
+                break
+
+    intervals = final_intv
+    if len(intervals) == 1 and len(intervals[0].components)==0:
+        intervals = []
+
+    if not verbose and intervals:
+        for x in range(len(intervals)):
+            if intervals[x].components:
+                fc = intervals[x].components[0]
+                print(f"{x}- Interval top={intervals[x].top.middle}, base={intervals[x].base.middle}, "
+                      f"components:{len(intervals[x].components)}, first_component: {fc}")
+            else:
+                print(f"{x}- Interval top={intervals[x].top.middle}, base={intervals[x].base.middle}, "
+                      f"components:{len(intervals[x].components)}")
     return intervals
 
 

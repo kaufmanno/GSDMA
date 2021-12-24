@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import re
 from striplog import Position, Component, Interval
 from core.orm import BoreholeOrm, PositionOrm
@@ -83,9 +84,10 @@ def get_interval_list(bh_orm, attribute=None):
     return interval_list, max_depth
 
 
-def orm_boreholes_from_dataframe(data_list, symbols=None, attributes=None, id_col='ID',
-                                 diameter_col='Diameter', default_z=None, date_col='Date',
-                                 sample_type_col=None, skip_cols=None, verbose=False):
+def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID',
+                                 diameter_col='Diameter', date_col='Date', length_col=None,
+                                 sample_type_col=None, sample_id_col=None, default_z=None,
+                                 skip_cols=None, verbose=False):
     """ Creates a list of BoreholeORM objects from a dataframe
 
     Parameters
@@ -115,7 +117,7 @@ def orm_boreholes_from_dataframe(data_list, symbols=None, attributes=None, id_co
     comp_id = 0  # component id
     component_dict = {}
     link_intv_comp_dict = {}  # link between intervals and components (<-> junction table)
-    contam_names = list(DEFAULT_POL_LEXICON.abbreviations.values())
+    contam_names = list(DEFAULT_POL_LEXICON.abbreviations.keys()) + list(DEFAULT_POL_LEXICON.abbreviations.values())
 
     if skip_cols is None:
         skip_cols = []
@@ -177,8 +179,9 @@ def orm_boreholes_from_dataframe(data_list, symbols=None, attributes=None, id_co
                                                     attributes=attributes, symbols=symbols,
                                                     id_col=id_col, thick_col=thick_col,
                                                     top_col=top_col, base_col=base_col,
+                                                    desc_col=desc_col, length_col=length_col,
                                                     sample_type_col=sample_type_col,
-                                                    desc_col=desc_col,
+                                                    sample_id_col=sample_id_col,
                                                     query=False, verbose=verbose)
 
             if striplog_dict is not None:
@@ -187,19 +190,28 @@ def orm_boreholes_from_dataframe(data_list, symbols=None, attributes=None, id_co
                 boreholes_orm.append(BoreholeOrm(id=bh_name, date=bh_date))
 
                 for strip in striplog_dict.values():
+                    sk_keys = []
                     for c in get_components(strip):
                         c_key = list(c.keys())[0]
-                        c_type = 'pollutant' if c_key in contam_names else 'lithology'
-                        c_val = c_key if c_type == 'pollutant' else c[c_key]
-                        # c_lev = c[c_key] if c_type == 'pollutant' else None
+                        if c_key in contam_names:
+                            c_type = 'pollutant'
+                        elif c_key in ['borehole_type', 'lithology']:
+                            c_type = c_key
+                        else:
+                            sk_keys.append(c_key)
 
-                        # remove 's' for plural words
-                        if c_val not in WORDS_WITH_S:
-                            c_val = c_val.rstrip('s')
-                        c = Component({'type': c_type, 'value': c_val})
-                        if c not in component_dict.keys():
-                            component_dict.update({c: comp_id})
-                            comp_id += 1
+                        if c_key not in sk_keys:
+                            c_val = c_key if c_type == 'pollutant' else c[c_key]
+                            # remove 's' for plural words
+                            if c_val not in WORDS_WITH_S:
+                                c_val = c_val.rstrip('s')
+                            c = Component({c_type: c_val})
+                            if c not in component_dict.keys():
+                                component_dict.update({c: comp_id})
+                                comp_id += 1
+
+                    if verbose and sk_keys:
+                        print(f"(A) Skipped components keys: {list(set(sk_keys))}")
 
                     # ORM processing
                     interval_dict = {}
@@ -237,24 +249,34 @@ def orm_boreholes_from_dataframe(data_list, symbols=None, attributes=None, id_co
                                                 'interval_number': interval_number,
                                                 'description': desc}})
 
+                        sk_keys = []
                         for cp in intv.components:
                             if cp != Component({}):
                                 cp_key = list(cp.keys())[0]
-                                cp_type = 'pollutant' if cp_key in contam_names else 'lithology'
-                                cp_val = cp_key if cp_type == 'pollutant' else cp[cp_key]
-                                cp_lev = cp[cp_key] if cp_type == 'pollutant' else None
-                                unit = cp['unit'] if hasattr(cp, 'unit') else None
-                                pol_conc = cp['concentration'] if hasattr(cp, 'concentration') else None
-                                # remove 's' for plural words
-                                if cp_val not in WORDS_WITH_S:
-                                    cp_val = cp_val.rstrip('s')
-                                cp = Component({'type': cp_type, 'value': cp_val})
+                                if cp_key in contam_names:
+                                    cp_type = 'pollutant'
+                                elif cp_key in ['borehole_type', 'lithology']:
+                                    cp_type = cp_key
+                                else:
+                                    sk_keys.append(cp_key)
 
-                                link_intv_comp_dict.update({(int_id, component_dict[cp]):
-                                    {'extra_data': str({'level': cp_lev,
-                                                        'concentration': pol_conc,
-                                                        'unit': unit})}
-                                                            })
+                                if cp_key not in sk_keys:
+                                    cp_val = cp_key if cp_type == 'pollutant' else cp[cp_key]
+                                    cp_lev = cp[cp_key] if cp_type == 'pollutant' else None
+                                    unit = cp['unit'] if hasattr(cp, 'unit') else None
+                                    pol_conc = cp['concentration'] if hasattr(cp, 'concentration') else None
+                                    # remove 's' for plural words
+                                    if cp_val not in WORDS_WITH_S:
+                                        cp_val = cp_val.rstrip('s')
+                                    cp = Component({cp_type: cp_val})
+
+                                    link_intv_comp_dict.update({(int_id, component_dict[cp]):
+                                        {'extra_data': str({'level': cp_lev,
+                                                            'concentration': pol_conc,
+                                                            'unit': unit})}
+                                                        })
+                                if verbose and sk_keys:
+                                    print(f"(B) Skipped components keys: {list(set(sk_keys))}")
 
                         interval_number += 1
                         int_id += 1
@@ -267,13 +289,15 @@ def orm_boreholes_from_dataframe(data_list, symbols=None, attributes=None, id_co
                         elif base_col in final_df.columns:
                             boreholes_orm[bh_idx].length = tmp[base_col].max()
 
-                        diam_val = tmp[diameter_col][0]
+                        diam_val = np.nanmax(tmp[diameter_col])
                         if diam_val is not None and not pd.isnull(diam_val):
                             boreholes_orm[bh_idx].diameter = diam_val
                         else:
                             boreholes_orm[bh_idx].diameter = DEFAULT_BOREHOLE_DIAMETER
-                            print(f'No diameter value found, using default: '
-                                  f'{DEFAULT_BOREHOLE_DIAMETER}')
+                            print(f"{WARNING_TEXT_CONFIG['blue']}"
+                                  f'No diameter value found for {boreholes_orm[bh_idx].id}, using default: '
+                                  f'{DEFAULT_BOREHOLE_DIAMETER}'
+                                  f"{WARNING_TEXT_CONFIG['off']}")
 
                 bh_idx += 1
 
