@@ -28,6 +28,7 @@ class BoreholeOrm(Base):
 
     id = Column(String, primary_key=True)
     date = Column(String)
+    type = Column(String)
     length = Column(Float, default=0.)
     diameter = Column(Float, default=0.)
     intervals = relationship('IntervalOrm',
@@ -43,8 +44,8 @@ class BoreholeOrm(Base):
 
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}>(Name={self.id}, Length={self.length}, " \
-               f"Diameter={self.diameter}, Intervals={len(self.intervals)})"
+        return f"<{obj_class}>(id={self.id}, type={self.type}, length={self.length}, " \
+               f"diameter={self.diameter}, intervals={len(self.intervals)})"
 
 
 class IntervalOrm(Base):
@@ -87,9 +88,8 @@ class IntervalOrm(Base):
 
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}>(Id={self.id}, top={self.top}, base={self.base}, " \
-               f"Description={self.description}, " \
-               f"Components={self.components})"
+        return f"<{obj_class}>(id={self.id}, top={self.top}, base={self.base}, " \
+               f"description={self.description}, components={self.components})"
 
 
 class ComponentOrm(Base):
@@ -115,7 +115,7 @@ class ComponentOrm(Base):
 
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}>(Id={self.id}, Description={self.description})"
+        return f"<{obj_class}>(id={self.id}, description={self.description})"
 
 
 class LinkIntervalComponentOrm(Base):
@@ -136,6 +136,10 @@ class LinkIntervalComponentOrm(Base):
     extra_data = Column(String)
     component = relationship('ComponentOrm', backref=backref("component_assoc"))
     interval = relationship('IntervalOrm', backref=backref("interval_assoc"))
+
+    def __repr__(self):
+        obj_class = str(self.__class__).strip('"<class>"').strip("' ")
+        return f"<{obj_class}>(intv_id={self.intv_id}, comp_id={self.comp_id}, extra_data={self.extra_data})"
 
 
 class PositionOrm(Base):
@@ -169,6 +173,10 @@ class PositionOrm(Base):
     y = Column(Float, default=0.)
     z = synonym('middle')
 
+    def __repr__(self):
+        obj_class = str(self.__class__).strip('"<class>"').strip("' ")
+        return f"<{obj_class}>(id={self.id}, x={self.x}, y={self.y}, z={self.z}"
+
 
 class IntervalDataOrm(Base):
     """The IntervalData table
@@ -185,4 +193,4 @@ class IntervalDataOrm(Base):
 
     def __repr__(self):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}>(Id={self.id})"
+        return f"<{obj_class}>(id={self.id})"

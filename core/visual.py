@@ -9,7 +9,7 @@ import pyvista as pv
 import omf
 from vtk import vtkX3DExporter  # NOQA
 from IPython.display import HTML
-from utils.config import WARNING_TEXT_CONFIG
+from utils.config import WARNING_TEXT_CONFIG, X3D_HTML
 from utils.visual import find_component_from_attrib, plot_from_striplog, striplog_legend_to_omf_legend, build_bh3d_legend_cmap
 
 
@@ -325,7 +325,7 @@ class Borehole3D(Striplog):
                 repr_cmap=None, repr_uniq_val=None, x3d=False, diam=None,
                 bg_color=["royalblue", "aliceblue"], update_vtk=False,
                 update_cmap=False, custom_legend=False, str_annotations=True,
-                scalar_bar_args=None, verbose=False):
+                scalar_bar_args=None, verbose=False, **kwargs):
         """
         Returns an interactive 3D representation of all boreholes in the project
 
@@ -344,7 +344,7 @@ class Borehole3D(Striplog):
             If True, updates vtk objects
 
         """
-
+        jupyter_backend = kwargs.pop('jupyter_backend', None)
         if plotter is None:
             plotter = pv.Plotter()
             show = True
@@ -442,20 +442,8 @@ class Borehole3D(Striplog):
             writer.SetFileName(filename)
             writer.Update()
             writer.Write()
-            x3d_html = f'<html>\n<head>\n    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>\n' \
-                       '<title>X3D scene</title>\n <p>' \
-                       '<script type=\'text/javascript\' src=\'http://www.x3dom.org/download/x3dom.js\'> </script>\n' \
-                       '<link rel=\'stylesheet\' type=\'text/css\' href=\'http://www.x3dom.org/download/x3dom.css\'/>\n' \
-                       '</head>\n<body>\n<p>\n For interaction, click in the view and press "a" or "i" to see the whole scene, ' \
-                       '"d" to display info, "space" for shortcuts. For more info col interaction,' \
-                       ' please read  <a href="https://doc.x3dom.org/tutorials/animationInteraction/' \
-                       'navigation/index.html">the docs</a>  \n</p>\n' \
-                       '<x3d width=\'968px\' height=\'600px\'>\n <scene>\n' \
-                       '<viewpoint position="-3.03956 -14.95776 2.17179"' \
-                       ' orientation="0.98276 -0.08411 -0.16462 1.15299">' \
-                       '</viewpoint>\n <Inline nameSpaceName="Borehole" ' \
-                       'mapDEFToID="true" url="' + filename + '" />' \
-                                                              '\n</scene>\n</x3d>\n</body>\n</html>\n'
+            x3d_html = X3D_HTML.format(filename)
             return HTML(x3d_html)
         elif show:
-            plotter.show()
+            plotter.add_axes()
+            plotter.show(auto_close=True, jupyter_backend=jupyter_backend)

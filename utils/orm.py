@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import re
 from striplog import Position, Component, Interval
-from core.orm import BoreholeOrm, PositionOrm
+from core.orm import BoreholeOrm, PositionOrm, LinkIntervalComponentOrm
 from core.visual import Borehole3D
 from utils.config import DEFAULT_BOREHOLE_DIAMETER, DEFAULT_POL_LEXICON,\
     DEFAULT_BOREHOLE_TYPE, WARNING_TEXT_CONFIG, WORDS_WITH_S
@@ -11,7 +11,7 @@ from utils.utils import striplog_from_dataframe
 from utils.visual import get_components
 
 
-def create_bh3d_from_bhorm(bh_orm, z_ref, legend_dict=None, attribute=None, verbose=False):
+def create_bh3d_from_bhorm(bh_orm, z_ref, legend_dict=None, attribute=None, project=None, verbose=False):
     """
     Create a Borehole3D object from a BoreholeOrm object
 
@@ -28,33 +28,69 @@ def create_bh3d_from_bhorm(bh_orm, z_ref, legend_dict=None, attribute=None, verb
     Borehole3D
         a Borehole3D object
     """
-    intervals, length = get_interval_list(bh_orm, attribute=attribute)
+    intervals, length = get_interval_list(bh_orm, attribute=attribute, project=project)
 
-    bh_3d = Borehole3D(name=bh_orm.id, date=bh_orm.date, diam=bh_orm.diameter, repr_attribute=attribute,
-                       z_collar=z_ref, length=length, legend_dict=legend_dict, intervals=intervals)
+    bh_3d = Borehole3D(name=bh_orm.id, date=bh_orm.date, diam=bh_orm.diameter, repr_attribute=attribute, z_collar=z_ref, length=length, legend_dict=legend_dict, intervals=intervals)
+
     if verbose:
         print(bh_orm.id, " added")
     return bh_3d
 
 
-def component_orm_to_component(comp_orm):
-    return Component(eval(comp_orm.description))
+def component_orm_to_component(comp_orm, intv_orm_id=None, project=None):
+    """
+    Create a striplog.Component from a ComponentOrm object
+
+    Parameters
+    ------------
+    comp_orm: ComponentOrm object
+    intv_orm_id: int
+        id of the IntervalOrm object, linked to the ComponentOrm object
+    project: Project object
+
+    returns
+    ---------
+    striplog.Component
+    """
+
+    if project is not None and intv_orm_id is not None:
+        link_xdata = project.session.query(LinkIntervalComponentOrm).filter_by(
+            intv_id=intv_orm_id, comp_id=comp_orm.id).first().extra_data
+        if link_xdata is not None:
+            comp_desc = f"{comp_orm.description.rstrip('}')}, {link_xdata.lstrip('{')}"
+        else:
+            comp_desc = comp_orm.description
+    else:
+        comp_desc = comp_orm.description
+
+    return Component(eval(comp_desc))
 
 
-def interval_orm_to_interval(intv_orm):
-    top = Position(upper=intv_orm.top.upper, middle=intv_orm.top.middle, lower=intv_orm.top.lower,
-                   x=intv_orm.top.x, y=intv_orm.top.y)
-    base = Position(upper=intv_orm.base.upper, middle=intv_orm.base.middle, lower=intv_orm.base.lower,
-                    x=intv_orm.top.x, y=intv_orm.top.y)
+def interval_orm_to_interval(intv_orm, project=None):
+    """
+    Create a striplog.Interval from an IntervalOrm object
 
-    intv_comp_list = [component_orm_to_component(c_orm) for c_orm in intv_orm.components]
+    Parameters
+    ------------
+    intv_orm: IntervalOrm object
+    project: Project object
+
+    returns
+    ---------
+    striplog.Interval
+    """
+
+    top = Position(upper=intv_orm.top.upper, middle=intv_orm.top.middle, lower=intv_orm.top.lower, x=intv_orm.top.x, y=intv_orm.top.y)
+    base = Position(upper=intv_orm.base.upper, middle=intv_orm.base.middle, lower=intv_orm.base.lower, x=intv_orm.top.x, y=intv_orm.top.y)
+
+    intv_comp_list = [component_orm_to_component(comp_orm=c_orm, intv_orm_id=intv_orm.id, project=project) for c_orm in intv_orm.components]
 
     intv = Interval(top=top, base=base, description=intv_orm.description, components=intv_comp_list)
     return intv
 
 
-def get_interval_list(bh_orm, attribute=None):
-    """create a list of interval from a boreholeORM object
+def get_interval_list(bh_orm, attribute=None, project=None):
+    """create a list of interval from a boreholeORM object, based on an attribute if not None
 
     Parameters
     -------------
@@ -62,6 +98,8 @@ def get_interval_list(bh_orm, attribute=None):
         A BoreholeOrm object from which intervals matching the attribute will be listed
     attribute: str
         The attribute of components to search in components associated with the borehole intervals
+    project: Project object
+
     Returns
     ---------
     interval_list: list
@@ -76,8 +114,11 @@ def get_interval_list(bh_orm, attribute=None):
     for int_id, intv_orm in bh_orm.intervals.items():
         for c in intv_orm.components:
             interval_attributes = [i for i in eval(c.description).keys()]
+            if interval_attributes[0] == 'pollutant':
+                interval_attributes = [eval(c.description)['pollutant']]
+
             if (attribute in interval_attributes) or (attribute is None):
-                interval_list.append(interval_orm_to_interval(intv_orm))
+                interval_list.append(interval_orm_to_interval(intv_orm, project))
             if 'borehole_type' in interval_attributes:
                 max_depth = intv_orm.base.middle
     assert max_depth is not None
@@ -195,7 +236,7 @@ def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID', da
             if striplog_dict is not None:
                 bh_counter += 1
                 interval_number = 0
-                boreholes_orm.append(BoreholeOrm(id=bh_name, date=bh_date))
+                boreholes_orm.append(BoreholeOrm(id=bh_name, type=bh_type, date=bh_date))
 
                 for strip in striplog_dict.values():
                     sk_keys = []
@@ -281,11 +322,15 @@ def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID', da
                                         cp_val = cp_val.rstrip('s')
                                     cp = Component({cp_type: cp_val})
 
-                                    link_intv_comp_dict.update({(int_id, component_dict[cp]):
-                                        {'extra_data': str({'level': cp_lev,
-                                                            'concentration': pol_conc,
-                                                            'unit': unit})}
-                                                        })
+                                    if pol_conc is not None:
+                                        link_intv_comp_dict.update({(int_id, component_dict[cp]): {'extra_data': str({'level': cp_lev,
+                                                    'concentration': pol_conc,
+                                                    'unit': unit})}})
+                                    else:
+                                        link_intv_comp_dict.update(
+                                            {(int_id, component_dict[cp]):
+                                                 {'extra_data': None}})
+
                                 if verbose and sk_keys:
                                     print(f"(B) Skipped components keys: {list(set(sk_keys))}")
 
