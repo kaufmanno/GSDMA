@@ -59,7 +59,7 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
         new_colors)
 
 
-def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'], width=3,
+def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['borehole_type'], width=3,
                            compute_all=False, update_bh3d_legend=False,
                            update_given_legend=False, verbose=False):
     """
@@ -90,7 +90,6 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
     Returns
     --------
     reduced_legend_cmap : dict of reduced legend, cmap and unique values basis on all boreholes
-
     detail_legend_cmap : dict of legend, cmap and unique values for each borehole
     """
 
@@ -99,54 +98,46 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
     if not isinstance(legend_dict, dict):
         raise (TypeError('legend must be a dict of attributes (key) and legend (and cmap) dict (value).'))
 
+    _legend_dict = deepcopy(legend_dict)
     if compute_all:  # compute legend, cmap, unique_values for each key in the legend dict
-        repr_attrib_list = list(legend_dict.keys())
+        repr_attrib_list = list(_legend_dict.keys())
 
     detail_legend_cmap = {}  # contains legend/cmap dicts for each borehole
     reduced_legend_cmap = {}  # reduced legend/cmap dict basis on all boreholes data
 
     for attr in repr_attrib_list:
         attr = attr.lower()
-        if verbose:
-            print(f'BLCMap for : {attr}\n---------------------------------------')
-
         r = attr.replace('(', '\(').replace(')', '\)')
         reg_attr = re.compile("^{:s}$".format(r), flags=re.I)
         rgx = list(filter(reg_attr.match, DEFAULT_POL_LEXICON.pollutants))
-        # print('-->', attr, '--- regex:', rgx)
 
-        if rgx and legend_dict[attr]['legend'] is None:
-            # create default legend for pollutant
-            legend_dict[attr]['legend'] = Legend.from_csv(text=LEG_CONTAMINATION_LEV.format(attr))
+        if rgx and _legend_dict[attr]['legend'] is None:
+            # create default legend for pollutant, if not exist
+            _legend_dict[attr]['legend'] = Legend.from_csv(text=LEG_CONTAMINATION_LEV.format(attr))
 
-        if not isinstance(legend_dict[attr]['legend'], Legend):
+        if not isinstance(_legend_dict[attr]['legend'], Legend):
             raise (TypeError('legend must be a Striplog.Legend object. Check the docstring!'))
 
-        global_uniq_attrib_val = []  # [DEFAULT_ATTRIB_VALUE]  # all unique values for each attribute
+        glob_uniq_attrib_val = []  # [DEFAULT_ATTRIB_VALUE]  # all unique values for each attribute
         reduced_decors = {}  # dict of decors for building all boreholes reduced legend/cmap per attribute
         for bh3d in bh3d_list:
-            if verbose:
-                print('|-> BH:', bh3d.name)
             if not isinstance(bh3d, cv.Borehole3D):
                 raise (TypeError('Element in borehole3d must be a Borehole3D object'))
 
-            legend_copy = deepcopy(legend_dict[attr]['legend'])
+            legend_copy = deepcopy(_legend_dict[attr]['legend'])
             bh3d_uniq_attrib_val = []  # unique attribute values for each borehole
             for intv in bh3d.intervals:
                 j = find_component_from_attrib(intv, attr, verbose=verbose)
-                if j == -1:  # add default component if none found
-                    # intv.components.append(Component({attr: DEFAULT_ATTRIB_VALUE}))
-                    pass
                 if intv.components[j][attr] is not None:
                     if intv.components[j][attr] not in WORDS_WITH_S:
                         comp_v = intv.components[j][attr].rstrip('s')  # remove ending 's'
                         intv.components[j] = Component({attr: comp_v})  # overwrite component
                     if intv.components[j][attr] not in bh3d_uniq_attrib_val:
                         bh3d_uniq_attrib_val.append(intv.components[j][attr])
-                    if intv.components[j][attr] not in global_uniq_attrib_val:
-                        global_uniq_attrib_val.append(intv.components[j][attr])
+                    if intv.components[j][attr] not in glob_uniq_attrib_val:
+                        glob_uniq_attrib_val.append(intv.components[j][attr])
             if verbose:
-                print(f'\nBLCMap - unique/bh3d: {bh3d_uniq_attrib_val}, unique_proj: {global_uniq_attrib_val}')
+                print(f'\nBLCmap - unique/bh3d: {bh3d_uniq_attrib_val}, unique_proj: {glob_uniq_attrib_val}')
 
             decors = {}  # dict of decors for building each attribute legend/cmap
             if len(bh3d_uniq_attrib_val)>0:
@@ -163,8 +154,8 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
                         if bh3d_uniq_attrib_val.index(reg_value[0]) not in decors.keys():
                             decors.update({bh3d_uniq_attrib_val.index(reg_value[0]): legend_copy[i]})
                         # add decors to build reduced legend with all boreholes attributes values
-                        if global_uniq_attrib_val.index(reg_value[0]) not in reduced_decors.keys():
-                            reduced_decors.update({global_uniq_attrib_val.index(reg_value[0]): legend_copy[i]})
+                        if glob_uniq_attrib_val.index(reg_value[0]) not in reduced_decors.keys():
+                            reduced_decors.update({glob_uniq_attrib_val.index(reg_value[0]): legend_copy[i]})
 
             if verbose:
                 print('\nBLCMap | Decors:', decors)
@@ -184,7 +175,7 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['lithology'
         glob_cmap = striplog_legend_to_omf_legend(glob_legend)[1]
 
         reduced_legend_cmap[attr] = {'legend': glob_legend, 'cmap': glob_cmap,
-                                   'values': global_uniq_attrib_val}
+                                   'values': glob_uniq_attrib_val}
         if update_given_legend:
             legend_dict[attr] = reduced_legend_cmap[attr]
 
@@ -200,7 +191,7 @@ def legend_from_attributes(attributes):
     ------------
     attributes: list
 
-    return
+    returns
     -----------
     legend_dict : dict
     """
@@ -250,21 +241,18 @@ def find_component_from_attrib(intv, attrib, verbose=False):
     j : index of the first component whose key that matches to attribute
     """
     values = {}
-    pos = []
     j = None
     for i in range(len(intv.components)):
-        values.update({i: intv.components[i][attrib]})
-        if attrib.lower() in intv.components[i].keys():
-            pos.append(i)
-            j = pos[0]  # take the first one if 2 components match for the attribute
+        comp_i = intv.components[i]
+        values.update({i: comp_i[attrib]})
+        if attrib not in ['borehole_type', 'lithology'] and attrib.lower() in comp_i.__dict__.values():  # due to the structure of a pollutant component
+            j = i
+            break  # take the first one if several components match for the attribute
+        elif attrib.lower() in comp_i.keys():
+            j = i
             break
         else:
             j = -1  # not found
-    if j is None:
-        raise(StriplogError(f"Actually, empty interval is not allowed"))
-    if verbose:
-        print(f'find_comp -in- {verbose} | {len(intv.components)} component(s), '
-              f'position(s) for {attrib}: {pos}, value(s): {values}')
     return j
 
 

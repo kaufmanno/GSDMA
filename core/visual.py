@@ -140,15 +140,10 @@ class Borehole3D(Striplog):
             attr_components = {}  # correct components order (not self.components)
             for i, intv in enumerate(self.intervals):
                 j = find_component_from_attrib(intv, attr, verbose=verbose)
-                if j == -1:  # add default component if none
-                    # TODO : find a way to avoid the auto-generation of default component when not found in the interval (don't forget that it's link to vtk lookuptable !!)
-                    #attr_components.update({i: Component({attr: DEFAULT_ATTRIB_VALUE})})
-                    pass
-                else:
+                if j != -1:  # add default component if none
                     attr_components.update({i: intv.components[j]})
 
             comp_attrib_dict.update({attr: attr_components})
-
         return comp_attrib_dict
 
     def get_components_indices(self, repr_attribute=None, intervals=None, verbose=False):
@@ -206,7 +201,11 @@ class Borehole3D(Striplog):
 
         vertices, segments = [], []
         for i in self.intervals:
-            if self.repr_attribute in [list(c.keys())[0] for c in i.components]:
+            if self.repr_attribute in ['borehole_type', 'lithology']:
+                c_key_list = [list(c.keys())[0] for c in i.components]
+            else:  # due to the structure of a pollutant component
+                c_key_list = [list(c.__dict__.values())[0] for c in i.components]
+            if self.repr_attribute in c_key_list:
                 if i.top not in vertices:
                     if hasattr(i.top, 'x') and hasattr(i.top, 'y') and hasattr(i.top, 'z'):
                         x = i.top.x
@@ -236,7 +235,6 @@ class Borehole3D(Striplog):
                     base = vertices.index(i.base)
 
                 segments.append([top, base])
-
         vertices = np.array(vertices)
 
         # Compute MappedData objects based on attributes in the legend dict
@@ -314,6 +312,7 @@ class Borehole3D(Striplog):
         rev_decors.reverse()
         plot_legend = Legend([v for v in rev_decors])
 
+        print(f"\033[0;40;46mAttribute: \'{repr_attribute}\'\033[0;0;0m")
         fig, ax = plt.subplots(ncols=2, figsize=figsize)
         ax[0].set_title(self.name, size=text_size, color='b')
         plot_from_striplog(self, legend=plot_legend, match_only=[repr_attribute],

@@ -5,7 +5,7 @@ from vtk import vtkX3DExporter, vtkPolyDataMapper # NOQA
 from IPython.display import HTML
 from utils.visual import build_bh3d_legend_cmap
 from utils.orm import get_interval_list
-from utils.config import X3D_HTML, DEFAULT_BOREHOLE_LEGEND, DEFAULT_BOREHOLE_LEXICON, DEFAULT_LITHO_LEGEND, DEFAULT_POL_LEGEND
+from utils.config import X3D_HTML, DEFAULT_BOREHOLE_LEGEND, DEFAULT_BOREHOLE_LEXICON, DEFAULT_LITHO_LEGEND
 import numpy as np
 import pyvista as pv
 import folium as fm

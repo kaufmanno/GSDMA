@@ -56,7 +56,7 @@ def component_orm_to_component(comp_orm, intv_orm_id=None, project=None):
     if project is not None and intv_orm_id is not None:
         link_xdata = project.session.query(LinkIntervalComponentOrm).filter_by(
             intv_id=intv_orm_id, comp_id=comp_orm.id).first().extra_data
-        if link_xdata is None or link_xdata['extra_data'].lower()=='none':
+        if link_xdata is None or link_xdata.lower()=='none':
             comp_desc = comp_orm.description
         else:
             comp_desc = f"{comp_orm.description.rstrip('}')}, {link_xdata.lstrip('{')}"
