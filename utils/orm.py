@@ -56,10 +56,10 @@ def component_orm_to_component(comp_orm, intv_orm_id=None, project=None):
     if project is not None and intv_orm_id is not None:
         link_xdata = project.session.query(LinkIntervalComponentOrm).filter_by(
             intv_id=intv_orm_id, comp_id=comp_orm.id).first().extra_data
-        if link_xdata is not None:
-            comp_desc = f"{comp_orm.description.rstrip('}')}, {link_xdata.lstrip('{')}"
-        else:
+        if link_xdata is None or link_xdata['extra_data'].lower()=='none':
             comp_desc = comp_orm.description
+        else:
+            comp_desc = f"{comp_orm.description.rstrip('}')}, {link_xdata.lstrip('{')}"
     else:
         comp_desc = comp_orm.description
 
@@ -119,6 +119,7 @@ def get_interval_list(bh_orm, attribute=None, project=None):
 
             if (attribute in interval_attributes) or (attribute is None):
                 interval_list.append(interval_orm_to_interval(intv_orm, project))
+
             if 'borehole_type' in interval_attributes:
                 max_depth = intv_orm.base.middle
     assert max_depth is not None
