@@ -25,7 +25,7 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
     abbr_names = list(pol_lexicon.abbreviations.keys())  # retrieve pollutants' abbreviated names
     abbr_names_lowercase = [n.lower() for n in abbr_names]
     full_names = list(pol_lexicon.abbreviations.values())  # retrieve pollutants' full names
-    level = 'Inconnu'
+    level = None
 
     if pollutant in abbr_names or pollutant.lower() in abbr_names_lowercase:
         pol_name = DEFAULT_POL_LEXICON.abbreviations[pollutant].lower()
@@ -55,7 +55,7 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
     if pol_name in level_norm['pollutants'].keys():
         d = level_norm['pollutants'][pol_name]
         if pd.isnull(value):
-            level = 'Inconnu'
+            level = None
         elif value <= d['VR']:
             level = 'VR'
         elif value <= d['VS']:

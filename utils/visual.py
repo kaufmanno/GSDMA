@@ -96,7 +96,7 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['borehole_t
     if not isinstance(repr_attrib_list, list):
         raise (TypeError('repr_attribute must be a list of attributes present in the interval'))
     if not isinstance(legend_dict, dict):
-        raise (TypeError('legend must be a dict of attributes (key) and legend (and cmap) dict (value).'))
+        raise (TypeError('legend must be a dict of attributes (key) and legend (and cmap) dict (value)'))
 
     _legend_dict = deepcopy(legend_dict)
     if compute_all:  # compute legend, cmap, unique_values for each key in the legend dict
@@ -115,11 +115,17 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['borehole_t
             # create default legend for pollutant, if not exist
             _legend_dict[attr]['legend'] = Legend.from_csv(text=LEG_CONTAMINATION_LEV.format(attr))
 
+        # if given legend_dict contains attribute legend
         if not isinstance(_legend_dict[attr]['legend'], Legend):
             raise (TypeError('legend must be a Striplog.Legend object. Check the docstring!'))
 
-        glob_uniq_attrib_val = []  # [DEFAULT_ATTRIB_VALUE]  # all unique values for each attribute
-        reduced_decors = {}  # dict of decors for building all boreholes reduced legend/cmap per attribute
+        if attr in ['borehole_type', 'lithology']:
+            attr_mod = attr
+        else:  # due to the structure of a pollutant component
+            attr_mod = 'level'
+
+        glob_uniq_attrib_val = [] # all unique values for each attribute
+        reduced_decors = {}  # decors to build all boreholes reduced legend/cmap per attribute
         for bh3d in bh3d_list:
             if not isinstance(bh3d, cv.Borehole3D):
                 raise (TypeError('Element in borehole3d must be a Borehole3D object'))
@@ -128,27 +134,27 @@ def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['borehole_t
             bh3d_uniq_attrib_val = []  # unique attribute values for each borehole
             for intv in bh3d.intervals:
                 j = find_component_from_attrib(intv, attr, verbose=verbose)
-                if intv.components[j][attr] is not None:
-                    if intv.components[j][attr] not in WORDS_WITH_S:
-                        comp_v = intv.components[j][attr].rstrip('s')  # remove ending 's'
-                        intv.components[j] = Component({attr: comp_v})  # overwrite component
-                    if intv.components[j][attr] not in bh3d_uniq_attrib_val:
-                        bh3d_uniq_attrib_val.append(intv.components[j][attr])
-                    if intv.components[j][attr] not in glob_uniq_attrib_val:
-                        glob_uniq_attrib_val.append(intv.components[j][attr])
+                if j is not None and intv.components[j][attr_mod] is not None:
+                    if intv.components[j][attr_mod] not in WORDS_WITH_S:
+                        comp_v = intv.components[j][attr_mod].rstrip('s')  # remove ending 's'
+                        intv.components[j][attr_mod] = comp_v  # overwrite component attrib_value
+                    if intv.components[j][attr_mod] not in bh3d_uniq_attrib_val:
+                        bh3d_uniq_attrib_val.append(intv.components[j][attr_mod])
+                    if intv.components[j][attr_mod] not in glob_uniq_attrib_val:
+                        glob_uniq_attrib_val.append(intv.components[j][attr_mod])
             if verbose:
                 print(f'\nBLCmap - unique/bh3d: {bh3d_uniq_attrib_val}, unique_proj: {glob_uniq_attrib_val}')
 
             decors = {}  # dict of decors for building each attribute legend/cmap
-            if len(bh3d_uniq_attrib_val)>0:
+            if len(bh3d_uniq_attrib_val) > 0:
                 for i in range((len(legend_copy))):
-                    leg_value = legend_copy[i].component[attr]
+                    leg_value = legend_copy[i].component[attr_mod]
                     reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
                     reg_value = list(filter(reg.match, bh3d_uniq_attrib_val))  # value that matches
 
                     if len(reg_value) > 0:
                         # force matching to plot
-                        legend_copy[i].component = Component({attr: reg_value[0]})
+                        legend_copy[i].component = Component({attr_mod: reg_value[0]})
                         legend_copy[i].width = width
                         # use interval order to obtain correct plot legend order
                         if bh3d_uniq_attrib_val.index(reg_value[0]) not in decors.keys():
@@ -240,11 +246,9 @@ def find_component_from_attrib(intv, attrib, verbose=False):
     ------------
     j : index of the first component whose key that matches to attribute
     """
-    values = {}
-    j = None
+
     for i in range(len(intv.components)):
         comp_i = intv.components[i]
-        values.update({i: comp_i[attrib]})
         if attrib not in ['borehole_type', 'lithology'] and attrib.lower() in comp_i.__dict__.values():  # due to the structure of a pollutant component
             j = i
             break  # take the first one if several components match for the attribute
@@ -252,7 +256,7 @@ def find_component_from_attrib(intv, attrib, verbose=False):
             j = i
             break
         else:
-            j = -1  # not found
+            j = None  # not found
     return j
 
 
@@ -405,7 +409,8 @@ def plot_axis_from_striplog(striplog, ax, legend, ladder=False, default_width=1,
             print(f'\nplot_axis_from_striplog | comp_index: {j}, match:{match_only},'
                   f' intv: {iv.components}')
 
-        d = legend.get_decor(iv.components[j], match_only=match_only)
+        if j is not None:
+            d = legend.get_decor(iv.components[j], match_only=match_only)
         thick = iv.base.z - iv.top.z
 
         if ladder:

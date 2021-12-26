@@ -14,11 +14,12 @@ WORDS_WITH_S = ['Gneiss', 'Silex', 'VS', 'vs']
 SAMP_TYPE_KW = ['soil', 'water', 'sol', 'eau', 'inconnu']
 
 DEFAULT_LITHO_LEXICON = Lexicon(LEX_LITHO_MEMORIS)
-DEFAULT_LITHO_LEGEND = Legend.from_csv(text=LEG_LITHO_MEMORIS)
-DEFAULT_BOREHOLE_LEGEND = Legend.from_csv(text=LEG_BOREHOLE)
 DEFAULT_BOREHOLE_LEXICON = Lexicon(LEX_BOREHOLE_MEMORIS)
 DEFAULT_POL_LEXICON = Lexicon(LEX_POL_MEMORIS)
-# default Pollutant lexicon is generate automatically for each pollutant
+
+DEFAULT_LITHO_LEGEND = Legend.from_csv(text=LEG_LITHO_MEMORIS)
+DEFAULT_BOREHOLE_LEGEND = Legend.from_csv(text=LEG_BOREHOLE)
+DEFAULT_POL_LEGEND = Legend.from_csv(text=LEG_CONTAMINATION_LEV)
 
 # TEXT COLOR PROPERTIES : "\033[text_style; text_color; text_background_color m"
 # visit https://ozzmaker.com/add-colour-to-text-in-python/

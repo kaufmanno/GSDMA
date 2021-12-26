@@ -66,7 +66,7 @@ class Project:
         self.__legend_dict_bckp__ = deepcopy(legend_dict)
         self.lexicon = lexicon
         self._repr_attribute = 'borehole_type'
-        self.refresh(update_3d=True)
+        self.refresh(update_3d=True, update_legend=True)
 
     @classmethod
     def load(cls, db_name, legend_dict=None, verbose=False, lexicon=None):
@@ -93,26 +93,27 @@ class Project:
     def repr_attribute(self, value):
         assert (isinstance(value, str))
         self._repr_attribute = value
-        self.refresh(update_3d=True)
-        self.update_legend_cmap(update_project_legend=True, update_bh3d_legend=True)
+        self.refresh(update_3d=True, update_legend=True)
 
     @property
-    def cmap(self):
+    def attrib_cmap(self):
         return self.legend_dict[self.repr_attribute]['cmap']
 
     @property
-    def scalar_bar_args(self):
-        return dict(title=f"{self.repr_attribute.upper()}", title_font_size=25,
-                               label_font_size=6, n_labels=len(self.cmap.colors), fmt='', font_family='arial',
-                               color='k', italic=False, bold=False, interactive=True,
-                               vertical=False, shadow=False)
-    @property
-    def annotations(self):
-        uniq_attr_val = self.legend_dict[self.repr_attribute]['values']
-        n_col = len(self.cmap.colors)
-        incr = (len(uniq_attr_val) - 1) / n_col  # increment
-        # print(f'{self.name}... {incr}, {uniq_attr_val}')
+    def attrib_legend(self):
+        return self.legend_dict[self.repr_attribute]['legend']
 
+    @property
+    def attrib_scalar_bar_args(self):
+        return dict(title=f"{self.repr_attribute.upper()}", title_font_size=25,
+                    label_font_size=6, n_labels=len(self.attrib_cmap.colors), fmt='', font_family='arial',
+                    color='k', italic=False, bold=False, interactive=True,
+                    vertical=False, shadow=False)
+    @property
+    def attrib_annotations(self):
+        uniq_attr_val = self.legend_dict[self.repr_attribute]['values']
+        n_col = len(self.attrib_cmap.colors)
+        incr = (len(uniq_attr_val) - 1) / n_col  # increment
         bounds = [0]  # cmap colors limits
         next_bound = 0
         for i in range(n_col + 1):
@@ -245,7 +246,7 @@ class Project:
                 print(f'adding interval : {intv_id}, component: {component_id}')
         self.add_link_components_intervals(link_dict)
 
-    def refresh(self, update_3d=False, verbose=False):
+    def refresh(self, update_3d=False, update_legend=False, verbose=False):
         """
         read Boreholes in the database and updates 3D boreholes
 
@@ -263,13 +264,21 @@ class Project:
             for bh in self.boreholes_orm.values():
                 if len(get_interval_list(bh, self.repr_attribute)[0]) > 0:
                     z_ref = get_interval_list(bh, 'borehole_type')[0][0].top.z
-                    self.boreholes_3d.update({bh.id: create_bh3d_from_bhorm(bh, verbose=verbose, z_ref=z_ref, attribute=self.repr_attribute, legend_dict=self.legend_dict, project=self)})
+                    self.boreholes_3d.update({bh.id: create_bh3d_from_bhorm(bh, verbose=verbose, z_ref=z_ref, attribute=self.repr_attribute, legend_dict=self.__legend_dict_bckp__, project=self)})
+
+        if update_legend and len(self.boreholes_3d) > 0:
+            self.update_legend_cmap(update_project_legend=True, update_bh3d_legend=True)
+        # print('ATTRIB_LEG3:', self.repr_attribute, self.legend_dict[self.repr_attribute])
 
     def commit(self, verbose=False):
         """Validate all modifications done in the project"""
         self.session.commit()
         if verbose:
             print('Boreholes in the project : ', len(self.boreholes_orm))
+
+    def rollback(self):
+        """Cancel all modifications done in the project"""
+        self.session.rollback()
 
     def find_next_id(self, orm_class):
         """ Gets the next id for a given ORM_Class
@@ -322,13 +331,14 @@ class Project:
             repr_attribute_list = [self.repr_attribute]
 
         if legend_dict is None:
-            legend_dict = deepcopy(self.__legend_dict_bckp__)  # original given legend
+            legend_dict = deepcopy(self.__legend_dict_bckp__)  # original project given legend
 
         reduced_leg, detail_leg = build_bh3d_legend_cmap(
-            bh3d_list=list(self.boreholes_3d.values()), legend_dict=legend_dict, repr_attrib_list=repr_attribute_list, width=width, compute_all=compute_all_attrib, update_bh3d_legend=update_bh3d_legend, update_given_legend=update_project_legend, verbose=verbose)
+            bh3d_list=list(self.boreholes_3d.values()), legend_dict=legend_dict, repr_attrib_list=repr_attribute_list, width=width, compute_all=compute_all_attrib, update_bh3d_legend=update_bh3d_legend, update_given_legend=True, verbose=verbose)
 
         if update_project_legend:
             self.legend_dict = legend_dict
+            # print('ATTRIB_LEG2:', self.repr_attribute, self.legend_dict[self.repr_attribute])
         else:
             return reduced_leg, detail_leg
 
@@ -391,12 +401,14 @@ class Project:
             x3d_html = X3D_HTML.format(filename)
             return HTML(x3d_html)
 
-    def plot_log(self, bh_name, figsize=(6, 6), repr_legend=None, text_size=15, width=3,
+    def plot_log(self, bh_name, figsize=(3, 5), repr_legend=None, text_size=15, width=2,
                  ticks=None, aspect=3, verbose=False):
         """ plot a stratigraphical log of a borehole for an attribute
 
         bh_name: str
         """
+        if repr_legend is None:
+            repr_legend = self.legend_dict[self.repr_attribute]['legend']
 
         for bh in self.boreholes_3d.keys():
             if bh == bh_name:

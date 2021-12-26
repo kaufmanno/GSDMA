@@ -140,7 +140,7 @@ class Borehole3D(Striplog):
             attr_components = {}  # correct components order (not self.components)
             for i, intv in enumerate(self.intervals):
                 j = find_component_from_attrib(intv, attr, verbose=verbose)
-                if j != -1:  # add default component if none
+                if j is not None:
                     attr_components.update({i: intv.components[j]})
 
             comp_attrib_dict.update({attr: attr_components})
@@ -169,7 +169,7 @@ class Borehole3D(Striplog):
         components = []
         for i in intervals:
             j = find_component_from_attrib(i, repr_attribute, verbose=verbose)
-            if j != -1:
+            if j is not None:
                 components.append(i.components[j])
         comp_list = list(pd.unique([c[repr_attribute] for c in components]))
 
@@ -177,7 +177,7 @@ class Borehole3D(Striplog):
         incr = 0
         for i in intervals:
             j = find_component_from_attrib(i, repr_attribute, verbose=verbose)
-            if j != -1:
+            if j is not None:
                 indices.append(comp_list.index(i.components[j][repr_attribute]))
 
             if verbose:
@@ -263,28 +263,31 @@ class Borehole3D(Striplog):
         """
         self.z_collar = max([i.top.z for i in self.intervals])
 
-    def plot_log(self, figsize=(6, 6), repr_legend=None, text_size=15, width=3,
+    def plot_log(self, figsize=(3, 5), repr_legend=None, text_size=15, width=2,
                  ticks=None, aspect=3, repr_attribute=None, verbose=False):
         """
         Plot a stratigraphical log for the attribute
         """
 
         if repr_attribute is None:
-            repr_attribute=self.repr_attribute
+            repr_attribute = self.repr_attribute
         if ticks is None:
             ticks = (self.length/len(self.intervals), self.length)
-
         if repr_legend is None:
             repr_legend = self.legend_dict[repr_attribute]['legend']
 
-        legend_copy = deepcopy(repr_legend)  # work with a copy to keep initial legend state
-        decors = {}  # dict of decors to build a own legend for the borehole
-        attrib_values = []  # list of lithologies in the borehole
+        if repr_attribute in ['borehole_type', 'lithology']:
+            attr = repr_attribute
+        else:  # due to the structure of a pollutant component
+            attr = 'level'
 
+        legend_copy = deepcopy(repr_legend)  # work with a copy to keep initial legend state
+        decors = {}  # dict of decors to build a legend for the borehole
+        attrib_values = []  # list of lithologies in the borehole
         for i in self.intervals:
             j = find_component_from_attrib(i, repr_attribute, verbose=verbose)
-            intv_value = i.components[j][repr_attribute]
-
+            if j is not None:
+                intv_value = i.components[j][attr]
             if isinstance(intv_value, str):
                 intv_value = intv_value.lower()
             attrib_values.append(intv_value)
@@ -292,16 +295,17 @@ class Borehole3D(Striplog):
 
         if verbose:
             print(f'\nattrib_values : {attrib_values}\n')
+
         for i in range(len(legend_copy)):
-            leg_value = legend_copy[i].component[repr_attribute]
+            leg_value = legend_copy[i].component[attr]
             if verbose:
-                print('plot2d | legend_val:', leg_value)
+                print('plot2d | legend_val:', attr, leg_value)
             reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
             reg_value = list(filter(reg.match, attrib_values))  # find value that matches
 
             if len(reg_value) > 0:
                 # force matching to plot
-                legend_copy[i].component = Component({repr_attribute: reg_value[0]})
+                legend_copy[i].component = Component({attr: reg_value[0]})
                 legend_copy[i].width = width
                 # use interval order to obtain correct plot legend order
                 decors.update({attrib_values.index(reg_value[0]): legend_copy[i]})
@@ -315,7 +319,7 @@ class Borehole3D(Striplog):
         print(f"\033[0;40;46mAttribute: \'{repr_attribute}\'\033[0;0;0m")
         fig, ax = plt.subplots(ncols=2, figsize=figsize)
         ax[0].set_title(self.name, size=text_size, color='b')
-        plot_from_striplog(self, legend=plot_legend, match_only=[repr_attribute],
+        plot_from_striplog(self, legend=plot_legend, match_only=[attr],
                            ax=ax[0], ticks=ticks, aspect=aspect, verbose=verbose)
         ax[1].set_title('Legend', size=text_size, color='r')
         plot_legend.plot(ax=ax[1])
