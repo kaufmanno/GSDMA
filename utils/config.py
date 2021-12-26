@@ -9,7 +9,7 @@ DEFAULT_BOREHOLE_DIAMETER = 0.1
 DEFAULT_BOREHOLE_TYPE = 'Forage'
 BOREHOLE_TYPES = ['Borehole','Forage','Piezo','Piezair','Piezometer','Heating tube']
 DEFAULT_Z = 102.0
-# DEFAULT_ATTRIB_VALUE = 'Inconnu'
+DEFAULT_ALPHA = 0.3
 WORDS_WITH_S = ['Gneiss', 'Silex', 'VS', 'vs']
 SAMP_TYPE_KW = ['soil', 'water', 'sol', 'eau', 'inconnu']
 

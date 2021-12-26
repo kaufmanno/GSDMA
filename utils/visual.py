@@ -10,7 +10,7 @@ from striplog import Legend, Component
 import numpy as np
 from striplog.utils import hex_to_rgb
 import core.visual as cv
-from utils.config import WORDS_WITH_S, DEFAULT_POL_LEXICON, BOREHOLE_TYPES
+from utils.config import WORDS_WITH_S, DEFAULT_POL_LEXICON, BOREHOLE_TYPES, DEFAULT_ALPHA
 from utils.lexicon_memoris import LEG_CONTAMINATION_LEV
 
 
@@ -52,16 +52,14 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
     for i in legend:
         omf_legend.append(i.colour)  # i.colour is in RGB format
         if i.component[list(i.component.keys())[0]] in BOREHOLE_TYPES:
-            alpha = 0.5
+            alpha = DEFAULT_ALPHA
         new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([alpha])]))
 
     return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), mcolors.ListedColormap(
         new_colors)
 
 
-def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['borehole_type'], width=3,
-                           compute_all=False, update_bh3d_legend=False,
-                           update_given_legend=False, verbose=False):
+def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['borehole_type'], width=3, compute_all=False, update_bh3d_legend=False, update_given_legend=False, verbose=False):
     """
     Build legends and colormaps based on attribute values in boreholes
 
