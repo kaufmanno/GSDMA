@@ -419,7 +419,7 @@ class Borehole3D(Striplog):
             centers = [(bounds[i] + bounds[i + 1]) / 2 for i in range(n_col)]
             str_annot = {k: v.capitalize() for k, v in zip(centers, uniq_attr_val)}
 
-        else:  # numeric values for the legend
+        else:  # display a numerical legend
             scalar_bar_args = None
             str_annot = None
 
