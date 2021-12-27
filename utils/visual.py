@@ -16,15 +16,12 @@ from utils.lexicon_memoris import LEG_CONTAMINATION_LEV
 
 def find_new_word_for_legend(legend_dict, attribute):
     """return a list of words don't found in the given legend_dict"""
-
     leg_val_list = []
     new_word = []
     for lg in legend_dict[attribute]['legend']:
         leg_val_list.append(lg.component[attribute])
-
     for x in legend_dict[attribute]['values']:
         if x not in leg_val_list: new_word.append(x)
-
     return new_word
 
 
@@ -51,12 +48,11 @@ def striplog_legend_to_omf_legend(legend, alpha=1.):
 
     for i in legend:
         omf_legend.append(i.colour)  # i.colour is in RGB format
-        if i.component[list(i.component.keys())[0]] in BOREHOLE_TYPES:
-            alpha = DEFAULT_ALPHA
+        # if i.component[list(i.component.keys())[0]] in BOREHOLE_TYPES:
+        #     alpha = DEFAULT_ALPHA
         new_colors.append(np.hstack([np.array(hex_to_rgb(i.colour)) / 255, np.array([alpha])]))
 
-    return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), mcolors.ListedColormap(
-        new_colors)
+    return omf.data.Legend(description='', name='', values=omf.data.ColorArray(omf_legend)), mcolors.ListedColormap(new_colors)
 
 
 def build_bh3d_legend_cmap(bh3d_list, legend_dict, repr_attrib_list=['borehole_type'], width=3, compute_all=False, update_bh3d_legend=False, update_given_legend=False, verbose=False):
@@ -348,7 +344,7 @@ def plot_from_striplog(striplog, legend=None, width=1.5, ladder=True, aspect=10,
     ax.yaxis.set_minor_locator(minorLocator)
 
     majorLocator = mpl.ticker.MultipleLocator(ticks[1])
-    majorFormatter = mpl.ticker.FormatStrFormatter('%d')
+    majorFormatter = mpl.ticker.FormatStrFormatter('%2.1f')
     ax.yaxis.set_major_locator(majorLocator)
     ax.yaxis.set_major_formatter(majorFormatter)
     print(ax.get_label())

@@ -1,4 +1,4 @@
-from striplog import Striplog, Legend, Interval, Component
+from striplog import Striplog, Legend, Component
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -10,7 +10,7 @@ import omf
 from vtk import vtkX3DExporter  # NOQA
 from IPython.display import HTML
 from utils.config import WARNING_TEXT_CONFIG, X3D_HTML
-from utils.visual import find_component_from_attrib, plot_from_striplog, striplog_legend_to_omf_legend, build_bh3d_legend_cmap
+from utils.visual import find_component_from_attrib, plot_from_striplog, build_bh3d_legend_cmap, striplog_legend_to_omf_legend
 
 
 class Borehole3D(Striplog):
@@ -38,9 +38,7 @@ class Borehole3D(Striplog):
     plot3d(x3d=False)
     """
 
-    def __init__(self, intervals=None, repr_attribute='borehole_type', name='BH3D',
-                 diam=0.5, length=0.1, date=None, x_collar=None, y_collar=None, z_collar=None,
-                 legend_dict=None, compute_all_legend=True, verbose=False):
+    def __init__(self, intervals=None, repr_attribute='borehole_type', name='BH3D', diam=0.5, length=0.1, date=None, legend_dict=None, verbose=False, **kwargs):
         """
         build a Borehole3D object from Striplog.Intervals list
 
@@ -66,9 +64,6 @@ class Borehole3D(Striplog):
 
         # ------------------ Class attributes ----------------------------------------
         self.name = name
-        self.x_collar = x_collar
-        self.y_collar = y_collar
-        self.z_collar = z_collar
         self.diameter = diam
         self.date = date
         self.length = length
@@ -82,18 +77,24 @@ class Borehole3D(Striplog):
             print(f'\n************************ CREATION OF {self.name} *************************')
 
         self.intervals = intervals
-        if self.z_collar is None and self.intervals is not None:
-            self.update_z_collar()
+
 
         if legend_dict is None or not isinstance(legend_dict[repr_attribute]['legend'], Legend):
             print(f"{WARNING_TEXT_CONFIG['blue']}"
                   f"No given legend or incorrect format ! Using the default one..."
                   f"{WARNING_TEXT_CONFIG['off']}")
             self.legend_dict = {repr_attribute: {'lexicon': None, 'legend': None}}
-            self.legend_dict[repr_attribute]['legend'] = Legend.default()
 
-        # instantiation with supers properties
+        # instantiation with super properties
         Striplog.__init__(self, list_of_Intervals=self.intervals)
+        x_coord = self.intervals[0].top.x if hasattr(self.intervals[0].top, 'x') else None
+        y_coord = self.intervals[0].top.y if hasattr(self.intervals[0].top, 'y') else None
+        z_coord = self.intervals[0].top.z if hasattr(self.intervals[0].top, 'z') else None
+        self.x_collar = kwargs.pop('x_collar', x_coord)
+        self.y_collar = kwargs.pop('y_collar', y_coord)
+        self.z_collar = kwargs.pop('z_collar', z_coord)
+        if self.z_collar is None and self.intervals is not None:
+            self.update_z_collar()
         self.omf_legend = striplog_legend_to_omf_legend(self.legend_dict[repr_attribute]['legend'])[0]
         self._geometry(verbose=verbose)
         self.vtk()
@@ -115,16 +116,16 @@ class Borehole3D(Striplog):
 
     # -------------------------------- Class Methods ------------------------------
     def __repr__(self):
-        length = len(self._Striplog__list)
+        n_intv = len(self._Striplog__list)
         if self.stop.z < self.start.z:
             start = self.start.z
             stop = self.stop.z
         else:
             stop = self.start.z
             start = self.stop.z
-        details = f"start={start}, stop={stop}"
+        details = "start={:.2f}".format(start) + ", stop={:.2f}".format(stop)
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}> name: {self.name} | {length} Intervals | {details}"
+        return f"<{obj_class}> name: {self.name} | legnth:" + '{:.2f}'.format(start - stop) + f" | {n_intv} Intervals | {details}"
 
     def attrib_components(self, attribute=None):
         # components according to the repr_attribute
@@ -205,6 +206,7 @@ class Borehole3D(Striplog):
                 c_key_list = [list(c.keys())[0] for c in i.components]
             else:  # due to the structure of a pollutant component
                 c_key_list = [list(c.__dict__.values())[0] for c in i.components]
+
             if self.repr_attribute in c_key_list:
                 if i.top not in vertices:
                     if hasattr(i.top, 'x') and hasattr(i.top, 'y') and hasattr(i.top, 'z'):
@@ -272,7 +274,8 @@ class Borehole3D(Striplog):
         if repr_attribute is None:
             repr_attribute = self.repr_attribute
         if ticks is None:
-            ticks = (self.length/len(self.intervals), self.length)
+            mt = self.length/len(self.intervals)
+            ticks = (mt/2, mt)
         if repr_legend is None:
             repr_legend = self.legend_dict[repr_attribute]['legend']
 
@@ -314,6 +317,7 @@ class Borehole3D(Striplog):
             print('\nplot2d | decors:', decors)
         rev_decors = list(decors.values())
         rev_decors.reverse()
+        print('TEST---', rev_decors)
         plot_legend = Legend([v for v in rev_decors])
 
         print(f"\033[0;40;46mAttribute: \'{repr_attribute}\'\033[0;0;0m")
@@ -328,7 +332,7 @@ class Borehole3D(Striplog):
                 repr_cmap=None, repr_uniq_val=None, x3d=False, diam=None,
                 bg_color=["royalblue", "aliceblue"], update_vtk=False,
                 update_cmap=False, custom_legend=False, str_annotations=True,
-                scalar_bar_args=None, verbose=False, **kwargs):
+                scalar_bar_args=None, smooth_shading=True, verbose=False, **kwargs):
         """
         Returns an interactive 3D representation of all boreholes in the project
 
@@ -348,12 +352,16 @@ class Borehole3D(Striplog):
 
         """
         jupyter_backend = kwargs.pop('jupyter_backend', None)
+        opacity = kwargs.pop('opacity', 1.)
+        show_sbar = kwargs.pop('show_scalar_bar', False)
+        if custom_legend:
+            show_sbar = False
+
         if plotter is None:
             plotter = pv.Plotter()
             show = True
         else:
             show = False
-
         if diam is None and self.diameter == 0:
             diam = 0.5
         elif diam is None and self.diameter != 0:
@@ -390,14 +398,11 @@ class Borehole3D(Striplog):
         if repr_uniq_val is not None:
             uniq_attr_val = repr_uniq_val
 
-        # display attribute values (string) for the legend
+        # display a categorical legend
         if str_annotations:
             n_col = len(plot_cmap.colors)
             if scalar_bar_args is None:  # scalar_bar properties
-                scalar_bar_args = dict(title=f"{repr_attribute.upper()}", title_font_size=25,
-                                       label_font_size=6, n_labels=n_col, fmt='', font_family='arial',
-                                       color='k', italic=False, bold=False, interactive=True,
-                                       vertical=False, shadow=False)
+                scalar_bar_args = dict(title=f"{repr_attribute.upper()}", title_font_size=25, label_font_size=15, n_labels=n_col, fmt='', font_family='arial', color='k', italic=False, bold=False, interactive=True, vertical=False, shadow=False)
             incr = (len(uniq_attr_val) - 1) / n_col  # increment
             bounds = [0]  # cmap colors limits
             next_bound = 0
@@ -408,6 +413,7 @@ class Borehole3D(Striplog):
             bounds.append(n_col)  # add cmap last value (limit)
             centers = [(bounds[i] + bounds[i + 1]) / 2 for i in range(n_col)]
             str_annot = {k: v.capitalize() for k, v in zip(centers, uniq_attr_val)}
+
         else:  # numeric values for the legend
             scalar_bar_args = None
             str_annot = None
@@ -416,21 +422,17 @@ class Borehole3D(Striplog):
             print(f'plot3d | n_colors: {n_col} | incr: {incr}| unique: {uniq_attr_val}'
                   f'\nannotations: {str_annot}')
 
-        plotter.add_mesh(seg, cmap=plot_cmap, scalar_bar_args=scalar_bar_args,
-                         show_scalar_bar=not custom_legend, annotations=str_annot)
+        plotter.add_mesh(seg, cmap=plot_cmap, scalar_bar_args=scalar_bar_args, opacity=opacity, smooth_shading=smooth_shading, show_scalar_bar=show_sbar, annotations=str_annot, **kwargs)
 
         if custom_legend:
-            plotter.add_scalar_bar(title=repr_attribute, title_font_size=25,
-                                   n_labels=0, label_font_size=8, fmt='', font_family='arial',
-                                   color='k', italic=False, bold=False, interactive=True,
-                                   vertical=True, shadow=False)
+            plotter.add_scalar_bar(title=repr_attribute, title_font_size=25, n_labels=0, label_font_size=5, height=0.2, fmt='', font_family='arial', color='k', italic=False, bold=False, interactive=True, vertical=True, shadow=False)
 
         # set background color for the render (None : pyvista default background color)
         if bg_color is not None:
-            if len(bg_color) == 2:
+            if isinstance(bg_color, list) and len(bg_color) == 2:
                 top_c = bg_color[1]
                 btm_c = bg_color[0]
-            elif len(bg_color) == 1:
+            elif isinstance(bg_color, str):
                 top_c = None
                 btm_c = bg_color
             else:
@@ -438,7 +440,10 @@ class Borehole3D(Striplog):
 
             plotter.set_background(color=btm_c, top=top_c)
 
-        if x3d:
+        if show or jupyter_backend is not None:
+            plotter.add_axes()
+            plotter.show(auto_close=True, jupyter_backend=jupyter_backend)
+        elif x3d:
             writer = vtkX3DExporter()
             writer.SetInput(plotter.renderer.GetRenderWindow())
             filename = f'tmp_files/BH_{self.name:s}.x3d'
@@ -447,6 +452,3 @@ class Borehole3D(Striplog):
             writer.Write()
             x3d_html = X3D_HTML.format(filename)
             return HTML(x3d_html)
-        elif show:
-            plotter.add_axes()
-            plotter.show(auto_close=True, jupyter_backend=jupyter_backend)

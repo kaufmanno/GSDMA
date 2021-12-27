@@ -1,20 +1,25 @@
-from core.orm import BoreholeOrm, ComponentOrm, IntervalOrm, PositionOrm, LinkIntervalComponentOrm
-from sqlalchemy import select
-from utils.orm import create_bh3d_from_bhorm
-from vtk import vtkX3DExporter, vtkPolyDataMapper # NOQA
-from IPython.display import HTML
-from utils.visual import build_bh3d_legend_cmap
-from utils.orm import get_interval_list
-from utils.config import X3D_HTML, DEFAULT_BOREHOLE_LEGEND, DEFAULT_BOREHOLE_LEXICON, DEFAULT_LITHO_LEGEND
 import numpy as np
 import pyvista as pv
 import folium as fm
 from folium import plugins
 import geopandas as gpd
 from copy import deepcopy
-from core.orm import Base
-from sqlalchemy import create_engine
+from matplotlib import colors as mcolors
+
+from striplog.utils import rgb_to_hex
+from vtk import vtkX3DExporter, vtkPolyDataMapper # NOQA
+from IPython.display import HTML
+
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
+from striplog import Interval, Component, Position
+from core.visual import Borehole3D
+from core.orm import Base, BoreholeOrm, ComponentOrm, IntervalOrm, PositionOrm, LinkIntervalComponentOrm
+from utils.lexicon_memoris import LEG_BOREHOLE, LEG_LITHO_MEMORIS, LEG_CONTAMINATION_LEV
+from utils.orm import get_interval_list, create_bh3d_from_bhorm
+from utils.visual import build_bh3d_legend_cmap
+from utils.config import X3D_HTML, DEFAULT_BOREHOLE_LEGEND, DEFAULT_BOREHOLE_LEXICON, DEFAULT_LITHO_LEGEND, \
+    DEFAULT_TILES
 
 
 class Project:
@@ -55,6 +60,10 @@ class Project:
         self.boreholes_orm = None
         self.boreholes_3d = None
         self.__components_dict__ = None
+        self.__fictive_bh3d__ = None
+        self.__bh_type_basics = None
+        self.__bh_type_basics = None
+        self._repr_attribute = 'borehole_type'
 
         if legend_dict is None:
             legend_dict = {'borehole_type': {'legend': DEFAULT_BOREHOLE_LEGEND},
@@ -65,7 +74,6 @@ class Project:
         self.legend_dict = deepcopy(legend_dict)
         self.__legend_dict_bckp__ = deepcopy(legend_dict)
         self.lexicon = lexicon
-        self._repr_attribute = 'borehole_type'
         self.refresh(update_3d=True, update_legend=True)
 
     @classmethod
@@ -86,6 +94,10 @@ class Project:
 
     # ------------------------------- Class Properties ----------------------------
     @property
+    def __bh_type_basics__(self):
+        return self.__bh_type_basics
+
+    @property
     def repr_attribute(self):
         return self._repr_attribute
 
@@ -99,9 +111,23 @@ class Project:
     def attrib_cmap(self):
         return self.legend_dict[self.repr_attribute]['cmap']
 
+    @attrib_cmap.setter
+    def attrib_cmap(self, value):
+        assert (isinstance(value, mcolors.ListedColormap))
+        self.legend_dict[self.repr_attribute]['cmap'] = value
+
     @property
     def attrib_legend(self):
         return self.legend_dict[self.repr_attribute]['legend']
+
+    @property
+    def attrib_values(self):
+        return self.legend_dict[self.repr_attribute]['values']
+
+    @attrib_values.setter
+    def attrib_values(self, value):
+        assert (isinstance(value, list))
+        self.legend_dict[self.repr_attribute]['values'] = value
 
     @property
     def attrib_scalar_bar_args(self):
@@ -111,7 +137,7 @@ class Project:
                     vertical=False, shadow=False)
     @property
     def attrib_annotations(self):
-        uniq_attr_val = self.legend_dict[self.repr_attribute]['values']
+        uniq_attr_val = self.attrib_values
         n_col = len(self.attrib_cmap.colors)
         incr = (len(uniq_attr_val) - 1) / n_col  # increment
         bounds = [0]  # cmap colors limits
@@ -132,6 +158,59 @@ class Project:
         return blocks
 
     # ------------------------------- Methods ----------------------------
+    def __cmap_values_alignment__(self, legend_text=None, verbose=False):
+        """sort attribute unique values to match each color of the cmap"""
+
+        if legend_text is None:
+            if self.repr_attribute == 'borehole_type':
+                legend_text = LEG_BOREHOLE.split('\n')
+            elif self.repr_attribute == 'lithology':
+                legend_text = LEG_LITHO_MEMORIS.split('\n')
+            else:
+                legend_text = LEG_CONTAMINATION_LEV.split('\n')
+
+        if verbose: print(f"---- {self.repr_attribute} ----")
+
+        leg_dict = {}
+        for lg in legend_text:
+            ls = lg.split(',')
+            if len(ls) > 2 and lg[0] == '#':
+                leg_dict.update({ls[0].lower(): ls[-2].lstrip(' ')})
+
+        new_attr_val = []
+        new_color_arrays = []
+        treated = []
+        for ar in self.attrib_cmap.colors:
+            c_hex = rgb_to_hex(ar[:3])
+            if c_hex not in treated:
+                treated.append(c_hex)
+                new_color_arrays.append(ar)
+                new_attr_val.append(leg_dict[c_hex])
+                if verbose: print(len(new_attr_val), c_hex, leg_dict[c_hex])
+        self.attrib_values = new_attr_val
+        self.attrib_cmap = mcolors.ListedColormap(new_color_arrays)
+
+    def __create_fictive_bh3d__(self):
+        """Create a fictive Borehole3D object which contains unique values, based on the repr_attribute. It's actually a way to correct legend alignment"""
+
+        f_intv = []
+        pos = 0
+        for v in self.attrib_values:
+            if self.repr_attribute in ['borehole_type', 'lithology']:
+                f_comp = Component({self.repr_attribute: v})
+            else:
+                f_comp = Component({'pollutant': self.repr_attribute, 'level': v})
+            rand_bh = self.boreholes_3d[list(self.boreholes_3d.keys())[0]]
+            top = Position(x=rand_bh.x_collar, y=rand_bh.y_collar, middle=pos)
+            base = Position(x=rand_bh.x_collar, y=rand_bh.y_collar, middle=pos+1)
+            f_intv.append(Interval(top=top, base=base, components=[f_comp], description='fictive interval'))
+            pos += 1
+
+        leg_dict = {self.repr_attribute: {'legend': self.attrib_legend, 'cmap': self.attrib_cmap, 'values': self.attrib_values}}
+        f_bh3d = Borehole3D(intervals=f_intv, length=pos - 1, legend_dict=leg_dict, repr_attribute=self.repr_attribute, name='fictive_bh3d')
+
+        return f_bh3d
+
     def add_borehole(self, borehole, update_3d=False, verbose=False):
         """
         Add a Borehole, from a dict or a BoreholeOrm, object to the project
@@ -268,7 +347,8 @@ class Project:
 
         if update_legend and len(self.boreholes_3d) > 0:
             self.update_legend_cmap(update_project_legend=True, update_bh3d_legend=True)
-        # print('ATTRIB_LEG3:', self.repr_attribute, self.legend_dict[self.repr_attribute])
+            if self.repr_attribute == 'borehole_type':
+                self.__bh_type_basics = {'bh3d': self.boreholes_3d, 'legend_dict': self.legend_dict}
 
     def commit(self, verbose=False):
         """Validate all modifications done in the project"""
@@ -331,14 +411,13 @@ class Project:
             repr_attribute_list = [self.repr_attribute]
 
         if legend_dict is None:
-            legend_dict = deepcopy(self.__legend_dict_bckp__)  # original project given legend
+            legend_dict = deepcopy(self.__legend_dict_bckp__)  # original project's given legend
 
         reduced_leg, detail_leg = build_bh3d_legend_cmap(
             bh3d_list=list(self.boreholes_3d.values()), legend_dict=legend_dict, repr_attrib_list=repr_attribute_list, width=width, compute_all=compute_all_attrib, update_bh3d_legend=update_bh3d_legend, update_given_legend=True, verbose=verbose)
 
         if update_project_legend:
             self.legend_dict = legend_dict
-            # print('ATTRIB_LEG2:', self.repr_attribute, self.legend_dict[self.repr_attribute])
         else:
             return reduced_leg, detail_leg
 
@@ -354,6 +433,7 @@ class Project:
         custom_legend = False
         name_pts = {}
         jupyter_backend = kwargs.pop('jupyter_backend', None)
+        f_opac = 1 if kwargs.pop('show_fictive', False) is True else 0
         if window_size is not None:
             notebook = False
         else:
@@ -365,19 +445,28 @@ class Project:
         else:
             pl = pv.Plotter(notebook=notebook, window_size=window_size)
 
-        plot_cmap = self.legend_dict[self.repr_attribute]['cmap']
-        uniq_attr_val = self.legend_dict[self.repr_attribute]['values']
-        print()
+        self.__cmap_values_alignment__()
+        # show transparent boreholes
+        if self.repr_attribute != 'borehole_type':
+            q = self.__bh_type_basics__
+            for bh in q['bh3d'].values():
+                bh.plot_3d(plotter=pl, repr_attribute='borehole_type', bg_color=bg_color,
+                           repr_legend_dict=q['legend_dict'], opacity=.2, show_scalar_bar=False, **kwargs)
+                name_pts.update({bh.name: bh._vtk.center[:2] + [bh.z_collar]})
 
+        # show attribute values representation
         for bh in self.boreholes_3d.values():
             bh_val_un = bh.legend_dict[self.repr_attribute]['values']
-            bh.plot_3d(plotter=pl, repr_attribute=self.repr_attribute,
-                       bg_color=bg_color,
-                       repr_legend_dict=self.legend_dict, repr_cmap=plot_cmap,
-                       repr_uniq_val=uniq_attr_val, custom_legend=custom_legend, **kwargs)
-            name_pts.update({bh.name: bh._vtk.center[:2]+[bh.z_collar]})
+            bh.plot_3d(plotter=pl, repr_attribute=self.repr_attribute, bg_color=bg_color, repr_legend_dict=self.legend_dict, repr_uniq_val=self.attrib_values, repr_cmap=self.attrib_cmap, custom_legend=False, **kwargs)
             if verbose:
                 print(f'Borehole "{bh.name}" | attribute values -> {bh_val_un}')
+
+            # plot a fictive borehole containing unique attribute values
+            if bh == list(self.boreholes_3d.values())[-1]:  # last element
+                f_bh = self.__create_fictive_bh3d__()
+                f_bh.plot_3d(plotter=pl, repr_attribute=self.repr_attribute, bg_color=bg_color, repr_legend_dict=self.legend_dict, opacity=f_opac, repr_uniq_val=self.attrib_values, repr_cmap=self.attrib_cmap, custom_legend=True, **kwargs)
+
+        if f_opac == 1: name_pts.update({f_bh.name: f_bh._vtk.center[:2] + [f_bh.z_collar]})
 
         if labels_color is None:
             labels_color = 'black'
@@ -408,7 +497,8 @@ class Project:
         bh_name: str
         """
         if repr_legend is None:
-            repr_legend = self.legend_dict[self.repr_attribute]['legend']
+            # repr_legend = self.attrib_legend
+            pass
 
         for bh in self.boreholes_3d.keys():
             if bh == bh_name:
@@ -450,9 +540,7 @@ class Project:
 
         # Use a satellite map
         if tiles is None:
-            tiles = [{'name': 'Satellite',
-                    'attributes': "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
-                    'url': "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"}]
+            tiles = DEFAULT_TILES
 
         bhs_map = fm.Map(location=center, tiles='OpenStreetMap', zoom_start=zoom_start,
                          max_zoom=max_zoom, control_scale=control_scale)

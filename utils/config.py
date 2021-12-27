@@ -56,9 +56,11 @@ X3D_HTML = '<html>\n<head>\n    <meta http-equiv="X-UA-Compatible" content="IE=e
                        '"d" to display info, "space" for shortcuts. For more info col interaction,' \
                        ' please read  <a href="https://doc.x3dom.org/tutorials/animationInteraction/' \
                        'navigation/index.html">the docs</a>  \n</p>\n' \
-                       '<x3d width=\'968px\' height=\'600px\'>\n <scene>\n' \
+                       '<x3d width=\'400px\' height=\'600px\'>\n <scene>\n' \
                        '<viewpoint position="-3.03956 -14.95776 2.17179"' \
                        ' orientation="0.98276 -0.08411 -0.16462 1.15299">' \
                        '</viewpoint>\n <Inline nameSpaceName="Borehole" ' \
                        'mapDEFToID="true" url="{:}" />' \
                        '\n</scene>\n</x3d>\n</body>\n</html>\n'
+
+DEFAULT_TILES = [{'name': 'Satellite', 'attributes': "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community", 'url': "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"}]

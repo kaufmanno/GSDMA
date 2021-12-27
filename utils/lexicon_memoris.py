@@ -10,7 +10,7 @@ LEX_BOREHOLE_MEMORIS = {'borehole_type': ['Pi[e|é]zomet[er|re]', 'Piezo', 'Fora
                         'synonyms': {'Piezometre':['Pi[e|é]zo', 'Pi[e|é]zomet[er|re]']}
                         }
 # lithologies lexicon
-LEX_LITHO_MEMORIS = {'lithology': ['Vide', 'Briquaillon(?:s?)', 'Remblai(?:s)?', 'Alluvion(?:s)?', 'Boue(?:s)?', 'Laitier(?:s)?', 'B[e|é]ton', 'Scorie(?:s)?', 'Ballast(?:s)?', 'Brique(?:s)?', 'Briquaille(?:s)?', 'Caillasse(?:s)?', 'Anthracite(?:s)?', 'Porphyre(?:s)?', 'Houille(?:s)?', 'Diorite(?:s)?', 'Cargneule(?:s)?', 'Molasse(?:s)?', 'Jaspe(?:s)?', 'Gravier(?:s)?', 'Leptynite(?:s)?', 'Pyroxénite(?:s)?', 'Pierre coquillière(?:s)?', 'Grès(?:s)?', 'Obsidienne(?:s)?', 'Basalte(?:s)?', 'Charbon(?:s)?', 'Anhydrite(?:s)?', 'Andésite(?:s)?', 'Ardoise(?:s)?', 'Carbonatite(?:s)?', 'Dolérite(?:s)?', 'Cendres(?:s)?', 'Poudingue(?:s)?', 'Alios(?:s)?', 'Quartzite(?:s)?', 'Calcaire(?:s)?', 'Gypse(?:s)?', 'Limon(?:s)?', 'Phonolite(?:s)?', 'Arkose(?:s)?', 'Pegmatite(?:s)?', 'Bauxite(?:s)?', 'Pierre coquillère(?:s)?', 'Gneiss', 'Mort-terrain(?:s)?', 'Silcrète(?:s)?', 'Lignite(?:s)?', 'Conglomérat(?:s)?', 'Glauconie(?:s)?', 'Ponce(?:s)?', 'Péridotite(?:s)?', 'Combarbalite(?:s)?', 'Glauconite(?:s)?', 'Anatexite(?:s)?', 'Amphibolite(?:s)?', 'Greisen(?:s)?', 'Tuffeau(?:s)?', 'Granite(?:s)?', 'Gr(?:è|e|é)s', 'Brèche(?:s)?', 'Dolomie(?:s)?', 'Tuf volcanique(?:s)?', 'Halite(?:s)?', "Granite d'anatexie(?:s)?", 'Ignimbrite(?:s)?', 'Bentonite(?:s)?', 'Monzonite(?:s)?', 'Rhyolite(?:s)?', 'Monazite(?:s)?', 'Silex', 'Gabbro(?:s)?', 'Argile(?:s)?', 'Syénite(?:s)?', 'Kimberlite(?:s)?', 'Cendre(?:s)?', 'Cinérite(?:s)?', 'Tourbe(?:s)?', 'Aplite(?:s)?', 'Grè(?:s)?', 'Marne(?:s)?', 'Dacite(?:s)?', 'Micaschiste(?:s)?', 'Molasse (?:s)?', 'Tillite(?:s)?', 'Schiste(?:s)?', 'Granodiorite(?:s)?', 'Phtanite(?:s)?', 'Tuf(?:s)?', 'Sable(?:s)?', 'Trachyte(?:s)?',  'Marbre(?:s)?', 'Ophite(?:s)?', 'Éclogite(?:s)?', 'Cipolin(?:s)?', 'Kersantite(?:s)?', 'Lapillis(?:s)?', 'Diatomite(?:s)?', 'Craie(?:s)?'],
+LEX_LITHO_MEMORIS = {'lithology': ['Vide$', 'Remblai(?:s)?$', 'Alluvion(?:s)?$', 'Boue(?:s)?$', 'Laitier(?:s)?$', 'B[e|é]ton$', 'Scorie(?:s)?$', 'Ballast(?:s)?$', 'Briqu[e|aille|aillon](?:s)?$', 'Caillasse(?:s)?$', 'Anthracite(?:s)?$', 'Porphyre(?:s)?$', 'Houille(?:s)?$', 'Diorite(?:s)?$', 'Cargneule(?:s)?$', 'Molasse(?:s)?$', 'Jaspe(?:s)?$', 'Gravier(?:s)?$', 'Leptynite(?:s)?$', 'Pyroxénite(?:s)?$', 'Pierre coquillière(?:s)?$', 'Obsidienne(?:s)?$', 'Basalte(?:s)?$', 'Charbon(?:s)?$', 'Anhydrite(?:s)?$', 'Andésite(?:s)?$', 'Ardoise(?:s)?$', 'Carbonatite(?:s)?$', 'Dolérite(?:s)?$', 'Cendres(?:s)?$', 'Poudingue(?:s)?$', 'Alios(?:s)?$', 'Quartzite(?:s)?$', 'Calcaire(?:s)?$', 'Gypse(?:s)?$', 'Limon(?:s)?$', 'Phonolite(?:s)?$', 'Arkose(?:s)?$', 'Pegmatite(?:s)?$', 'Bauxite(?:s)?$', 'Pierre coquillère(?:s)?$', 'Gneiss$', 'Mort-terrain(?:s)?$', 'Silcrète(?:s)?$', 'Lignite(?:s)?$', 'Conglomérat(?:s)?$', 'Glauconie(?:s)?$', 'Ponce(?:s)?$', 'Péridotite(?:s)?$', 'Combarbalite(?:s)?$', 'Glauconite(?:s)?$', 'Anatexite(?:s)?$', 'Amphibolite(?:s)?$', 'Greisen(?:s)?$', 'Tuffeau(?:x)?$', 'Granite(?:s)?$', 'Gr(?:è|e)s', 'Brèche(?:s)?$', 'Dolomie(?:s)?$', 'Tuf volcanique(?:s)?$', 'Halite(?:s)?$', "Granite d'anatexie(?:s)?", 'Ignimbrite(?:s)?$', 'Bentonite(?:s)?$', 'Monzonite(?:s)?$', 'Rhyolite(?:s)?$', 'Monazite(?:s)?$', 'Silex$', 'Gabbro(?:s)?$', 'Argile(?:s)?$', 'Syénite(?:s)?$', 'Kimberlite(?:s)?$', 'Cendre(?:s)?$', 'Cinérite(?:s)?$', 'Tourbe(?:s)?$', 'Aplite(?:s)?$', 'Marne(?:s)?$', 'Dacite(?:s)?$', 'Micaschiste(?:s)?$', 'Molasse (?:s)?$', 'Tillite(?:s)?$', 'Schiste(?:s)?$', 'Granodiorite(?:s)?$', 'Phtanite(?:s)?$', 'Tuf(?:s)?$', 'Sable(?:s)?$', 'Trachyte(?:s)?$',  'Marbre(?:s)?$', 'Ophite(?:s)?$', 'Éclogite(?:s)?$', 'Cipolin(?:s)?$', 'Kersantite(?:s)?$', 'Lapillis(?:s)?$', 'Diatomite(?:s)?$', 'Craie(?:s)?$'],
 
                    'synonyms': {'mort-terrain': ['terre'], 'Anhydrite': ['Gypse'], 'Sel': ['Halite', 'Sylvite'], 'limon':['limoneuse', 'limono'], 'cendre':['cendree', 'cendrees']},
                    'splitters': [' et ', ' avec ', ' de ', ' cont(?:ient|enant) ', '\\. '],
@@ -41,23 +41,25 @@ LEG_BOREHOLE = """colour,width,component borehole_type
 #AA5555, none, Heating tube,
 #5555AA, none, Piezair,
 #999999, None, Borehole,
-#999999, None, Forage
+#999999, None, Forage,
 """
 
 LEG_CONTAMINATION_LEV = """colour,width,component level
 #E6E600, None, VR,
 #00FF00, None, VS,
 #FFA500, None, VI,
-#FF0000, None, VI_sup
+#FF0000, None, VI_sup,
 """
 
 LEG_LITHO_MEMORIS = """colour,width,hatch,component lithology
 #FFFFFF, None, None, Vide,
-#FFFFE9, None, None, Matériau(?:x)? meuble(?:s)?,
+#FFFFE9, None, None, Matériau meuble,
+#FFFFE9, None, None, Matériaux meubles,
 #FFF497, None, ...., Alluvion,
 #B54500, None, None, Boue,
 #D3B798, None, x.., Remblai,
-#a5c7c9, None, ox, B[é|e]ton,
+#a5c7c9, None, ox, Beton,
+#a5c7c9, None, ox, Béton,
 #FFB798, None, -x, Briquaillon,
 #FFB798, None, -x, Briquaille,
 #FFB798, None, None, Brique,
@@ -79,6 +81,7 @@ LEG_LITHO_MEMORIS = """colour,width,hatch,component lithology
 #D6FE9A, None, None, Siltite,
 #E1F0D8, None, None, Tuffeau,
 #69CF9C, None, None, Silex,
+#80CD9C, None, None, Grès,
 #B7D9CC, None, None, Conglomérat,
 #019CCD, None, None, Carbonate,
 #149EFF, None, =, Calcaire,
@@ -87,7 +90,7 @@ LEG_LITHO_MEMORIS = """colour,width,hatch,component lithology
 #DEEFFE, None, None, Craie,
 #AAC2C8, None, None, Chert,
 #000000, None, None, Charbon,
-#7BA1A8, None, None, Marne
+#7BA1A8, None, None, Marne,
 """
 
 
