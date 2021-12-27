@@ -125,7 +125,7 @@ class Borehole3D(Striplog):
             start = self.stop.z
         details = "start={:.2f}".format(start) + ", stop={:.2f}".format(stop)
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
-        return f"<{obj_class}> name: {self.name} | legnth:" + '{:.2f}'.format(start - stop) + f" | {n_intv} Intervals | {details}"
+        return f"<{obj_class}> name: {self.name} | length:" + '{:.2f} m'.format(start - stop) + f" | {n_intv} Intervals | {details}"
 
     def attrib_components(self, attribute=None):
         # components according to the repr_attribute
@@ -287,7 +287,7 @@ class Borehole3D(Striplog):
         legend_copy = deepcopy(repr_legend)  # work with a copy to keep initial legend state
         decors = {}  # dict of decors to build a legend for the borehole
         attrib_values = []  # list of lithologies in the borehole
-        for i in self.intervals:
+        for n, i in enumerate(self.intervals):
             j = find_component_from_attrib(i, repr_attribute, verbose=verbose)
             if j is not None:
                 intv_value = i.components[j][attr]
@@ -317,7 +317,6 @@ class Borehole3D(Striplog):
             print('\nplot2d | decors:', decors)
         rev_decors = list(decors.values())
         rev_decors.reverse()
-        print('TEST---', rev_decors)
         plot_legend = Legend([v for v in rev_decors])
 
         print(f"\033[0;40;46mAttribute: \'{repr_attribute}\'\033[0;0;0m")
@@ -354,6 +353,12 @@ class Borehole3D(Striplog):
         jupyter_backend = kwargs.pop('jupyter_backend', None)
         opacity = kwargs.pop('opacity', 1.)
         show_sbar = kwargs.pop('show_scalar_bar', False)
+        t_size = kwargs.pop('title_font_size', 25)
+        l_size = kwargs.pop('label_font_size', 8)
+        font = kwargs.pop('font_family', 'arial')
+        t_color = kwargs.pop('text_color', 'k')
+        vert_sb = kwargs.pop('vertical', False)
+
         if custom_legend:
             show_sbar = False
 
@@ -399,10 +404,10 @@ class Borehole3D(Striplog):
             uniq_attr_val = repr_uniq_val
 
         # display a categorical legend
+        n_col = len(plot_cmap.colors)
         if str_annotations:
-            n_col = len(plot_cmap.colors)
             if scalar_bar_args is None:  # scalar_bar properties
-                scalar_bar_args = dict(title=f"{repr_attribute.upper()}", title_font_size=25, label_font_size=15, n_labels=n_col, fmt='', font_family='arial', color='k', italic=False, bold=False, interactive=True, vertical=False, shadow=False)
+                scalar_bar_args = dict(title=f"{repr_attribute.upper()}", title_font_size=t_size, label_font_size=l_size, n_labels=n_col, fmt='', font_family=font, color=t_color, italic=False, bold=False, interactive=True, vertical=vert_sb, shadow=False)
             incr = (len(uniq_attr_val) - 1) / n_col  # increment
             bounds = [0]  # cmap colors limits
             next_bound = 0
@@ -425,7 +430,7 @@ class Borehole3D(Striplog):
         plotter.add_mesh(seg, cmap=plot_cmap, scalar_bar_args=scalar_bar_args, opacity=opacity, smooth_shading=smooth_shading, show_scalar_bar=show_sbar, annotations=str_annot, **kwargs)
 
         if custom_legend:
-            plotter.add_scalar_bar(title=repr_attribute, title_font_size=25, n_labels=0, label_font_size=5, height=0.2, fmt='', font_family='arial', color='k', italic=False, bold=False, interactive=True, vertical=True, shadow=False)
+            plotter.add_scalar_bar(title=repr_attribute, title_font_size=t_size, n_labels=n_col, label_font_size=l_size, font_family=font, color=t_color, fmt='', vertical=vert_sb, italic=False, bold=False, interactive=True, shadow=False)
 
         # set background color for the render (None : pyvista default background color)
         if bg_color is not None:

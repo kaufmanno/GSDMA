@@ -62,7 +62,6 @@ class Project:
         self.__components_dict__ = None
         self.__fictive_bh3d__ = None
         self.__bh_type_basics = None
-        self.__bh_type_basics = None
         self._repr_attribute = 'borehole_type'
 
         if legend_dict is None:
@@ -430,10 +429,11 @@ class Project:
         x3d : bool
             if True, generates a 3xd file of the 3D (default=False)
         """
-        custom_legend = False
         name_pts = {}
         jupyter_backend = kwargs.pop('jupyter_backend', None)
         f_opac = 1 if kwargs.pop('show_fictive', False) is True else 0
+        other_vtks = kwargs.pop('add_vtks_obj', None)
+        _ = kwargs.pop('custom_legend', None)
         if window_size is not None:
             notebook = False
         else:
@@ -446,8 +446,10 @@ class Project:
             pl = pv.Plotter(notebook=notebook, window_size=window_size)
 
         self.__cmap_values_alignment__()
+        name_on_transparent = False
         # show transparent boreholes
         if self.repr_attribute != 'borehole_type':
+            name_on_transparent = True
             q = self.__bh_type_basics__
             for bh in q['bh3d'].values():
                 bh.plot_3d(plotter=pl, repr_attribute='borehole_type', bg_color=bg_color,
@@ -458,6 +460,8 @@ class Project:
         for bh in self.boreholes_3d.values():
             bh_val_un = bh.legend_dict[self.repr_attribute]['values']
             bh.plot_3d(plotter=pl, repr_attribute=self.repr_attribute, bg_color=bg_color, repr_legend_dict=self.legend_dict, repr_uniq_val=self.attrib_values, repr_cmap=self.attrib_cmap, custom_legend=False, **kwargs)
+            if not name_on_transparent:
+                name_pts.update({bh.name: bh._vtk.center[:2] + [bh.z_collar]})
             if verbose:
                 print(f'Borehole "{bh.name}" | attribute values -> {bh_val_un}')
 
@@ -476,6 +480,11 @@ class Project:
             pv_pts['bh_name'] = list(name_pts.keys())
             pl.add_point_labels(pv_pts, 'bh_name', point_size=1, font_size=labels_size,
                                 text_color=labels_color, show_points=False)
+
+        if other_vtks is not None and isinstance(other_vtks, dict):
+            for vtk_name, vtk_args in other_vtks.items():
+                print(f'adding {vtk_name} ...')
+                pl.add_mesh(**vtk_args)
 
         if not x3d:
             pl.add_axes()

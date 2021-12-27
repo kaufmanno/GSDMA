@@ -225,14 +225,7 @@ def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID', da
             bh_selection = final_df[id_col] == f"{bh_name}"
             tmp = final_df[bh_selection].copy()
             tmp.reset_index(drop=True, inplace=True)
-            striplog_dict = striplog_from_dataframe(df=tmp, bh_name=bh_name, bh_type=bh_type,
-                                                    attributes=attributes, symbols=symbols,
-                                                    id_col=id_col, thick_col=thick_col,
-                                                    top_col=top_col, base_col=base_col,
-                                                    desc_col=desc_col, length_col=length_col,
-                                                    sample_type_col=sample_type_col,
-                                                    sample_id_col=sample_id_col,
-                                                    query=False, verbose=verbose)
+            striplog_dict = striplog_from_dataframe(df=tmp, bh_name=bh_name, bh_type=bh_type, attributes=attributes, symbols=symbols, id_col=id_col, thick_col=thick_col, top_col=top_col, base_col=base_col, desc_col=desc_col, length_col=length_col, sample_type_col=sample_type_col, query=False,sample_id_col=sample_id_col, verbose=verbose)
 
             if striplog_dict is not None:
                 bh_counter += 1

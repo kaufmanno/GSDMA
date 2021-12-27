@@ -193,9 +193,13 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
     if length_col is not None and length_col in df.columns:
         spec_top, spec_base = 0, np.nanmax(df[length_col])
     elif attrib_cdt:
-        spec_top, spec_base = min(df[top_col]), max(df[base_col])
+        spec_top, spec_base = np.nanmin(df[top_col]), np.nanmax(df[base_col])
     elif thick_cdt:
         spec_top, spec_base = 0, df[thick_col].cumsum().max()
+
+    if length_col is not None and length_col in df.columns and attrib_cdt:
+        # create the longest possible interval
+        spec_base = np.nanmax(np.nanmax(df[length_col]), np.nanmax(df[base_col]))
     
     spec_comp = Component({'borehole_type': 'borehole'})
     intervals = [Interval(top=spec_top, base=spec_base, components=[spec_comp])]
@@ -206,6 +210,7 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
         samp_name = None
         samp_type = None
         iv_desc = df.loc[j, desc_col]
+        if isinstance(iv_desc, str): iv_desc = iv_desc.rstrip(' ')
         if samp_type_cdt:
             samp_type = df.loc[j, sample_type_col]
         if sample_id_col is not None and not pd.isnull(df.loc[j, sample_id_col]):
@@ -220,6 +225,7 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
             else:
                 coi = attrib
             val = df.loc[j, coi]
+            if isinstance(val, str): val = val.rstrip(' ')
 
             # retrieve contamination level
             if attrib in pollutants or attrib.lower() in pollutants:
@@ -234,7 +240,6 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
             if verbose:
                 print(f"**CONTAM_VAL** {attrib}: {num_val} {unit} <--> {val}")
             # choose correct lexicon
-            lexicon = None
             if attrib not in symbols.keys() and attrib.lower() in symbols.keys():
                 lexicon = symbols[attrib.lower()]['lexicon']
             elif pol_comp:
