@@ -1411,10 +1411,9 @@ def na_col_drop(df, col_non_na=10, drop=True, verbose=False):
     return data
 
 
-def find_bh_synonyms(data, regex_skip=None, dist_max=0.5, display=True, save_syn=True, verbose=False):
+def find_bh_synonyms(data, regex_skip=None, dist_max=0.5, display=True, save_syn=True, drop_syn_col=True, verbose=False):
     """"""
-
-    for i in data.index[:-1]:
+    for i in data.index:
         syn_list = []
         id_i = data.loc[i, 'ID']
         if regex_skip is not None and re.search(regex_skip, id_i, re.I):
@@ -1429,7 +1428,7 @@ def find_bh_synonyms(data, regex_skip=None, dist_max=0.5, display=True, save_syn
                 dist = (x_i - x_j) ** 2 + (y_i - y_j) ** 2
                 if dist <= dist_max ** 2:
                     syn_list.append(id_j)
-        syn_list = sorted(syn_list)
+        syn_list = sorted(list(set(syn_list)))
         if len(syn_list) > 1:
             data.loc[i, 'synonyms'] = str(syn_list)
         else:
@@ -1449,7 +1448,7 @@ def find_bh_synonyms(data, regex_skip=None, dist_max=0.5, display=True, save_syn
                 syn_dict.update({n: {str(syn): idx}})
                 n += 1
 
-    data.drop(columns='synonyms', inplace=True)
+    if drop_syn_col: data.drop(columns='synonyms', inplace=True)
 
     if display:
         print(len(syn_dict), 'possible synonyms found !')
@@ -1516,11 +1515,11 @@ def choose_bh_synonym(dataf, syn_dict=None, choice_dict=None, regex_choice=None,
         del syn_dict[k]
 
     if not syn_dict:
-        print('All synonyms have been attributed !')
+        print('All synonyms have been fixed !')
     else:
-        print('It remains some synonyms to attribute. Check synonyms dict !')
+        print('It remains some synonyms to fix. Check synonyms dict !')
 
-    return data.sort_values('ID'), syn_dict
+    return data.sort_values('ID').reset_index(drop=True), syn_dict
 
 
 def collect_time_data(df, regex=None, sort_values_by='Date_mes'):

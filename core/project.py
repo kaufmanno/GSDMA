@@ -420,7 +420,7 @@ class Project:
         else:
             return reduced_leg, detail_leg
 
-    def plot_3d(self, plotter=None, labels_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"), x3d=False, window_size=None, verbose=False, **kwargs):
+    def plot_3d(self, plotter=None, bh_name_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"), x3d=False, window_size=None, verbose=False, **kwargs):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -434,6 +434,7 @@ class Project:
         f_opac = 1 if kwargs.pop('show_fictive', False) is True else 0
         other_vtks = kwargs.pop('add_vtks_obj', None)
         _ = kwargs.pop('custom_legend', None)
+
         if window_size is not None:
             notebook = False
         else:
@@ -453,7 +454,7 @@ class Project:
             q = self.__bh_type_basics__
             for bh in q['bh3d'].values():
                 bh.plot_3d(plotter=pl, repr_attribute='borehole_type', bg_color=bg_color,
-                           repr_legend_dict=q['legend_dict'], opacity=.2, show_scalar_bar=False, **kwargs)
+                           repr_legend_dict=q['legend_dict'], opacity=.1, show_scalar_bar=False, **kwargs)
                 name_pts.update({bh.name: bh._vtk.center[:2] + [bh.z_collar]})
 
         # show attribute values representation
@@ -475,10 +476,10 @@ class Project:
         if labels_color is None:
             labels_color = 'black'
 
-        if labels_size is not None:
+        if bh_name_size is not None:
             pv_pts = pv.PolyData(np.array(list(name_pts.values())))
             pv_pts['bh_name'] = list(name_pts.keys())
-            pl.add_point_labels(pv_pts, 'bh_name', point_size=1, font_size=labels_size,
+            pl.add_point_labels(pv_pts, 'bh_name', point_size=1, font_size=bh_name_size,
                                 text_color=labels_color, show_points=False)
 
         if other_vtks is not None and isinstance(other_vtks, dict):
@@ -487,7 +488,11 @@ class Project:
                 pl.add_mesh(**vtk_args)
 
         if not x3d:
-            pl.add_axes()
+            pl.add_axes(color='k')
+            pl.set_viewup([0, 1, 0])  # set the starting plan of view
+            # pl.enable_zoom_style()
+            # pl.enable_trackball_style()
+            # pl.enable_terrain_style(mouse_wheel_zooms=True, shift_pans=True)
             pl.show(auto_close=True, jupyter_backend=jupyter_backend)
         else:
             writer = vtkX3DExporter()

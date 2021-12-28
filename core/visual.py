@@ -353,11 +353,11 @@ class Borehole3D(Striplog):
         jupyter_backend = kwargs.pop('jupyter_backend', None)
         opacity = kwargs.pop('opacity', 1.)
         show_sbar = kwargs.pop('show_scalar_bar', False)
-        t_size = kwargs.pop('title_font_size', 25)
-        l_size = kwargs.pop('label_font_size', 8)
-        font = kwargs.pop('font_family', 'arial')
-        t_color = kwargs.pop('text_color', 'k')
-        vert_sb = kwargs.pop('vertical', False)
+        t_size = kwargs.pop('legend_title_size', 25)
+        l_size = kwargs.pop('legend_label_size', 8)
+        font = kwargs.pop('legend_font', 'arial')
+        t_color = kwargs.pop('legend_text_color', 'k')
+        vert_sb = kwargs.pop('legend_vertical', False)
 
         if custom_legend:
             show_sbar = False

@@ -1,3 +1,4 @@
+import random
 import re
 import pandas as pd
 import numpy as np
@@ -353,6 +354,23 @@ def dict_repr_html(dictionary):
     return html
 
 
+def generate_legend_html_color(legend_text):
+    text = [leg for leg in legend_text.split('\n')[:-1] if leg[0]=='#']
+    text = {leg.split(',')[0]: ','.join(leg.split(',')[1:-1]) for leg in text}
+
+    color_list = []
+    i=1
+    while i <= len(text):
+        c_html = "#%06x" % random.randint(0, 0xFFFFFF)
+        if c_html not in color_list:
+            color_list.append(c_html)
+            i += 1
+    leg_html = [col.upper() + ', ' + val for col, val in zip(color_list, list(text.values()))]
+    leg_html = ',\n'.join(leg_html)
+    return leg_html
+
+
+
 def striplog_from_text_file(filename, lexicon=None):
     """
     creates a Striplog object from a las or flat text file
@@ -397,3 +415,4 @@ def striplog_from_text_file(filename, lexicon=None):
         raise(EOFError("Error! Check the file extension !"))
 
     return strip
+
