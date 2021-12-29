@@ -2,10 +2,10 @@ import pandas as pd
 import numpy as np
 import re
 from striplog import Position, Component, Interval
-from core.orm import BoreholeOrm, PositionOrm, LinkIntervalComponentOrm
+from core.orm import BoreholeOrm, PositionOrm, LinkIntervalComponentOrm, ComponentOrm
 from core.visual import Borehole3D
-from utils.config import DEFAULT_BOREHOLE_DIAMETER, DEFAULT_POL_LEXICON,\
-    DEFAULT_BOREHOLE_TYPE, WARNING_TEXT_CONFIG, WORDS_WITH_S
+from utils.config import DEFAULT_BOREHOLE_DIAMETER, DEFAULT_POL_LEXICON, \
+    DEFAULT_BOREHOLE_TYPE, WARNING_TEXT_CONFIG, WORDS_WITH_S, DEFAULT_LITHO_LEXICON
 
 from utils.utils import striplog_from_dataframe
 from utils.visual import get_components
@@ -66,7 +66,7 @@ def component_orm_to_component(comp_orm, intv_orm_id=None, project=None):
     return Component(eval(comp_desc))
 
 
-def interval_orm_to_interval(intv_orm, project=None):
+def interval_orm_to_interval(intv_orm, project=None, no_component=False):
     """
     Create a striplog.Interval from an IntervalOrm object
 
@@ -74,6 +74,8 @@ def interval_orm_to_interval(intv_orm, project=None):
     ------------
     intv_orm: IntervalOrm object
     project: Project object
+    no_component: bool
+        create an empty interval
 
     returns
     ---------
@@ -83,9 +85,14 @@ def interval_orm_to_interval(intv_orm, project=None):
     top = Position(upper=intv_orm.top.upper, middle=intv_orm.top.middle, lower=intv_orm.top.lower, x=intv_orm.top.x, y=intv_orm.top.y)
     base = Position(upper=intv_orm.base.upper, middle=intv_orm.base.middle, lower=intv_orm.base.lower, x=intv_orm.top.x, y=intv_orm.top.y)
 
-    intv_comp_list = [component_orm_to_component(comp_orm=c_orm, intv_orm_id=intv_orm.id, project=project) for c_orm in intv_orm.components]
+    if no_component:
+        intv_comp_list = []
+        intv_desc = None
+    else:
+        intv_comp_list = [component_orm_to_component(comp_orm=c_orm, intv_orm_id=intv_orm.id, project=project) for c_orm in intv_orm.components]
+        intv_desc = intv_orm.description
 
-    intv = Interval(top=top, base=base, description=intv_orm.description, components=intv_comp_list)
+    intv = Interval(top=top, base=base, description=intv_desc, components=intv_comp_list)
     return intv
 
 
@@ -119,6 +126,8 @@ def get_interval_list(bh_orm, attribute=None, project=None):
 
             if (attribute in interval_attributes) or (attribute is None):
                 interval_list.append(interval_orm_to_interval(intv_orm, project))
+            # else:
+            #     interval_list.append(interval_orm_to_interval(intv_orm, project, no_component=True))
 
             if 'borehole_type' in interval_attributes:
                 max_depth = intv_orm.base.middle
@@ -126,8 +135,8 @@ def get_interval_list(bh_orm, attribute=None, project=None):
     return interval_list, max_depth
 
 
-def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID', date_col=None,
-                                 diameter_col=None,  length_col=None, bh_type_col=None,
+def orm_boreholes_from_dataframe(data_list, attributes=None, lexicons=None, id_col='ID', date_col=None,
+                                 diameter_col=None, length_col=None, bh_type_col=None,
                                  sample_type_col=None, sample_id_col=None, default_z=None,
                                  skip_cols=None, verbose=False):
     """ Creates a list of BoreholeORM objects from a dataframe
@@ -136,7 +145,7 @@ def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID', da
     ----------
     data_list: list
         A list of pandas.DataFrame containing borehole intervals data
-    symbols: dict
+    lexicons: dict
         A dict e.g. {attribute_1: {'legend': striplog.Legend, 'lexicon': striplog.Lexicon}, ...}
     attributes : list
         List of dataframe's columns of interest, linked to attributes to represent like 'lithology'
@@ -151,19 +160,13 @@ def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID', da
         dictionary containing ID and component
 
     """
-
-    int_id = 0  # interval id
-    comp_id = 0  # component id
-    pos_id = 0  # position id
-    boreholes_orm = []
-    components_dict = []
-    component_dict = {}
-    link_intv_comp_dict = {}  # link between intervals and components (<-> junction table)
-    contam_names = list(DEFAULT_POL_LEXICON.abbreviations.keys()) + list(DEFAULT_POL_LEXICON.abbreviations.values())
+    if lexicons is None:
+        lexicons = {'lithology': {'lexicon': DEFAULT_LITHO_LEXICON}}
+    if attributes is None:
+        attributes = ['lithology']
 
     if skip_cols is None:
         skip_cols = []
-
     # data concatenation
     final_df = pd.DataFrame()
     last_index = None
@@ -191,10 +194,6 @@ def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID', da
 
     # data exploitation
     print(f'\nData Processing...\n================================')
-    bh_id_list = []  #
-    bh_counter = 0
-    bh_idx = 0  # borehole index in the current dataframe
-
     if diameter_col not in final_df.columns:
         print(f"{WARNING_TEXT_CONFIG['blue']}"
               f"Warning : -- No borehole diameter column found or check given column's name.\n"
@@ -207,7 +206,17 @@ def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID', da
 
     top_col, base_col, = 'Top_intv', 'Base_intv',
     desc_col, thick_col = 'Descr_intv', 'Thick_intv'
-
+    bh_id_list = []  #
+    bh_counter = 0
+    bh_idx = 0  # borehole index in the current dataframe
+    int_id = 0  # interval id
+    comp_id = 0  # component id
+    pos_id = 0  # position id
+    boreholes_orm = []
+    components_orm_dict = {}
+    component_dict = {}
+    link_intv_comp_dict = {}  # link between intervals and components (<-> junction table)
+    contam_names = list(DEFAULT_POL_LEXICON.abbreviations.keys()) + list(DEFAULT_POL_LEXICON.abbreviations.values())
     for idx, row in final_df.iterrows():
         bh_name = row[id_col]
         if not pd.isnull(row[bh_type_col]):
@@ -225,7 +234,7 @@ def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID', da
             bh_selection = final_df[id_col] == f"{bh_name}"
             tmp = final_df[bh_selection].copy()
             tmp.reset_index(drop=True, inplace=True)
-            striplog_dict = striplog_from_dataframe(df=tmp, bh_name=bh_name, bh_type=bh_type, attributes=attributes, symbols=symbols, id_col=id_col, thick_col=thick_col, top_col=top_col, base_col=base_col, desc_col=desc_col, length_col=length_col, sample_type_col=sample_type_col, query=False,sample_id_col=sample_id_col, verbose=verbose)
+            striplog_dict = striplog_from_dataframe(df=tmp, bh_name=bh_name, bh_type=bh_type, attributes=attributes, lexicons=lexicons, id_col=id_col, thick_col=thick_col, top_col=top_col, base_col=base_col, desc_col=desc_col, length_col=length_col, sample_type_col=sample_type_col, query=False, sample_id_col=sample_id_col, verbose=verbose)
 
             if striplog_dict is not None:
                 bh_counter += 1
@@ -290,10 +299,11 @@ def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID', da
                         desc = None
                         if intv.description.lower() not in ['nan', 'vide']:
                             desc = intv.description
+                        intv_data = None
+                        if intv.data:
+                            intv_data = intv.data
 
-                        interval_dict.update({int_id: {'top': top, 'base': base,
-                                                'interval_number': interval_number,
-                                                'description': desc}})
+                        interval_dict.update({int_id: {'top': top, 'base': base, 'interval_number': interval_number, 'description': desc, 'extra_data': intv_data}})
 
                         sk_keys = []
                         for cp in intv.components:
@@ -351,8 +361,9 @@ def orm_boreholes_from_dataframe(data_list, symbols, attributes, id_col='ID', da
 
                 bh_idx += 1
 
-        components_dict = {v: k for k, v in component_dict.items()}
+        components_orm_dict = {k: ComponentOrm(description=str(v.__dict__), id=k)
+                               for v, k in component_dict.items()}
 
     print(f"\nEnd of the process : {bh_counter} boreholes created successfully")
 
-    return boreholes_orm, components_dict, link_intv_comp_dict
+    return boreholes_orm, components_orm_dict, link_intv_comp_dict

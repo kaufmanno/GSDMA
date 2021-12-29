@@ -1,3 +1,6 @@
+import os
+import re
+
 import numpy as np
 import pyvista as pv
 import folium as fm
@@ -59,9 +62,7 @@ class Project:
         self.name = name
         self.boreholes_orm = None
         self.boreholes_3d = None
-        self.__components_dict__ = None
-        self.__fictive_bh3d__ = None
-        self.__bh_type_basics = None
+        self._bh_type_basics = None
         self._repr_attribute = 'borehole_type'
 
         if legend_dict is None:
@@ -76,25 +77,58 @@ class Project:
         self.refresh(update_3d=True, update_legend=True)
 
     @classmethod
-    def load(cls, db_name, legend_dict=None, verbose=False, lexicon=None):
+    def load(cls, db_name, legend_dict=None, lexicon=None, auto_erase_db=False, verbose=False):
         """ creates a project from a project database"""
-        project_name = db_name.rstrip('.db')
+
+        if db_name[-3:] not in ['.db','.DB']: db_name = db_name + '.db'
+        project_name = re.search('(\w+).db', db_name).group(1)
+        if not os.path.exists(db_name):
+            print("Database file not found! Creation of a new project ...")
+            create_new = True
+        elif auto_erase_db:
+            os.remove(db_name)
+            print("Database file found and erased! Creation of a new project ...")
+            create_new = True
+        else:
+            print("Loading of the database file ...")
+            create_new = False
 
         engine = create_engine(f"sqlite:///{db_name}", echo=verbose)
         Base.metadata.create_all(engine)
         Session = sessionmaker(bind=engine)
         session = Session()
-        if verbose:
-            print(f'legend_dict: {legend_dict}')
         p = cls(session, name=project_name, legend_dict=legend_dict, lexicon=lexicon)
         p.refresh()
-        session.close()
+        if create_new: p.session.close()  # don't close if a new project is created
         return p
 
     # ------------------------------- Class Properties ----------------------------
     @property
     def __bh_type_basics__(self):
-        return self.__bh_type_basics
+        return self._bh_type_basics
+
+    @property
+    def __fictive_bh3d__(self):
+        """Create a fictive Borehole3D object which contains unique values, based on the repr_attribute. It's actually a way to correct legend alignment"""
+
+        f_intv = []
+        pos = 0
+        for v in self.attrib_values:
+            if self.repr_attribute in ['borehole_type', 'lithology']:
+                f_comp = Component({self.repr_attribute: v})
+            else:
+                f_comp = Component({'pollutant': self.repr_attribute, 'level': v})
+            rand_bh = self.boreholes_3d[list(self.boreholes_3d.keys())[0]]
+            top = Position(x=rand_bh.x_collar, y=rand_bh.y_collar, middle=pos)
+            base = Position(x=rand_bh.x_collar, y=rand_bh.y_collar, middle=pos + 1)
+            f_intv.append(Interval(top=top, base=base, components=[f_comp], description='fictive interval'))
+            pos += 1
+
+        leg_dict = {self.repr_attribute: {'legend': self.attrib_legend, 'cmap': self.attrib_cmap, 'values': self.attrib_values}}
+        fictive_bh3d = Borehole3D(intervals=f_intv, length=pos - 1, legend_dict=leg_dict,
+                                        repr_attribute=self.repr_attribute, name='fictive_bh3d')
+
+        return fictive_bh3d
 
     @property
     def repr_attribute(self):
@@ -189,28 +223,7 @@ class Project:
         self.attrib_values = new_attr_val
         self.attrib_cmap = mcolors.ListedColormap(new_color_arrays)
 
-    def __create_fictive_bh3d__(self):
-        """Create a fictive Borehole3D object which contains unique values, based on the repr_attribute. It's actually a way to correct legend alignment"""
-
-        f_intv = []
-        pos = 0
-        for v in self.attrib_values:
-            if self.repr_attribute in ['borehole_type', 'lithology']:
-                f_comp = Component({self.repr_attribute: v})
-            else:
-                f_comp = Component({'pollutant': self.repr_attribute, 'level': v})
-            rand_bh = self.boreholes_3d[list(self.boreholes_3d.keys())[0]]
-            top = Position(x=rand_bh.x_collar, y=rand_bh.y_collar, middle=pos)
-            base = Position(x=rand_bh.x_collar, y=rand_bh.y_collar, middle=pos+1)
-            f_intv.append(Interval(top=top, base=base, components=[f_comp], description='fictive interval'))
-            pos += 1
-
-        leg_dict = {self.repr_attribute: {'legend': self.attrib_legend, 'cmap': self.attrib_cmap, 'values': self.attrib_values}}
-        f_bh3d = Borehole3D(intervals=f_intv, length=pos - 1, legend_dict=leg_dict, repr_attribute=self.repr_attribute, name='fictive_bh3d')
-
-        return f_bh3d
-
-    def add_borehole(self, borehole, update_3d=False, verbose=False):
+    def add_borehole(self, borehole, update_3d=False, commit=True, verbose=False):
         """
         Add a Borehole, from a dict or a BoreholeOrm, object to the project
 
@@ -252,31 +265,33 @@ class Project:
             self.add_link_components_intervals(link_dict, commit=False)
 
         self.session.add(bh_orm)
-        self.commit()
-        self.refresh(update_3d=update_3d)
+        if commit:
+            self.commit()
+            self.refresh(update_3d=update_3d)
 
-    def add_components(self, components):
+    def add_components(self, components, commit=True):
         """
         Add a list of Components to the project
         
         Parameters
         -----------
         components : dict
-            dict of Component objects
+            dict of Component/ComponentOrm objects
             
         See Also
         ---------
         Component : ORM Component object
         """
         
-        for comp_id in components.keys():
-            new_component = ComponentOrm(description=str(components[comp_id].__dict__),
-                                         id=comp_id)
+        for comp_id, comp in components.items():
+            new_component = comp  # componentOrm
+            if isinstance(comp, Component):  # striplog.Component
+                new_component = ComponentOrm(description=str(comp.__dict__), id=comp_id)
             self.session.add(new_component)
 
-        self.__components_dict__ = components
-        self.commit()
-        self.refresh()
+        if commit:
+            self.commit()
+            self.refresh()
 
     def add_link_components_intervals(self, link_component_interval, commit=True):
         """
@@ -347,7 +362,7 @@ class Project:
         if update_legend and len(self.boreholes_3d) > 0:
             self.update_legend_cmap(update_project_legend=True, update_bh3d_legend=True)
             if self.repr_attribute == 'borehole_type':
-                self.__bh_type_basics = {'bh3d': self.boreholes_3d, 'legend_dict': self.legend_dict}
+                self._bh_type_basics = {'bh3d': self.boreholes_3d, 'legend_dict': self.legend_dict}
 
     def commit(self, verbose=False):
         """Validate all modifications done in the project"""
@@ -468,7 +483,7 @@ class Project:
 
             # plot a fictive borehole containing unique attribute values
             if bh == list(self.boreholes_3d.values())[-1]:  # last element
-                f_bh = self.__create_fictive_bh3d__()
+                f_bh = self.__fictive_bh3d__
                 f_bh.plot_3d(plotter=pl, repr_attribute=self.repr_attribute, bg_color=bg_color, repr_legend_dict=self.legend_dict, opacity=f_opac, repr_uniq_val=self.attrib_values, repr_cmap=self.attrib_cmap, custom_legend=True, **kwargs)
 
         if f_opac == 1: name_pts.update({f_bh.name: f_bh._vtk.center[:2] + [f_bh.z_collar]})
@@ -522,7 +537,6 @@ class Project:
                                                ticks=ticks, aspect=aspect,
                                                verbose=verbose)
                 break
-
 
     def plot_map(self, tiles=None, epsg=31370, save_as=None, radius=0.5, opacity=1, zoom_start=15, max_zoom=25, control_scale=True, marker_color='red'):
         """2D Plot of all boreholes in the project

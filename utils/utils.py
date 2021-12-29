@@ -72,7 +72,7 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
 
 
 def striplog_from_dataframe(df, bh_name, attributes, bh_type='Borehole', id_col='ID',
-                            symbols=None, length_col=None, top_col=None, base_col=None,
+                            lexicons=None, length_col=None, top_col=None, base_col=None,
                             desc_col=None, sample_type_col=None, sample_id_col=None,
                             thick_col=None, query=True, verbose=False):
     """
@@ -92,7 +92,7 @@ def striplog_from_dataframe(df, bh_name, attributes, bh_type='Borehole', id_col=
     attributes: list
         Attributes to use for creating components
 
-    symbols : dict of striplog.Lexicon, striplog.Legend objects
+    lexicons : dict of striplog.Lexicon, striplog.Legend objects
         Legend and/or Lexicon to use for attributes
 
     top_col : str
@@ -139,7 +139,7 @@ def striplog_from_dataframe(df, bh_name, attributes, bh_type='Borehole', id_col=
                 tmp = df
 
             intervals = intervals_from_dataframe(tmp, attributes=attributes,
-                                                 symbols=symbols, thick_col=thick_col,
+                                                 lexicons=lexicons, thick_col=thick_col,
                                                  top_col=top_col, base_col=base_col,
                                                  desc_col=desc_col, length_col=length_col,
                                                  sample_id_col=sample_id_col,
@@ -171,7 +171,7 @@ def striplog_from_dataframe(df, bh_name, attributes, bh_type='Borehole', id_col=
             return None
 
 
-def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
+def intervals_from_dataframe(df, attributes=None, lexicons=None, thick_col=None,
                              top_col=None, base_col=None, desc_col=None, length_col=None,
                              sample_type_col=None, sample_id_col=None,
                              verbose=False):
@@ -241,13 +241,13 @@ def intervals_from_dataframe(df, attributes=None, symbols=None, thick_col=None,
             if verbose:
                 print(f"**CONTAM_VAL** {attrib}: {num_val} {unit} <--> {val}")
             # choose correct lexicon
-            if attrib not in symbols.keys() and attrib.lower() in symbols.keys():
-                lexicon = symbols[attrib.lower()]['lexicon']
+            if attrib not in lexicons.keys() and attrib.lower() in lexicons.keys():
+                lexicon = lexicons[attrib.lower()]['lexicon']
             elif pol_comp:
                 # default lexicon for contaminant
                 lexicon = Lexicon({attrib.lower(): DEFAULT_POL_LEXICON.levels})
             else:
-                lexicon = symbols[attrib]['lexicon']
+                lexicon = lexicons[attrib]['lexicon']
 
             # component creation
             if pd.isnull(val):
