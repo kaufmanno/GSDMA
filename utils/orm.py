@@ -294,8 +294,6 @@ def orm_boreholes_from_dataframe(data_list, attributes=None, lexicons=None, id_c
                                            lower=z_val - intv.base.lower,
                                            x=row['X'], y=row['Y']
                                            )
-
-                        #desc = '; '.join([c.json() for c in intv.components])
                         desc = None
                         if intv.description.lower() not in ['nan', 'vide']:
                             desc = intv.description
@@ -350,14 +348,14 @@ def orm_boreholes_from_dataframe(data_list, attributes=None, lexicons=None, id_c
                             boreholes_orm[bh_idx].length = tmp[base_col].max()
 
                         diam_val = np.nanmax(tmp[diameter_col])
-                        if diam_val is not None and not pd.isnull(diam_val):
-                            boreholes_orm[bh_idx].diameter = diam_val
-                        else:
-                            boreholes_orm[bh_idx].diameter = DEFAULT_BOREHOLE_DIAMETER
+                        if pd.isnull(diam_val) or diam_val is None:
+                            diam_val = DEFAULT_BOREHOLE_DIAMETER
                             print(f"{WARNING_TEXT_CONFIG['blue']}"
                                   f'No diameter value found for {boreholes_orm[bh_idx].id}, using default: '
                                   f'{DEFAULT_BOREHOLE_DIAMETER}'
                                   f"{WARNING_TEXT_CONFIG['off']}")
+
+                        boreholes_orm[bh_idx].diameter = diam_val
 
                 bh_idx += 1
 

@@ -38,7 +38,8 @@ class Borehole3D(Striplog):
     plot3d(x3d=False)
     """
 
-    def __init__(self, intervals=None, repr_attribute='borehole_type', name='BH3D', diam=0.5, length=0.1, date=None, legend_dict=None, verbose=False, **kwargs):
+    def __init__(self, intervals=None, repr_attribute='borehole_type', name='BH3D', diam=0.5, length=0.1, date=None,
+                 legend_dict=None, verbose=False, **kwargs):
         """
         build a Borehole3D object from Striplog.Intervals list
 
@@ -85,7 +86,7 @@ class Borehole3D(Striplog):
                   f"{WARNING_TEXT_CONFIG['off']}")
             self.legend_dict = {repr_attribute: {'lexicon': None, 'legend': None}}
 
-        # instantiation with super properties
+        # instantiation with superclass properties
         Striplog.__init__(self, list_of_Intervals=self.intervals)
         x_coord = self.intervals[0].top.x if hasattr(self.intervals[0].top, 'x') else None
         y_coord = self.intervals[0].top.y if hasattr(self.intervals[0].top, 'y') else None
@@ -114,6 +115,13 @@ class Borehole3D(Striplog):
         # all components in each interval as a dict like {interval_number: components_list}
         return {i: intv.components for i, intv in enumerate(self.intervals)}
 
+    @property
+    def attrib_components(self, attribute=None):
+        # components according to the repr_attribute
+        if attribute is None:
+            attribute = self.repr_attribute
+        return self.__get_attrib_components_dict__(self.__verbose__)[attribute]
+
     # -------------------------------- Class Methods ------------------------------
     def __repr__(self):
         n_intv = len(self._Striplog__list)
@@ -127,13 +135,7 @@ class Borehole3D(Striplog):
         obj_class = str(self.__class__).strip('"<class>"').strip("' ")
         return f"<{obj_class}> name: {self.name} | length:" + '{:.2f} m'.format(start - stop) + f" | {n_intv} Intervals | {details}"
 
-    def attrib_components(self, attribute=None):
-        # components according to the repr_attribute
-        if attribute is None:
-            attribute = self.repr_attribute
-        return self.get_attrib_components_dict(self.__verbose__)[attribute]
-
-    def get_attrib_components_dict(self, verbose=False):
+    def __get_attrib_components_dict__(self, verbose=False):
         # compute a dict of components for all attributes found in legend_dict
 
         comp_attrib_dict = {}
@@ -265,8 +267,8 @@ class Borehole3D(Striplog):
         """
         self.z_collar = max([i.top.z for i in self.intervals])
 
-    def plot_log(self, figsize=(3, 5), repr_legend=None, text_size=15, width=2,
-                 ticks=None, aspect=3, repr_attribute=None, verbose=False):
+    def plot_log(self, figsize=(3, 5), repr_legend=None, text_size=15, width=2, ticks=None, aspect=3,
+                 repr_attribute=None, verbose=False):
         """
         Plot a stratigraphical log for the attribute
         """
@@ -327,11 +329,10 @@ class Borehole3D(Striplog):
         ax[1].set_title('Legend', size=text_size, color='r')
         plot_legend.plot(ax=ax[1])
 
-    def plot_3d(self, plotter=None, repr_legend_dict=None, repr_attribute=None,
-                repr_cmap=None, repr_uniq_val=None, x3d=False, diam=None,
-                bg_color=["royalblue", "aliceblue"], update_vtk=False,
-                update_cmap=False, custom_legend=False, str_annotations=True,
-                scalar_bar_args=None, smooth_shading=True, verbose=False, **kwargs):
+    def plot_3d(self, plotter=None, repr_legend_dict=None, repr_attribute=None, repr_cmap=None, repr_uniq_val=None,
+                x3d=False, diam=None, bg_color=["royalblue", "aliceblue"], update_vtk=False, update_cmap=False,
+                custom_legend=False, str_annotations=True, scalar_bar_args=None, smooth_shading=True, verbose=False,
+                **kwargs):
         """
         Returns an interactive 3D representation of all boreholes in the project
 

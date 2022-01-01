@@ -72,7 +72,7 @@ class Project:
             lexicon = DEFAULT_BOREHOLE_LEXICON
 
         self.legend_dict = deepcopy(legend_dict)
-        self.__legend_dict_bckp__ = deepcopy(legend_dict)
+        self._legend_dict_bckp = deepcopy(legend_dict)
         self.lexicon = lexicon
         self.refresh(update_3d=True, update_legend=True)
 
@@ -168,6 +168,7 @@ class Project:
                     label_font_size=6, n_labels=len(self.attrib_cmap.colors), fmt='', font_family='arial',
                     color='k', italic=False, bold=False, interactive=True,
                     vertical=False, shadow=False)
+
     @property
     def attrib_annotations(self):
         uniq_attr_val = self.attrib_values
@@ -357,7 +358,7 @@ class Project:
             for bh in self.boreholes_orm.values():
                 if len(get_interval_list(bh, self.repr_attribute)[0]) > 0:
                     z_ref = get_interval_list(bh, 'borehole_type')[0][0].top.z
-                    self.boreholes_3d.update({bh.id: create_bh3d_from_bhorm(bh, verbose=verbose, z_ref=z_ref, attribute=self.repr_attribute, legend_dict=self.__legend_dict_bckp__, project=self)})
+                    self.boreholes_3d.update({bh.id: create_bh3d_from_bhorm(bh, verbose=verbose, z_ref=z_ref, attribute=self.repr_attribute, legend_dict=self._legend_dict_bckp, project=self)})
 
         if update_legend and len(self.boreholes_3d) > 0:
             self.update_legend_cmap(update_project_legend=True, update_bh3d_legend=True)
@@ -425,7 +426,7 @@ class Project:
             repr_attribute_list = [self.repr_attribute]
 
         if legend_dict is None:
-            legend_dict = deepcopy(self.__legend_dict_bckp__)  # original project's given legend
+            legend_dict = deepcopy(self._legend_dict_bckp)  # original project's given legend
 
         reduced_leg, detail_leg = build_bh3d_legend_cmap(
             bh3d_list=list(self.boreholes_3d.values()), legend_dict=legend_dict, repr_attrib_list=repr_attribute_list, width=width, compute_all=compute_all_attrib, update_bh3d_legend=update_bh3d_legend, update_given_legend=True, verbose=verbose)
@@ -435,7 +436,8 @@ class Project:
         else:
             return reduced_leg, detail_leg
 
-    def plot_3d(self, plotter=None, bh_name_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"), x3d=False, window_size=None, verbose=False, **kwargs):
+    def plot_3d(self, plotter=None, bh_name_size=15, labels_color=None, bg_color=("royalblue", "aliceblue"),
+                x3d=False, window_size=None, verbose=False, **kwargs):
         """
         Returns an interactive 3D representation of all boreholes in the project
         
@@ -538,7 +540,8 @@ class Project:
                                                verbose=verbose)
                 break
 
-    def plot_map(self, tiles=None, epsg=31370, save_as=None, radius=0.5, opacity=1, zoom_start=15, max_zoom=25, control_scale=True, marker_color='red'):
+    def plot_map(self, tiles=None, epsg=31370, save_as=None, radius=0.5, opacity=1, zoom_start=15, max_zoom=25,
+                 control_scale=True, marker_color='red'):
         """2D Plot of all boreholes in the project
 
         parameters

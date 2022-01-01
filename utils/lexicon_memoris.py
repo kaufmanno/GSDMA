@@ -45,7 +45,7 @@ LEG_BOREHOLE = """colour,width,component borehole_type
 """
 
 LEG_CONTAMINATION_LEV = """colour,width,component level
-#E6E600, None, VR,
+#19D9FF, None, VR,
 #00FF00, None, VS,
 #FFA500, None, VI,
 #FF0000, None, VI_sup,

@@ -129,7 +129,7 @@ class LinkIntervalComponentOrm(Base):
          The name of the component.
 
     """
-    __tablename__ = 'Linkintervalcomponent'
+    __tablename__ = 'Linkintervalcomponents'
 
     intv_id = Column(Integer, ForeignKey('Intervals.id'), primary_key=True)
     comp_id = Column(Integer, ForeignKey('Components.id'), primary_key=True)
