@@ -71,7 +71,7 @@ def get_contam_level_from_value(value, pollutant, sample_type=None, pol_lexicon=
     return pol_name, level, unit
 
 
-def striplog_from_dataframe(df, bh_name, attributes, bh_type='Borehole', id_col='ID',
+def striplog_from_dataframe(df, bh_name, attributes, bh_type='Borehole', bh_id_col='ID',
                             lexicons=None, length_col=None, top_col=None, base_col=None,
                             desc_col=None, sample_type_col=None, sample_id_col=None,
                             thick_col=None, query=True, verbose=False):
@@ -124,7 +124,7 @@ def striplog_from_dataframe(df, bh_name, attributes, bh_type='Borehole', id_col=
         if bh_name is not None:
             bh_id = bh_name
         else:
-            bh_id = df.loc[j, id_col]
+            bh_id = df.loc[j, bh_id_col]
 
         if bh_id in bh_list:
             continue
@@ -132,7 +132,7 @@ def striplog_from_dataframe(df, bh_name, attributes, bh_type='Borehole', id_col=
             print(f"\n\033[0;40;47m BH_ID: \'{bh_id}\'\033[0;0;0m")
             bh_list.append(bh_id)
             if query:
-                selection = df[id_col] == f"{bh_id}"  # f'ID=="{bh_id}"'
+                selection = df[bh_id_col] == f"{bh_id}"  # f'ID=="{bh_id}"'
                 tmp = df[selection].copy()  # divide to work faster ;)
                 tmp.reset_index(drop=True, inplace=True)
             else:

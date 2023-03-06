@@ -63,7 +63,7 @@ LEG_LITHO_MEMORIS = """colour,width,hatch,component lithology
 #B2E965, None, None, Brique,
 #BC8D78, None, o-o, Caillasse,
 #154157, None, xxx, Scorie,
-#FDD53E, None, xxx, Laitier,
+#FDF53E, None, xxx, Laitier,
 #A70CCC, None, None, Tourbe,
 #ECFFC7, None, None, Gypse,
 #7F740C, None, None, Houille,

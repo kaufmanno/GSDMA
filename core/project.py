@@ -7,7 +7,7 @@ import folium as fm
 from folium import plugins
 import geopandas as gpd
 from copy import deepcopy
-from matplotlib import colors as mcolors
+from matplotlib import colors as mcolors, pyplot as plt
 
 from striplog.utils import rgb_to_hex
 from vtk import vtkX3DExporter, vtkPolyDataMapper # NOQA
@@ -244,6 +244,7 @@ class Project:
             bh_orm = BoreholeOrm(id=borehole['id'], date=borehole.pop('date', None),
                                  length=borehole.pop('length', None),
                                  diameter=borehole.pop('diameter', None))
+
             # create the special interval for the borehole
             intv_id = self.find_next_id(IntervalOrm)
             bh_orm.intervals_values.update(
@@ -251,6 +252,7 @@ class Project:
                            'interval_number': 0,
                            'top': PositionOrm(**borehole['top']),
                            'base': PositionOrm(**borehole['base'])}})
+
             # create the special component (borehole_type)
             description = "{'borehole_type': '" + borehole['borehole_type'] + "'}"
             component_id = self.get_component_id_from_description(description)
@@ -258,7 +260,8 @@ class Project:
                 component_id = self.find_next_id(ComponentOrm)
                 bh_component = ComponentOrm(id=component_id, description=description)
                 self.session.add(bh_component)
-            # create the link between special interval and component
+
+            # to create the link between special interval and component
             link_dict = {(intv_id, component_id): {'extra_data': None}}
 
             if verbose:
@@ -521,24 +524,30 @@ class Project:
             x3d_html = X3D_HTML.format(filename)
             return HTML(x3d_html)
 
-    def plot_log(self, bh_name, figsize=(3, 5), repr_legend=None, text_size=15, width=2,
-                 ticks=None, aspect=3, verbose=False):
+    def plot_log(self, bh_names, figsize=(3, 5), repr_legend=None, text_size=15, width=2,
+                 ylim='auto', ticks=None, aspect=3, verbose=False):
         """ plot a stratigraphical log of a borehole for an attribute
 
-        bh_name: str
+        bh_name: list of str
         """
-        if repr_legend is None:
-            # repr_legend = self.attrib_legend
-            pass
 
-        for bh in self.boreholes_3d.keys():
-            if bh == bh_name:
+        # TODO: modify to allow the representation of multiple boreholes (fixed on 2023/03/05)
+        print(f"\033[0;40;46mAttribute: \'{self.repr_attribute}\'\033[0;0;0m")
+        fig, ax = plt.subplots(ncols=len(bh_names)+1, figsize=figsize)
+        arr = np.array([(b.z_collar, b.length) for b in self.boreholes_3d.values()])
+        ylim = [arr[:,0].max() - arr[:,1].max(), arr[:,0].max()] if ylim == 'auto' else ylim
+        n = 0
+        for bh in bh_names:
+            bh3d = self.boreholes_3d.get(bh)
+            if bh3d is not None:
                 self.boreholes_3d[bh].plot_log(repr_attribute=self.repr_attribute,
                                                figsize=figsize, repr_legend=repr_legend,
                                                text_size=text_size, width=width,
-                                               ticks=ticks, aspect=aspect,
-                                               verbose=verbose)
-                break
+                                               ticks=ticks, aspect=aspect, axe=ax[n],
+                                               ylim=ylim, verbose=verbose)
+                n += 1
+        ax[-1].set_title('Legend', size=text_size, color='r')
+        self.attrib_legend.plot(ax=ax[-1])
 
     def plot_map(self, tiles=None, epsg=31370, save_as=None, radius=0.5, opacity=1, zoom_start=15, max_zoom=25,
                  control_scale=True, marker_color='red'):

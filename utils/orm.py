@@ -28,9 +28,9 @@ def create_bh3d_from_bhorm(bh_orm, z_ref, legend_dict=None, attribute=None, proj
     Borehole3D
         a Borehole3D object
     """
-    intervals, length = get_interval_list(bh_orm, attribute=attribute, project=project)
-
-    bh_3d = Borehole3D(name=bh_orm.id, date=bh_orm.date, diam=bh_orm.diameter, repr_attribute=attribute, z_collar=z_ref, length=length, legend_dict=legend_dict, intervals=intervals)
+    intervals, max_depth = get_interval_list(bh_orm, attribute=attribute, project=project)
+    bh_3d = Borehole3D(name=bh_orm.id, date=bh_orm.date, diam=bh_orm.diameter, repr_attribute=attribute, z_collar=z_ref,
+                       length=abs(z_ref - max_depth), legend_dict=legend_dict, intervals=intervals)
 
     if verbose:
         print(bh_orm.id, " added")
@@ -135,10 +135,10 @@ def get_interval_list(bh_orm, attribute=None, project=None):
     return interval_list, max_depth
 
 
-def orm_boreholes_from_dataframe(data_list, attributes=None, lexicons=None, id_col='ID', date_col=None,
-                                 diameter_col=None, length_col=None, bh_type_col=None,
+def orm_boreholes_from_dataframe(data_list, attributes=None, lexicons=None, bh_id_col=None, date_col=None, diameter_col=None, length_col=None,
+                                 bh_type_col=None, intv_top_col=None, intv_base_col=None, intv_desc_col=None, intv_thick_col=None,
                                  sample_type_col=None, sample_id_col=None, default_z=None,
-                                 skip_cols=None, verbose=False):
+                                 skip_cols=None, auto_search_litho_cols=False, verbose=False):
     """ Creates a list of BoreholeORM objects from a dataframe
 
     Parameters
@@ -149,6 +149,10 @@ def orm_boreholes_from_dataframe(data_list, attributes=None, lexicons=None, id_c
         A dict e.g. {attribute_1: {'legend': striplog.Legend, 'lexicon': striplog.Lexicon}, ...}
     attributes : list
         List of dataframe's columns of interest, linked to attributes to represent like 'lithology'
+    specific_col_names: dict
+        dict that contains names of needed columns as values: dict(bh_id_col='ID', date_col=None, diameter_col=None, length_col=None,
+        bh_type_col=None, intv_top_col=None, intv_base_col=None, intv_desc_col=None, intv_thick_col=None, sample_type_col=None, sample_id_col=None)
+
     verbose : Bool
         allow verbose option if set = True
 
@@ -160,6 +164,10 @@ def orm_boreholes_from_dataframe(data_list, attributes=None, lexicons=None, id_c
         dictionary containing ID and component
 
     """
+    # if specific_col_names is None:
+    #     specific_col_names = dict(bh_id_col=None, date_col=None, diameter_col=None, length_col=None, bh_type_col=None, intv_top_col=None,
+    #                               intv_base_col=None, intv_desc_col=None, intv_thick_col=None, sample_type_col=None, sample_id_col=None)
+
     if lexicons is None:
         lexicons = {'lithology': {'lexicon': DEFAULT_LITHO_LEXICON}}
     if attributes is None:
@@ -167,6 +175,13 @@ def orm_boreholes_from_dataframe(data_list, attributes=None, lexicons=None, id_c
 
     if skip_cols is None:
         skip_cols = []
+
+    # lijthology data columns
+    intv_top_col = 'Top_intv' if intv_top_col is None else intv_top_col
+    intv_base_col = 'Base_intv' if intv_base_col is None else intv_base_col
+    intv_thick_col = 'Thick_intv' if intv_thick_col is None else intv_thick_col
+    intv_desc_col = 'Descr_intv' if intv_desc_col is None else intv_desc_col
+
     # data concatenation
     final_df = pd.DataFrame()
     last_index = None
@@ -175,16 +190,17 @@ def orm_boreholes_from_dataframe(data_list, attributes=None, lexicons=None, id_c
         df = dataf.copy()
 
         # rename certain columns' name
-        for col in df.columns:
-            if col not in skip_cols:
-                if re.search('top|toit', col, re.I):
-                    df.rename(columns={col: 'Top_intv'}, inplace=True)
-                elif re.search('base|mur|assise', col, re.I):
-                    df.rename(columns={col: 'Base_intv'}, inplace=True)
-                elif re.search('thick|epais', col, re.I):
-                    df.rename(columns={col: 'Thick_intv'}, inplace=True)
-                elif re.search('descr', col, re.I):
-                    df.rename(columns={col: 'Descr_intv'}, inplace=True)
+        if auto_search_litho_cols:
+            for col in df.columns:
+                if col not in skip_cols:
+                    if re.search('top|toit', col, re.I):
+                        df.rename(columns={col: intv_top_col}, inplace=True)
+                    elif re.search('base|mur|assise', col, re.I):
+                        df.rename(columns={col: intv_base_col}, inplace=True)
+                    elif re.search('thick|epais', col, re.I):
+                        df.rename(columns={col: intv_thick_col}, inplace=True)
+                    elif re.search('descr|lithol', col, re.I):
+                        df.rename(columns={col: intv_desc_col}, inplace=True)
 
         if last_index is not None:
             df.index = range(last_index, last_index + len(df))
@@ -204,8 +220,6 @@ def orm_boreholes_from_dataframe(data_list, attributes=None, lexicons=None, id_c
     if bh_type_col not in final_df.columns:
         final_df[bh_type_col] = DEFAULT_BOREHOLE_TYPE
 
-    top_col, base_col, = 'Top_intv', 'Base_intv',
-    desc_col, thick_col = 'Descr_intv', 'Thick_intv'
     bh_id_list = []  #
     bh_counter = 0
     bh_idx = 0  # borehole index in the current dataframe
@@ -218,7 +232,7 @@ def orm_boreholes_from_dataframe(data_list, attributes=None, lexicons=None, id_c
     link_intv_comp_dict = {}  # link between intervals and components (<-> junction table)
     contam_names = list(DEFAULT_POL_LEXICON.abbreviations.keys()) + list(DEFAULT_POL_LEXICON.abbreviations.values())
     for idx, row in final_df.iterrows():
-        bh_name = row[id_col]
+        bh_name = row[bh_id_col]
         if not pd.isnull(row[bh_type_col]):
             bh_type = row[bh_type_col]
         else:
@@ -231,10 +245,13 @@ def orm_boreholes_from_dataframe(data_list, attributes=None, lexicons=None, id_c
 
         if bh_name not in bh_id_list:
             bh_id_list.append(bh_name)
-            bh_selection = final_df[id_col] == f"{bh_name}"
+            bh_selection = final_df[bh_id_col] == f"{bh_name}"
             tmp = final_df[bh_selection].copy()
             tmp.reset_index(drop=True, inplace=True)
-            striplog_dict = striplog_from_dataframe(df=tmp, bh_name=bh_name, bh_type=bh_type, attributes=attributes, lexicons=lexicons, id_col=id_col, thick_col=thick_col, top_col=top_col, base_col=base_col, desc_col=desc_col, length_col=length_col, sample_type_col=sample_type_col, query=False, sample_id_col=sample_id_col, verbose=verbose)
+            striplog_dict = striplog_from_dataframe(df=tmp, bh_name=bh_name, bh_type=bh_type, attributes=attributes, lexicons=lexicons,
+                                                    bh_id_col=bh_id_col, thick_col=intv_thick_col, top_col=intv_top_col, base_col=intv_base_col,
+                                                    desc_col=intv_desc_col, length_col=length_col, sample_type_col=sample_type_col,
+                                                    sample_id_col=sample_id_col, query=False, verbose=verbose)
 
             if striplog_dict is not None:
                 bh_counter += 1
@@ -342,10 +359,10 @@ def orm_boreholes_from_dataframe(data_list, attributes=None, lexicons=None, id_c
 
                     if bh_idx < len(boreholes_orm):
                         boreholes_orm[bh_idx].intervals_values = interval_dict
-                        if thick_col in final_df.columns:
-                            boreholes_orm[bh_idx].length = tmp[thick_col].cumsum().max()
-                        elif base_col in final_df.columns:
-                            boreholes_orm[bh_idx].length = tmp[base_col].max()
+                        if intv_thick_col in final_df.columns:
+                            boreholes_orm[bh_idx].length = tmp[intv_thick_col].cumsum().max()
+                        elif intv_base_col in final_df.columns:
+                            boreholes_orm[bh_idx].length = tmp[intv_base_col].max()
 
                         diam_val = np.nanmax(tmp[diameter_col])
                         if pd.isnull(diam_val) or diam_val is None:

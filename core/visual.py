@@ -15,52 +15,24 @@ from utils.visual import find_component_from_attrib, plot_from_striplog, build_b
 
 class Borehole3D(Striplog):
     """
-    Borehole object based on striplog.Striplog object that can be displayed in a 3D environment
-
-    Attributes
-    -----------
-    name : str
-    intervals : list
-    geometry : list of omf.lineset.LineSetGeometry objects
-    legend : Striplog.Legend object
-    omf_legend : list of omf.data.Legend
-    omf_cmap : list of matplotlib colormap
-    x_collar : float
-    y_collar : float
-    z_collar : float
-
-    Methods
-    --------
-    get_components_indices()
-    build_geometry()
-    commit()
-    add_components(components)
-    plot3d(x3d=False)
+    Borehole object, based on striplog.Striplog and omf.LineSetElement objects, that can be displayed in a 3D environment
     """
 
-    def __init__(self, intervals=None, repr_attribute='borehole_type', name='BH3D', diam=0.5, length=0.1, date=None,
-                 legend_dict=None, verbose=False, **kwargs):
+    def __init__(self, intervals=None, repr_attribute='borehole_type', name='BH3D', diam=0.5, length=0.1, date=None, legend_dict=None, verbose=False, **kwargs):
         """
         build a Borehole3D object from Striplog.Intervals list
 
         Parameters
         -----------
-        intervals_dict : dict
-            dictionary containing list of Striplog.Interval objects
-        name : str
-        legend_dict : dict
-            dictionary of Striplog Legend objects (default = None)
-        x_collar : float
-            X coordinate of the borehole (default = 0)
-        y_collar : float
-            Y coordinate of the borehole (default = 0)
-        z_collar : float
-            Z coordinate of the borehole (default = 0)
-        diam : float
-            diameter of the borehole (default = 0.5)
-        length : float
-            length of the borehole (default = 0.1)
-        verbose : False or str ('geom', 'get_comp', 'build_leg', 'plot3d', 'plot2d')
+        intervals_dict (dict): Contains list of Striplog.Interval objects
+        name (str) : Name of the borehole
+        legend_dict (dict) : Contains striplog.Legend objects (default = None)
+        x_collar (float) : X coordinate of the borehole (default = 0)
+        y_collar (float) : Y coordinate of the borehole (default = 0)
+        z_collar (float) : Z coordinate of the borehole (default = 0)
+        diam (float) : Diameter of the borehole (default = 0.5)
+        length (float) : Length of the borehole (default = 0.1)
+        verbose (Bool)
         """
 
         # ------------------ Class attributes ----------------------------------------
@@ -73,12 +45,10 @@ class Borehole3D(Striplog):
         self.geometry = None
         self._vtk = None
         self.__verbose__ = verbose  # checking outputs
+        self.intervals = intervals
 
         if self.__verbose__:
             print(f'\n************************ CREATION OF {self.name} *************************')
-
-        self.intervals = intervals
-
 
         if legend_dict is None or not isinstance(legend_dict[repr_attribute]['legend'], Legend):
             print(f"{WARNING_TEXT_CONFIG['blue']}"
@@ -94,19 +64,21 @@ class Borehole3D(Striplog):
         self.x_collar = kwargs.pop('x_collar', x_coord)
         self.y_collar = kwargs.pop('y_collar', y_coord)
         self.z_collar = kwargs.pop('z_collar', z_coord)
-        if self.z_collar is None and self.intervals is not None:
-            self.update_z_collar()
         self.omf_legend = striplog_legend_to_omf_legend(self.legend_dict[repr_attribute]['legend'])[0]
+
+        if self.z_collar is None and self.intervals is not None: self.update_z_collar()
         self._geometry(verbose=verbose)
         self.vtk()
 
     # ------------------------------- Class Properties ----------------------------
     @property
     def repr_attribute(self):
+        # Representation attribute getter
         return self._repr_attribute
 
     @repr_attribute.setter
     def repr_attribute(self, value):
+        # Representation attribute setter
         assert (isinstance(value, str))
         self._repr_attribute = value
 
@@ -137,15 +109,13 @@ class Borehole3D(Striplog):
 
     def __get_attrib_components_dict__(self, verbose=False):
         # compute a dict of components for all attributes found in legend_dict
-
         comp_attrib_dict = {}
         for attr in self.legend_dict.keys():
-            attr_components = {}  # correct components order (not self.components)
+            attr_components = {}
             for i, intv in enumerate(self.intervals):
                 j = find_component_from_attrib(intv, attr, verbose=verbose)
                 if j is not None:
                     attr_components.update({i: intv.components[j]})
-
             comp_attrib_dict.update({attr: attr_components})
         return comp_attrib_dict
 
@@ -153,15 +123,14 @@ class Borehole3D(Striplog):
         """
         retrieve components indices from borehole's intervals
 
-        repr_repr_attribute: str
-            attribute to consider when retrieving intervals components indices (e.g: 'lithology')
-
-        intervals : List of Striplog.Interval object
+        Parameters
+        ------------
+        repr_attribute (str) : representation attribute
+        intervals (list) : List of Striplog.Interval object
 
         Returns
         --------
-        numpy.array
-            array of indices
+        numpy.array : array of indices
         """
 
         if repr_attribute is None:
@@ -194,12 +163,11 @@ class Borehole3D(Striplog):
 
     def _geometry(self, verbose=False):
         """
-        build an omf.LineSetElement geometry of the borehole
+        build an omf.LineSetElement geometry for the borehole
 
         Returns
         --------
-        geometry : omf.lineset.LineSetGeometry
-            Contains spatial information of a line set
+        geometry (omf.lineset.LineSetGeometry) : Contains spatial information of a line set
         """
 
         vertices, segments = [], []
@@ -253,10 +221,21 @@ class Borehole3D(Striplog):
             data=data)
 
     def vtk(self, radius=None, res=50, scale=5.):
-        """ build a vtk tube of given radius based on the borehole geometry """
-        if radius is None:
-            radius = (self.diameter / 2)
-        vtk_obj = ov.line_set_to_vtk(self.geometry).tube(radius=radius*scale, n_sides=res)   # multiply by scale for visibility
+        """ build a vtk 3D tube for the borehole
+
+        Parameters
+        -----------
+        radius (float) : radius of the borehole
+        res (int) : Tube's number of sides
+        scale (float) : radius' multiplier for visibility
+
+        Returns
+        ---------
+        _vtk (vtk.Tube object)
+        """
+
+        if radius is None: radius = (self.diameter / 2)
+        vtk_obj = ov.line_set_to_vtk(self.geometry).tube(radius=radius*scale, n_sides=res)
         vtk_obj.set_active_scalars(self.repr_attribute.lower())
         self._vtk = vtk_obj
         return self._vtk
@@ -265,12 +244,23 @@ class Borehole3D(Striplog):
         """
         updates z_collar assuming that collar is at the top elevation of the highest interval
         """
+        # TODO : adapt this function for the case where there is no interval
         self.z_collar = max([i.top.z for i in self.intervals])
 
-    def plot_log(self, figsize=(3, 5), repr_legend=None, text_size=15, width=2, ticks=None, aspect=3,
-                 repr_attribute=None, verbose=False):
+    def plot_log(self, figsize=(3, 5), repr_attribute=None, repr_legend=None, text_size=15, width=2, ticks=None, aspect=3,
+                 axe=None, ylim=None, verbose=False):
         """
         Plot a stratigraphical log for the attribute
+
+        Parameters
+        -----------
+        aspect (int) : scale of the representation
+        figsize (tuple) : whole figure size
+        repr_attribute (str) : representation attribute
+        repr_legend (striplog.Legend) : legend to use for colours
+        text_size (int) : size of the text
+        ticks (tuple) : graduation as (minor, major) 
+        width (int) : width of the stratigraphical log
         """
 
         if repr_attribute is None:
@@ -281,14 +271,10 @@ class Borehole3D(Striplog):
         if repr_legend is None:
             repr_legend = self.legend_dict[repr_attribute]['legend']
 
-        if repr_attribute in ['borehole_type', 'lithology']:
-            attr = repr_attribute
-        else:  # due to the structure of a pollutant component
-            attr = 'level'
-
+        attr = repr_attribute if repr_attribute in ['borehole_type', 'lithology'] else 'level'  # due to the structure of a pollutant component
         legend_copy = deepcopy(repr_legend)  # work with a copy to keep initial legend state
         decors = {}  # dict of decors to build a legend for the borehole
-        attrib_values = []  # list of lithologies in the borehole
+        attrib_values = []  # list of attribute values in the borehole
         for n, i in enumerate(self.intervals):
             j = find_component_from_attrib(i, repr_attribute, verbose=verbose)
             if j is not None:
@@ -296,7 +282,7 @@ class Borehole3D(Striplog):
             if isinstance(intv_value, str):
                 intv_value = intv_value.lower()
             attrib_values.append(intv_value)
-        attrib_values = list(pd.unique(attrib_values))  # to treat duplicate values
+        attrib_values = list(pd.unique(attrib_values))  # to avoid duplicates
 
         if verbose:
             print(f'\nattrib_values : {attrib_values}\n')
@@ -306,7 +292,7 @@ class Borehole3D(Striplog):
             if verbose:
                 print('plot2d | legend_val:', attr, leg_value)
             reg = re.compile("^{:s}$".format(leg_value), flags=re.I)
-            reg_value = list(filter(reg.match, attrib_values))  # find value that matches
+            reg_value = list(filter(reg.match, attrib_values))  # find the value that matches
 
             if len(reg_value) > 0:
                 # force matching to plot
@@ -321,36 +307,41 @@ class Borehole3D(Striplog):
         rev_decors.reverse()
         plot_legend = Legend([v for v in rev_decors])
 
-        print(f"\033[0;40;46mAttribute: \'{repr_attribute}\'\033[0;0;0m")
-        fig, ax = plt.subplots(ncols=2, figsize=figsize)
-        ax[0].set_title(self.name, size=text_size, color='b')
-        plot_from_striplog(self, legend=plot_legend, match_only=[attr],
-                           ax=ax[0], ticks=ticks, aspect=aspect, verbose=verbose)
-        ax[1].set_title('Legend', size=text_size, color='r')
-        plot_legend.plot(ax=ax[1])
+        # print(f"\033[0;40;46mAttribute: \'{repr_attribute}\'\033[0;0;0m")
+        if axe is not None:
+            axe.set_title(self.name, size=text_size, color='b')
+            return plot_from_striplog(self, legend=plot_legend, match_only=[attr], ylim=ylim,
+                               ax=axe, ticks=ticks, aspect=aspect, verbose=verbose)
+        else:
+            fig, ax = plt.subplots(ncols=2, figsize=figsize)
+            ax[0].set_title(self.name, size=text_size, color='b')
+            plot_from_striplog(self, legend=plot_legend, match_only=[attr],
+                               ax=ax[0], ticks=ticks, aspect=aspect, verbose=verbose)
+            ax[1].set_title('Legend', size=text_size, color='r')
+            plot_legend.plot(ax=ax[1])
 
-    def plot_3d(self, plotter=None, repr_legend_dict=None, repr_attribute=None, repr_cmap=None, repr_uniq_val=None,
-                x3d=False, diam=None, bg_color=["royalblue", "aliceblue"], update_vtk=False, update_cmap=False,
-                custom_legend=False, str_annotations=True, scalar_bar_args=None, smooth_shading=True, verbose=False,
-                **kwargs):
+    def plot_3d(self, plotter=None, repr_legend_dict=None, repr_attribute=None, repr_cmap=None, repr_uniq_val=None, x3d=False, diam=None, bg_color=("royalblue", "aliceblue"), update_vtk=False, update_cmap=False, custom_legend=False, str_annotations=True, scalar_bar_args=None, smooth_shading=True, verbose=False, **kwargs):
         """
-        Returns an interactive 3D representation of all boreholes in the project
+        Returns an interactive 3D representation of a borehole object
 
         Parameters
         -----------
-        plotter : pyvista.plotter object
-            Plotting object to display vtk meshes or numpy arrays (default=None)
-
-        x3d : bool
-            If True, generates a 3xd file of the 3D (default=False)
-
-        diam: float
-            Borehole representation diameter
-
-        update_vtk : bool
-            If True, updates vtk objects
-
+        bg_color (str or tuple) : color of the 3D scene background. if tuple, use of
+        custom_legend (bool) : if True, use a customed legend
+        diam (float) : borehole representation diameter
+        plotter (pyvista.Plotter) : plotting object to display vtk meshes or numpy arrays
+        repr_attribute (str) : representation attribute
+        repr_cmap (Matplotlib.colormap) : colormap to use to color components
+        repr_legend_dict (dict) : dict of legend to use for each representation attribute
+        repr_uniq_val (list) : list of unique values of components found in the borehole
+        scalar_bar_args (dict) : scalar bar args
+        smooth_shading (bool) : if True, borehole (vtk tube) is smoothed
+        str_annotations (bool) : set True if a textual legend is needed
+        update_cmap (bool) : if True, updates borehole's colormap
+        update_vtk (bool) : if True, updates vtk objects
+        x3d (bool) : if True, generates a 3xd file of the 3D
         """
+
         jupyter_backend = kwargs.pop('jupyter_backend', None)
         opacity = kwargs.pop('opacity', 1.)
         show_sbar = kwargs.pop('show_scalar_bar', False)
@@ -435,7 +426,7 @@ class Borehole3D(Striplog):
 
         # set background color for the render (None : pyvista default background color)
         if bg_color is not None:
-            if isinstance(bg_color, list) and len(bg_color) == 2:
+            if isinstance(bg_color, tuple) and len(bg_color) == 2:
                 top_c = bg_color[1]
                 btm_c = bg_color[0]
             elif isinstance(bg_color, str):

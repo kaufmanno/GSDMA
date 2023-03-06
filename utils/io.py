@@ -292,7 +292,7 @@ def dataframe_viewer(df, rows=10, cols=12, step_r=1, step_c=1, un_val=None, view
                     max(0, last_column - cols):last_column])
 
 
-def gen_id_from_ech(df, id_ech_col='ID_ech', id_col='ID', suffixes=None, prefixes=None, capture_regex=None,
+def gen_id_from_ech(df, id_ech_col='ID_ech', bh_id_col='ID', suffixes=None, prefixes=None, capture_regex=None,
                     regex_skip=None, overwrite_id=True, verbose=False):
     """ Generate boreholes ID ('ID) from sample ID ('ID_ech'), by removing suffixes.
     """
@@ -318,11 +318,11 @@ def gen_id_from_ech(df, id_ech_col='ID_ech', id_col='ID', suffixes=None, prefixe
 
     data = df.copy()
     if id_ech_col == 'ID':
-        id_col = 'ID'
+        bh_id_col = 'ID'
         id_ech_col = 'ID_ech'
-        data.rename(columns={id_col: id_ech_col}, inplace=True)
+        data.rename(columns={bh_id_col: id_ech_col}, inplace=True)
 
-    id_copy = id_col + '_copy'
+    id_copy = bh_id_col + '_copy'
     data.insert(0, id_copy, data[id_ech_col])
     for i in data.index:
         val = str(data.loc[i, id_ech_col])
@@ -338,9 +338,9 @@ def gen_id_from_ech(df, id_ech_col='ID_ech', id_col='ID', suffixes=None, prefixe
             print(f"{i}: {val} : {val_mod} --> {data.loc[i, id_copy]}")
 
     if overwrite_id:
-        if id_col in data.columns:
-            data.drop(columns=id_col, inplace=True)
-        data.insert(0, id_col, data.pop(id_copy))
+        if bh_id_col in data.columns:
+            data.drop(columns=bh_id_col, inplace=True)
+        data.insert(0, bh_id_col, data.pop(id_copy))
 
     return data
 
@@ -505,12 +505,12 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=No
     k = 0
 
     if not isinstance(on, list):
-        id_col = on
+        bh_id_col = on
         for idx in mdf.query(f'{on}!={on}').index:
             mdf.loc[idx, 'ID'] = f'?{k}'
             k += 1
     else:
-        id_col = on[0]  # use for ID column when we create a new line (see below)
+        bh_id_col = on[0]  # use for ID column when we create a new line (see below)
 
     gdf = mdf.copy()
     gdf_conflict = pd.DataFrame()
@@ -673,7 +673,7 @@ def data_merger(gdf1, gdf2, how='outer', on=None, dist_max=None, crit_2nd_col=No
         else:
             if verbose: print('2A')
             distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
-            distinct_objects_to_add[idx_distinct_obj][id_col] = '_' + str(distinct_objects_to_add[idx_distinct_obj][id_col]) + '_'
+            distinct_objects_to_add[idx_distinct_obj][bh_id_col] = '_' + str(distinct_objects_to_add[idx_distinct_obj][bh_id_col]) + '_'
             update_dict(distinct_objects_to_add, {idx_distinct_obj: {i: mdf.loc[idx, i+'_x'] for i in dble_cols}})
             idx_distinct_obj += 1
             distinct_objects_to_add.update({idx_distinct_obj: {i: mdf.loc[idx, i] for i in single_cols}})
@@ -749,13 +749,13 @@ def data_validation(overall_data, conflict_data, valid_dict=None, index_col='ind
     # add a new line when suppose no real conflict
     if valid_all:
         check_cols = [c for c in list(conflict_data.columns[2:])]
-        id_col = conflict_data.columns[1]
+        bh_id_col = conflict_data.columns[1]
         idx1 = conflict_data.index
         idx2 = pd.Index([len(overall_data)+i for i in range(len(idx1))])
         cols = pd.unique([re.sub('_x|_y', '', c) for c in list(conflict_data.columns[2:])])
         rows_val = overall_data.loc[idx1, :].copy()
         overall_data = overall_data.append(rows_val, ignore_index=True)
-        overall_data.loc[idx2, id_col] = ['_' + v + '_' for v in conflict_data.loc[idx1, id_col]]
+        overall_data.loc[idx2, bh_id_col] = ['_' + v + '_' for v in conflict_data.loc[idx1, bh_id_col]]
 
         for c in cols:
             overall_data.loc[idx2, c] = [v for v in conflict_data[c + '_y']]
@@ -897,7 +897,7 @@ def replicate_values(data, id_col, cols_to_replicate, suffix=None, replace_id=Fa
     return df
 
 
-def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1., bh_syn_dict=None, close_match=None,
+def find_borehole_by_position(dfs, bh_id_col='ID', xy_cols=('X', 'Y'), dist_max=1., bh_syn_dict=None, close_match=None,
                               reg_skip=None, reg_pref=None, save_bh_syn=False, display=False, clean_dict=True,
                               round_num=3, n_iteration=1, force_rename=False, overwrite=False, drop_old_id=True, verbose=False):
     """ Look for nearest objects in 2 dataframes, by position, and set same ID
@@ -907,7 +907,7 @@ def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1.,
     ------------
     dfs : list
         a list of pandas.Dataframe with XY coordinates (columns)
-    id_col : str
+    bh_id_col : str
         name of the column used for boreholes ID
     xy_cols: tuple
         name of the columns containing XY coordinates
@@ -947,8 +947,8 @@ def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1.,
         print(f"\n\033[0;40;42mITERATION N°{loop}\033[0;0;0m")
         for n, df in enumerate(dfs):
             data = df.copy()
-            data.insert(0, f'old_{id_col}', data[id_col])  # retrieve IDs before changing them
-            data[id_col] = data[id_col].apply(lambda x: str(x) if not isinstance(x, str) and not pd.isnull(x) else x)
+            data.insert(0, f'old_{bh_id_col}', data[bh_id_col])  # retrieve IDs before changing them
+            data[bh_id_col] = data[bh_id_col].apply(lambda x: str(x) if not isinstance(x, str) and not pd.isnull(x) else x)
             dfs_dict.update({n: data})
 
             # loading of existing boreholes synonyms file or create a new one
@@ -969,22 +969,22 @@ def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1.,
                 print(f'No coordinates (X,Y) found in the dataframe N°{n}. Skip it !')
                 if not force_rename: dfs_skip.append(n)
                 if drop_old_id:
-                    data = data.drop(columns=f'old_{id_col}').copy()
-                    data.insert(0, f'{id_col}', data.pop(id_col))
+                    data = data.drop(columns=f'old_{bh_id_col}').copy()
+                    data.insert(0, f'{bh_id_col}', data.pop(bh_id_col))
                     dfs_dict[n] = data
                 continue
             print(f"\nProcessing of dataframe N°{n} ...")
 
             # retrieve new bh_ID and position found in the dataframe
             for i in data.index:
-                bh_id = str(data.loc[i, id_col])
+                bh_id = str(data.loc[i, bh_id_col])
                 bh_xy = (data.loc[i, xy_cols[0]], data.loc[i, xy_cols[1]])
                 if bh_id in boreholes.keys() and boreholes[bh_id] == bh_xy:
                     continue
                 elif bh_id in boreholes.keys() and boreholes[bh_id] != bh_xy:
                     bh_id = bh_id + '_mod'
                     id_chgd.append(i)
-                    data.loc[i, id_col] = bh_id
+                    data.loc[i, bh_id_col] = bh_id
                     if not pd.isnull(bh_xy[0]):
                         boreholes.update({bh_id: bh_xy})
                 else:
@@ -1072,8 +1072,8 @@ def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1.,
             bh_syn_dict = boreholes_synonyms_cleaner(bh_syn_dict, reg_pref, save_bh_syn, fv, round_num, clean_dict)
 
             if drop_old_id:
-                data = data.drop(columns=f'old_{id_col}').copy()
-            data.insert(0, f'{id_col}', data.pop(id_col))
+                data = data.drop(columns=f'old_{bh_id_col}').copy()
+            data.insert(0, f'{bh_id_col}', data.pop(bh_id_col))
             dfs_dict[n] = data
         loop += 1
 
@@ -1098,8 +1098,8 @@ def find_borehole_by_position(dfs, id_col='ID', xy_cols=('X', 'Y'), dist_max=1.,
             # rename if coordinates not null
             if not pd.isnull(data.loc[i, 'X']) or not pd.isnull(data.loc[i, 'Y']):
                 for bh_id, syn in bh_syn_dict['synonyms'].items():
-                    if data.loc[i, id_col] in syn:
-                        data.loc[i, id_col] = bh_id
+                    if data.loc[i, bh_id_col] in syn:
+                        data.loc[i, bh_id_col] = bh_id
                         break
         dfs_dict[n] = data
 
@@ -1613,7 +1613,7 @@ def collect_measure(df, params_kw, params_col='Params', alter_df=False, verbose=
     return data
 
 
-def fix_duplicates(df1, df2, id_col='ID', crit_2nd_col=None, x_gap=.8, y_gap=.8, drop_old_id=True):
+def fix_duplicates(df1, df2, bh_id_col='ID', crit_2nd_col=None, x_gap=.8, y_gap=.8, drop_old_id=True):
     """ Look for nearest objects in 2 dataframes, by position, and set same ID
     (to treat same position but different names cases)
 
@@ -1635,8 +1635,8 @@ def fix_duplicates(df1, df2, id_col='ID', crit_2nd_col=None, x_gap=.8, y_gap=.8,
         data2 = df1
 
     # retrieve IDs before changing them
-    data1[f'new_{id_col}'] = data1[id_col]
-    data2[f'new_{id_col}'] = data2[id_col]
+    data1[f'new_{bh_id_col}'] = data1[bh_id_col]
+    data2[f'new_{bh_id_col}'] = data2[bh_id_col]
 
     if 'X' not in data1.columns or 'X' not in data2.columns:
         raise (KeyError('No coordinates (X,Y) found in one of the dataframes !'))
@@ -1654,24 +1654,24 @@ def fix_duplicates(df1, df2, id_col='ID', crit_2nd_col=None, x_gap=.8, y_gap=.8,
 
         if same_obj:  # same object, check type and keep one ID
             cnt += len(q_idx)
-            data1.loc[idx, f'new_{id_col}'] = data1.loc[idx, id_col]
-            data2.loc[q_idx, f'new_{id_col}'] = data1.loc[idx, id_col]
+            data1.loc[idx, f'new_{bh_id_col}'] = data1.loc[idx, bh_id_col]
+            data2.loc[q_idx, f'new_{bh_id_col}'] = data1.loc[idx, bh_id_col]
         else:  # distinct object, keep original ID
-            data1.loc[idx, f'new_{id_col}'] = data1.loc[idx, id_col]
-            data2.loc[q_idx, f'new_{id_col}'] = data2.loc[idx, id_col]
+            data1.loc[idx, f'new_{bh_id_col}'] = data1.loc[idx, bh_id_col]
+            data2.loc[q_idx, f'new_{bh_id_col}'] = data2.loc[idx, bh_id_col]
 
     print(f"{cnt} duplicate objects fixed!")
-    data1.rename(columns={id_col: f'Old_{id_col}', f'new_{id_col}': id_col}, inplace=True)
-    data2.rename(columns={id_col: f'Old_{id_col}', f'new_{id_col}': id_col}, inplace=True)
-    data1.insert(0, id_col, data1.pop(id_col))
-    data2.insert(0, id_col, data2.pop(id_col))
+    data1.rename(columns={bh_id_col: f'Old_{bh_id_col}', f'new_{bh_id_col}': bh_id_col}, inplace=True)
+    data2.rename(columns={bh_id_col: f'Old_{bh_id_col}', f'new_{bh_id_col}': bh_id_col}, inplace=True)
+    data1.insert(0, bh_id_col, data1.pop(bh_id_col))
+    data2.insert(0, bh_id_col, data2.pop(bh_id_col))
 
     if drop_old_id:
-        data1.drop(columns=f'Old_{id_col}', inplace=True)
-        data2.drop(columns=f'Old_{id_col}', inplace=True)
+        data1.drop(columns=f'Old_{bh_id_col}', inplace=True)
+        data2.drop(columns=f'Old_{bh_id_col}', inplace=True)
 
 
-def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
+def data_filter(data, position=True, bh_id_col='ID', expression=None, regex=None,
                 bypass_col=['Old_ID', 'Origin_ID'], dist_max=1, drop=False, drop_old_id=True,
                 error_max_dict={0.1:['Diam_for', 'Long_for'], 0.01:['Z']}):
     """
@@ -1700,9 +1700,9 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
         reg = regex
 
     if reg is not None:
-        data[f'new_{id_col}'] = data[id_col]  # copy all values before modifying
+        data[f'new_{bh_id_col}'] = data[bh_id_col]  # copy all values before modifying
         for idx, row in data.iterrows():
-            r = re.search(reg, row[id_col], re.I)
+            r = re.search(reg, row[bh_id_col], re.I)
             if r:
                 groupA = r.group('A')
                 groupB = r.group('B')
@@ -1712,16 +1712,16 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
                     sub = f"{groupB.lower()}"
                 else:
                     sub = ''
-                data.loc[idx, f'new_{id_col}'] = re.sub(sub, '', row[id_col].lower(), re.I).upper().replace(' ', '')
-        data.rename(columns={f'{id_col}': 'Origin_ID', f'new_{id_col}': id_col}, inplace=True)
+                data.loc[idx, f'new_{bh_id_col}'] = re.sub(sub, '', row[bh_id_col].lower(), re.I).upper().replace(' ', '')
+        data.rename(columns={f'{bh_id_col}': 'Origin_ID', f'new_{bh_id_col}': bh_id_col}, inplace=True)
 
     if 'X' not in data:
         position = False  # avoid error due to dist_max definition without position data
 
     # filtering
     for i in data.index:
-        uid = data.loc[i, id_col]
-        tmp = data[data[id_col] == f"{uid}"]
+        uid = data.loc[i, bh_id_col]
+        tmp = data[data[bh_id_col] == f"{uid}"]
 
         if uid not in id_list and len(tmp) >= 2:
             id_list.append(uid)  # list of ID already treated
@@ -1733,9 +1733,9 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
                         pos_2 = [data.loc[j, 'X'], data.loc[j, 'Y']]
                         distinct = not ((pos_1[0] - pos_2[0]) ** 2 + (pos_1[1] - pos_2[1]) ** 2 <= dist_max ** 2)
                         if not distinct:
-                            bypass_col += ['X', 'Y', id_col]
+                            bypass_col += ['X', 'Y', bh_id_col]
                     else:
-                        bypass_col += ['X', 'Y', id_col]
+                        bypass_col += ['X', 'Y', bh_id_col]
                     if j not in drop_idx:
                         same_state_list = []
                         same = False
@@ -1792,7 +1792,7 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
                 drop_idx = drop_idx + list(drop_dict.keys())
             """
 
-    check_data = data.loc[check_idx, [id_col] + list(check_dict.keys())]
+    check_data = data.loc[check_idx, [bh_id_col] + list(check_dict.keys())]
     check_data.insert(0, 'Check_col', '')
     for key, val in check_dict.items():
         for v in val:
@@ -1810,8 +1810,8 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
         print(f"same objects at indices:{drop_idx}, will be dropped if drop is set True!")
 
     if expression is not None:
-        data.rename(columns={id_col: 'Old_ID'}, inplace=True)
-        data.insert(0, id_col, data['Old_ID'].apply(lambda x: re.sub(f"{expression}|' '", "", str(x))))
+        data.rename(columns={bh_id_col: 'Old_ID'}, inplace=True)
+        data.insert(0, bh_id_col, data['Old_ID'].apply(lambda x: re.sub(f"{expression}|' '", "", str(x))))
 
     if drop:
         data.drop(index=drop_idx, inplace=True)
@@ -1820,7 +1820,7 @@ def data_filter(data, position=True, id_col='ID', expression=None, regex=None,
         data.drop(columns='Old_ID', inplace=True)
         data.drop(columns='Origin_ID', inplace=True)
 
-    print(f"Rows : {data.shape[0]} ; Columns : {data.shape[1]} ; Unique on '{id_col}' : {len(set(data[id_col]))} ; ")
+    print(f"Rows : {data.shape[0]} ; Columns : {data.shape[1]} ; Unique on '{bh_id_col}' : {len(set(data[bh_id_col]))} ; ")
 
     return data, check_data
 
@@ -2023,7 +2023,7 @@ def col_ren(df, row_num=None, mode=0, name=None, strip_regex=None, cutoff=0.65,
     return data
 
 
-def compute_borehole_length(df, mode='length', id_col='ID', length_col=None, top_col='Litho_top',
+def compute_borehole_length(df, mode='length', bh_id_col='ID', length_col=None, top_col='Litho_top',
                             base_col='Litho_base', reset_drop=True):
     """
 
@@ -2053,14 +2053,14 @@ def compute_borehole_length(df, mode='length', id_col='ID', length_col=None, top
         if length_col is None:
             length_col = 'Long_for'
         for i in df.index:
-            id_ = df.loc[i, id_col]
+            id_ = df.loc[i, bh_id_col]
             if id_ not in id_list:
                 id_list.append(id_)
                 if isinstance(id_, str):
                     sql_id = f"{id_}"
                 elif isinstance(id_, float) or isinstance(id_, int):
                     sql_id = id_
-                tmp = df[df[id_col] == sql_id]
+                tmp = df[df[bh_id_col] == sql_id]
                 df.loc[tmp.index, length_col] = max(tmp[base_col]) - min(tmp[top_col])
 
     elif mode == 'thickness':
@@ -2071,7 +2071,7 @@ def compute_borehole_length(df, mode='length', id_col='ID', length_col=None, top
         raise(ValueError("Only 'length' or 'thickness' are allowed!"))
 
     df.drop(index=df.query(f'{base_col}.isnull() and {top_col}.isnull()').index, inplace=True)
-    df.insert(df.columns.to_list().index(id_col) + 4, length_col, df.pop(length_col))
+    df.insert(df.columns.to_list().index(bh_id_col) + 4, length_col, df.pop(length_col))
     df.reset_index(drop=reset_drop, inplace=True)
 
 

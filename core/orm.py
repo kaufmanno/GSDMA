@@ -12,12 +12,10 @@ class BoreholeOrm(Base):
 
     Attributes
     -----------
-    id : str
-         The id of the borehole
-    length : float
-         The length of the borehole
-    diameter : float
-         The diameter of the borehole
+    id (str) : The id of the borehole
+    length (float) : The length of the borehole
+    diameter (float) : The diameter of the borehole
+    intervals (dict) : dict containing borehole's intervals
 
     See Also
     ---------
@@ -78,7 +76,7 @@ class IntervalOrm(Base):
     borehole = Column(String, ForeignKey('Boreholes.id'))
     interval_number = Column(Integer)
     description = Column(String)
-    components = relationship('ComponentOrm', secondary='Linkintervalcomponent', viewonly=True)
+    components = relationship('ComponentOrm', secondary='Linkintervalcomponents', viewonly=True)
     top_id = Column(Integer, ForeignKey('Positions.id'))
     top = relationship('PositionOrm', foreign_keys=[top_id])
     base_id = Column(Integer, ForeignKey('Positions.id'))
@@ -110,7 +108,7 @@ class ComponentOrm(Base):
     __tablename__ = 'Components'
 
     id = Column(Integer, primary_key=True)
-    intervals = relationship('IntervalOrm', secondary='Linkintervalcomponent', viewonly=True)
+    intervals = relationship('IntervalOrm', secondary='Linkintervalcomponents', viewonly=True)
     description = Column(String)
 
     def __repr__(self):

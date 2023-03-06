@@ -256,7 +256,7 @@ def find_component_from_attrib(intv, attrib, verbose=False):
 
 def plot_from_striplog(striplog, legend=None, width=1.5, ladder=True, aspect=10,
         ticks=(1, 10), match_only=None, ax=None, return_fig=False, colour=None,
-        cmap='viridis', field=None, default=None, style='intervals',
+        cmap='viridis', field=None, default=None, style='intervals', ylim=None,
         label=None, **kwargs):
     """
     Hands-free plotting.
@@ -314,12 +314,14 @@ def plot_from_striplog(striplog, legend=None, width=1.5, ladder=True, aspect=10,
         ax.set_xticks([])
 
     # Rely on interval order.
-    if striplog.order == 'depth':
-        upper, lower = striplog.start.z, striplog.stop.z
+    if ylim is None:
+        if striplog.order == 'depth':
+            upper, lower = striplog.start.z, striplog.stop.z
+        else:
+            upper, lower = striplog.stop.z, striplog.start.z
     else:
-        upper, lower = striplog.stop.z, striplog.start.z
+        lower, upper = ylim
     rng = abs(upper - lower)
-
     ax.set_ylim([lower, upper])
 
     if label is not None:
@@ -429,7 +431,7 @@ def plot_axis_from_striplog(striplog, ax, legend, ladder=False, default_width=1,
 
         if colour is None:
             rect = mpl.patches.Rectangle(origin, w, thick, fc=fc, lw=lw, hatch=d.hatch, 
-                                         ec=ec,  # edgecolour for hatching 
+                                         ec=ec,  # edge colour for hatching
                                          **this_patch_kwargs)
             ax.add_patch(rect)
         else:
