@@ -200,7 +200,7 @@ def intervals_from_dataframe(df, attributes=None, lexicons=None, thick_col=None,
 
     if length_col is not None and length_col in df.columns and attrib_cdt:
         # create the longest possible interval
-        spec_base = np.nanmax(np.nanmax(df[length_col]), np.nanmax(df[base_col]))
+        spec_base = np.nanmax([np.nanmax(df[length_col]), np.nanmax(df[base_col])])
     
     spec_comp = Component({'borehole_type': 'borehole'})
     intervals = [Interval(top=spec_top, base=spec_base, components=[spec_comp])]

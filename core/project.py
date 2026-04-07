@@ -475,7 +475,8 @@ class Project:
             for bh in q['bh3d'].values():
                 bh.plot_3d(plotter=pl, repr_attribute='borehole_type', bg_color=bg_color,
                            repr_legend_dict=q['legend_dict'], opacity=.1, show_scalar_bar=False, **kwargs)
-                name_pts.update({bh.name: bh._vtk.center[:2] + [bh.z_collar]})
+                #name_pts.update({bh.name: bh._vtk.center[:2] + [bh.z_collar]})
+                name_pts.update({bh.name: (bh._vtk.center[0], bh._vtk.center[1], bh.z_collar)})
 
         # show attribute values representation
         for bh in self.boreholes_3d.values():
