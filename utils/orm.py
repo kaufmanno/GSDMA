@@ -205,7 +205,7 @@ def orm_boreholes_from_dataframe(data_list, attributes=None, lexicons=None, bh_i
         if last_index is not None:
             df.index = range(last_index, last_index + len(df))
 
-        final_df = final_df.append(df, ignore_index=True)
+        final_df = pd.concat([final_df, df], ignore_index=True)
         last_index = len(final_df)
 
     # data exploitation
