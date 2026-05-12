@@ -137,7 +137,7 @@ def striplog_from_dataframe(df, bh_name, attributes, bh_type='Borehole', bh_id_c
                 tmp.reset_index(drop=True, inplace=True)
             else:
                 tmp = df
-
+            print(top_col, df)
             intervals = intervals_from_dataframe(tmp, attributes=attributes,
                                                  lexicons=lexicons, thick_col=thick_col,
                                                  top_col=top_col, base_col=base_col,
@@ -182,29 +182,35 @@ def intervals_from_dataframe(df, attributes=None, lexicons=None, thick_col=None,
 
     attrib_cdt, attrib_top_cdt = False, False
     thick_cdt, color_cdt, samp_type_cdt = False, False, False
-
+    print(f'$$$ {length_col}, {length_col in df.columns} {df.columns} $$$\n')
     if thick_col is not None and thick_col in df.columns:
         thick_cdt = True
     if top_col is not None and top_col in df.columns:
         attrib_top_cdt = True
+        print('condition met')
     if sample_type_col is not None and sample_type_col in df.columns:
         samp_type_cdt = True
 
     # add borehole_type automatically
     if length_col is not None and length_col in df.columns:
-        spec_top, spec_base = 0, np.nanmax(df[length_col])
-    elif attrib_cdt:
+        spec_top, spec_base = 0., np.nanmax(df[length_col])
+        print(f'cond1, spec_base: {spec_base}')
+    elif attrib_top_cdt:
+        print('cond2')
         spec_top, spec_base = np.nanmin(df[top_col]), np.nanmax(df[base_col])
     elif thick_cdt:
-        spec_top, spec_base = 0, df[thick_col].cumsum().max()
+        print('cond3')
+        spec_top, spec_base = 0., df[thick_col].cumsum().max()
+    else:
+        print('cond4')
+        spec_top, spec_base = (0., 10.) # quick fix ; to be reviewed
 
-    if length_col is not None and length_col in df.columns and attrib_cdt:
+    if length_col is not None and length_col in df.columns and attrib_top_cdt:
         # create the longest possible interval
         spec_base = np.nanmax([np.nanmax(df[length_col]), np.nanmax(df[base_col])])
     
     spec_comp = Component({'borehole_type': 'borehole'})
     intervals = [Interval(top=spec_top, base=spec_base, components=[spec_comp])]
-
     top, base, thick, val = 0, 0, 0, 0
     base_all = []
     for j in df.index:
@@ -216,6 +222,7 @@ def intervals_from_dataframe(df, attributes=None, lexicons=None, thick_col=None,
             samp_type = df.loc[j, sample_type_col]
         if sample_id_col is not None and not pd.isnull(df.loc[j, sample_id_col]):
             samp_name = df.loc[j, sample_id_col]
+
 
         # components processing -------------------------------------------
         iv_components = []
@@ -288,6 +295,7 @@ def intervals_from_dataframe(df, attributes=None, lexicons=None, thick_col=None,
 
         error_intv = True
         if base != 0. or base != 0 or base != top:
+
             # only add interval when top and base exist
             if not pd.isnull(top) and not pd.isnull(base):
                 error_intv = False
@@ -314,18 +322,20 @@ def intervals_from_dataframe(df, attributes=None, lexicons=None, thick_col=None,
         if comp_group:
             intervals[n].components = comp_group
 
-    final_intv = []
-    for itv in intervals:
-        if itv not in final_intv:
-            final_intv.append(itv)
-
+    # TODO: This loop erase the first lithological interval. It was chosen to bypass it
+    #final_intv = []
+    #for itv in intervals: 
+    #    if itv not in final_intv:
+    #        final_intv.append(itv)
+    final_intv = intervals
+    
     # assign maximum base to borehole_type interval if length is null
     for x, iv in enumerate(final_intv):
         if [c for c in iv.components if 'borehole_type' in c.keys()]:
             if pd.isnull(final_intv[x].base.middle):
                 final_intv[x].base.middle = np.nanmax(base_all)
                 break
-
+    
     intervals = final_intv
     if len(intervals) == 1 and len(intervals[0].components)==0:
         intervals = []
@@ -339,6 +349,7 @@ def intervals_from_dataframe(df, attributes=None, lexicons=None, thick_col=None,
             else:
                 print(f"{x}- Interval top={intervals[x].top.middle}, base={intervals[x].base.middle}, "
                       f"components:{len(intervals[x].components)}")
+
     return intervals
 
 
